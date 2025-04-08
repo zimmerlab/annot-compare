@@ -6,6 +6,9 @@ import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
+import com.github.zimmerlab.gtfcompare.parser.FidxParser;
+import com.github.zimmerlab.gtfcompare.*;
+import compare.GTFCompare;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,6 +47,46 @@ public class TestRunner implements CommandLineRunner {
                 .type(File.class)
                 .build());
 
+        o.addOption(Option.builder()
+                .longOpt("fasta")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to fasta file")
+                .type(File.class)
+                .build());
+
+        o.addOption(Option.builder()
+                .longOpt("fidx")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to fasta index file")
+                .type(File.class)
+                .build());
+
+        o.addOption(Option.builder()
+                .longOpt("gtf2")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to gtf file")
+                .type(File.class)
+                .build());
+
+        o.addOption(Option.builder()
+                .longOpt("fasta2")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to fasta file")
+                .type(File.class)
+                .build());
+
+        o.addOption(Option.builder()
+                .longOpt("fidx2")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to fasta index file")
+                .type(File.class)
+                .build());
+
         CommandLineParser parser = new DefaultParser();
 
         CommandLine cmd = null;
@@ -63,60 +106,47 @@ public class TestRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        if (!cmd.hasOption("fasta")) {
+            LOG.error("No fasta file specified");
+            System.exit(1);
+        }
+
+        if (!cmd.hasOption("fidx")) {
+            LOG.error("No fidx file specified");
+            System.exit(1);
+        }
+
+        var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
+        var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
+
+        var genomeSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
+        var genomeSequenceExtractor2 = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta2")), fidxEntries);
         GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("gtf")));
+        GtfFile gtfFile2 = new GtfFile(new File(cmd.getOptionValue("gtf2")));
 
         // parse all contigs from the gtf file
 //        gtfFile.parseAllContigs();
 
         // parse the next (first in this case) contig (chr) from the gtf file
-        gtfFile.parseNextContig();
+        do {
+            gtfFile.parseNextContig();
+        }  while(!gtfFile.getParsedContig().equals("3"));
+
+        LOG.info("Parsed GTF 1");
+        do{
+            gtfFile2.parseNextContig();
+        } while (!gtfFile2.getParsedContig().equals("3"));
+        LOG.info("Parsed GTF 2");
 
         LOG.info("parsed contig: {}", gtfFile.getParsedContig());
 
-        Set<String> geneIds = gtfFile.getAllGeneFeatureIds();
+        var geneIds = gtfFile.getAllGeneFeatureIds();
 
-        for (String geneId : geneIds) {
-
-            LOG.info("Gene: {}", geneId);
-
-            // every feature is a GtfFeature
-            // GeneFeature is a subclass of GtfFeature that represents a gene
-            GeneFeature geneFeature = gtfFile.getGeneFeature(geneId);
-
-            LOG.info("Gene from feature: {}", geneFeature.getGeneId());
-
-            // TranscriptFeature is a subclass of GtfFeature that represents a transcript
-            List<TranscriptFeature> transcripts = geneFeature.getTranscripts();
-
-            for (TranscriptFeature transcript : transcripts) {
-
-                LOG.info("Transcript: {}", transcript.getTranscriptId());
-
-                // GtfConfig contains the strings for each feature
-                // each feature has some synonyms (e.g. exon, Exon, EXON, etc.) that are used for
-                // parsing and then changed to the default which can be used for querying
-                List<GtfFeature> exons = transcript.getFeatures(GtfConfig.TYPE_EXON_DEFAULT);
-
-                for (GtfFeature exon : exons) {
-
-                    // each attribute of the gtf can be queried by GtfConstants
-                    // gtf allows multiple values per attribute key
-                    String exonId = exon.getBaseData().getAttributes(GtfConstants.EXON_ID_ATTRIBUTE_KEY).get(0);
-
-                    // the base attributes of the gtf feature (columns except attributes)
-                    // are stored in the getBaseData() object
-                    int exonStart = exon.getBaseData().getStart();
-                    int exonEnd = exon.getBaseData().getEnd();
-
-                    LOG.info("Exon: {} from {} to {}", exonId, exonStart, exonEnd);
-
-                    break;
-                }
-
-                break;
-            }
-
-            break;
+        for(String geneId : geneIds){
+            var geneFeature1 = gtfFile.getGeneFeature(geneId);
+            var geneFeature2 = gtfFile2.getGeneFeature(geneId);
+            GTFCompare.comparePosition(geneFeature1, geneFeature2);
         }
+
     }
 }
