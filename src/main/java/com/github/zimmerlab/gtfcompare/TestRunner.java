@@ -1,13 +1,7 @@
 package com.github.zimmerlab.gtfcompare;
 
-import com.github.kleinsamuel.gtfutils.GtfConfig;
-import com.github.kleinsamuel.gtfutils.GtfConstants;
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
-import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
-import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
-import com.github.zimmerlab.gtfcompare.*;
 import compare.GTFCompare;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -17,8 +11,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.util.List;
-import java.util.Set;
 
 @Profile("test")
 @Service
@@ -119,8 +111,6 @@ public class TestRunner implements CommandLineRunner {
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
-        var genomeSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
-        var genomeSequenceExtractor2 = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta2")), fidxEntries);
         GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("gtf")));
         GtfFile gtfFile2 = new GtfFile(new File(cmd.getOptionValue("gtf2")));
 
@@ -141,11 +131,12 @@ public class TestRunner implements CommandLineRunner {
         LOG.info("parsed contig: {}", gtfFile.getParsedContig());
 
         var geneIds = gtfFile.getAllGeneFeatureIds();
-
+        var genomeSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
+        var genomeSequenceExtractor2 = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta2")), fidxEntries);
         for(String geneId : geneIds){
             var geneFeature1 = gtfFile.getGeneFeature(geneId);
             var geneFeature2 = gtfFile2.getGeneFeature(geneId);
-            GTFCompare.comparePosition(geneFeature1, geneFeature2);
+            GTFCompare.compare(geneFeature1, geneFeature2, genomeSequenceExtractor, genomeSequenceExtractor2);
         }
 
     }
