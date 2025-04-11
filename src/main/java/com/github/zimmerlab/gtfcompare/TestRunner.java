@@ -136,7 +136,7 @@ public class TestRunner implements CommandLineRunner {
         for(String geneId : geneIds){
             var geneFeature1 = gtfFile.getGeneFeature(geneId);
             var geneFeature2 = gtfFile2.getGeneFeature(geneId);
-            GTFCompare.compare(geneFeature1, geneFeature2, genomeSequenceExtractor, genomeSequenceExtractor2);
+            GTFCompare.compare(geneId, geneId, geneFeature1, geneFeature2, genomeSequenceExtractor, genomeSequenceExtractor2);
         }
 
     }

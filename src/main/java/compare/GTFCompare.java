@@ -4,6 +4,7 @@ import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.GenomeSequenceExtractor;
+import com.github.zimmerlab.gtfcompare.model.comparison.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,166 +14,245 @@ import java.util.*;
 public class GTFCompare {
     public static final Logger LOG = LoggerFactory.getLogger(GTFCompare.class);
 
-    public static void compare(GeneFeature gene1, GeneFeature gene2, GenomeSequenceExtractor sequenceExtractor1, GenomeSequenceExtractor sequenceExtractor2) {
+    public static ComparisonResult compare(String geneId1, String geneId2,
+                                           GeneFeature gene1, GeneFeature gene2,
+                                           GenomeSequenceExtractor sequenceExtractor1,
+                                           GenomeSequenceExtractor sequenceExtractor2) {
+        ComparisonResult comparisonResult = new ComparisonResult();
+        comparisonResult.setGeneId1(geneId1);
+        comparisonResult.setGeneId2(geneId2);
         var baseData1 = gene1.getBaseData();
         var baseData2 = gene2.getBaseData();
+        var geneComparisonResult = comparisonResult.getGeneComparison();
 
         if (baseData1.getStart() != baseData2.getStart()) {
-            LOG.info("Start position not the same");
+            geneComparisonResult.setStartDifferent(true);
+            geneComparisonResult.addMessage("Start position not the same");
         }
 
-        if (baseData2.getEnd() != baseData2.getEnd()) {
-            LOG.info("Stop position not the same");
+        if (baseData1.getEnd() != baseData2.getEnd()) {
+            geneComparisonResult.setStopDifferent(true);
+            geneComparisonResult.addMessage("Stop position not the same");
         }
 
-        // TODO für alle oder nur gen?
-        if(baseData1.isForwardStrand() != baseData2.isForwardStrand()){
-            LOG.info("Strand changed from {} to {}", baseData1.isForwardStrand(), baseData2.isForwardStrand());
+        if (baseData1.isForwardStrand() != baseData2.isForwardStrand()) {
+            geneComparisonResult.setStrandDifferent(true);
+            geneComparisonResult.addMessage("Strand changed from " + baseData1.isForwardStrand() + " to " + baseData2.isForwardStrand());
         }
 
         try {
-            var seq1 = sequenceExtractor1.getSequence(baseData1.getContig(), baseData1.getStart(), baseData1.getEnd());
-            var seq2 = sequenceExtractor2.getSequence(baseData2.getContig(), baseData2.getStart(), baseData2.getEnd());
+            String seq1 = sequenceExtractor1.getSequence(baseData1.getContig(), baseData1.getStart(), baseData1.getEnd());
+            String seq2 = sequenceExtractor2.getSequence(baseData2.getContig(), baseData2.getStart(), baseData2.getEnd());
 
-            if(!seq1.equals(seq2)){
-               LOG.info("Gene sequence not the same");
+
+            if (!seq1.equals(seq2)) {
+                geneComparisonResult.getSequenceComparison().setSeq1(seq1);
+                geneComparisonResult.getSequenceComparison().setSeq2(seq2);
+                geneComparisonResult.addMessage("Gene sequence not the same");
+                if (seq1.length() != seq2.length()) {
+                    geneComparisonResult.addMessage("Different sequence lengths: seq1 = " + seq1.length() + ", seq2 = " + seq2.length());
+                }
+                // TODO alignment?
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-
-        compareTranscripts(gene1, gene2);
-
+        compareTranscripts(gene1, gene2, comparisonResult);
+        return comparisonResult;
     }
 
-    private static void compareTranscripts(GeneFeature g1, GeneFeature g2) {
-
+    private static void compareTranscripts(GeneFeature g1, GeneFeature g2, ComparisonResult comparisonResult) {
         var transcriptsMap1 = new HashMap<String, TranscriptFeature>();
         var transcriptsMap2 = new HashMap<String, TranscriptFeature>();
 
         for (var transcript : g1.getTranscripts()) {
-            transcriptsMap1.computeIfAbsent(transcript.getTranscriptId(), key -> transcript);
+            transcriptsMap1.put(transcript.getTranscriptId(), transcript);
         }
-
         for (var transcript : g2.getTranscripts()) {
-            transcriptsMap2.computeIfAbsent(transcript.getTranscriptId(), key -> transcript);
+            transcriptsMap2.put(transcript.getTranscriptId(), transcript);
         }
 
         for (String transcriptId : transcriptsMap1.keySet()) {
+            TranscriptComparisonResult transcriptComparisonResult = new TranscriptComparisonResult();
+            transcriptComparisonResult.setTranscriptId(transcriptId);
+
             if (!transcriptsMap2.containsKey(transcriptId)) {
-                LOG.info("Transcript {} missing in gene2.", transcriptId);
+                transcriptComparisonResult.setTranscriptMissingInGene2(true);
             } else {
                 TranscriptFeature t1 = transcriptsMap1.get(transcriptId);
                 TranscriptFeature t2 = transcriptsMap2.get(transcriptId);
-
                 var baseData1 = t1.getBaseData();
                 var baseData2 = t2.getBaseData();
 
                 if (baseData1.getStart() != baseData2.getStart()) {
-                    LOG.info("Start position not the same");
+                    transcriptComparisonResult.setStartDifferent(true);
                 }
-
-                if (baseData2.getEnd() != baseData2.getEnd()) {
-                    LOG.info("Stop position not the same");
+                if (baseData1.getEnd() != baseData2.getEnd()) {
+                    transcriptComparisonResult.setStopDifferent(true);
                 }
-
-                compareFeatures(t1, t2);
+                compareFeatures(t1, t2, transcriptComparisonResult);
             }
+            comparisonResult.addTranscriptComparison(transcriptComparisonResult);
         }
 
         for (String transcriptId : transcriptsMap2.keySet()) {
             if (!transcriptsMap1.containsKey(transcriptId)) {
-                LOG.info("Transcript {} missing in gene1.", transcriptId);
+                TranscriptComparisonResult transcriptComparisonResult = new TranscriptComparisonResult();
+                transcriptComparisonResult.setTranscriptId(transcriptId);
+                transcriptComparisonResult.setTranscriptMissingInGene1(true);
+                comparisonResult.addTranscriptComparison(transcriptComparisonResult);
             }
         }
     }
 
-    private static void compareFeatures(TranscriptFeature t1, TranscriptFeature t2) {
+    private static void compareFeatures(TranscriptFeature t1, TranscriptFeature t2, TranscriptComparisonResult transcriptComparisonResult) {
         var featureMap1 = new HashMap<String, List<GtfFeature>>();
         var featureMap2 = new HashMap<String, List<GtfFeature>>();
 
         for (var feature : t1.getFeatures()) {
             featureMap1.computeIfAbsent(feature.getBaseData().getType(), key -> new ArrayList<>()).add(feature);
         }
-
         for (var feature : t2.getFeatures()) {
             featureMap2.computeIfAbsent(feature.getBaseData().getType(), key -> new ArrayList<>()).add(feature);
         }
-
-        compareFeaturePositions(t1, t2, featureMap1, featureMap2);
-
+        compareFeaturePositions(t1, t2, featureMap1, featureMap2, transcriptComparisonResult);
     }
 
-    private static void compareFeaturePositions(TranscriptFeature t1, TranscriptFeature t2, Map<String, List<GtfFeature>> featureMap1, Map<String, List<GtfFeature>> featureMap2) {
+    private static void compareFeaturePositions(TranscriptFeature t1, TranscriptFeature t2,
+                                                Map<String, List<GtfFeature>> featureMap1,
+                                                Map<String, List<GtfFeature>> featureMap2,
+                                                TranscriptComparisonResult transcriptComparisonResult) {
+        var featureComparisons = transcriptComparisonResult.getFeatureComparisons();
+
+        for(var featureKey : featureMap2.keySet()){
+            var featureComparisonResult = new FeatureComparisonResult();
+            featureComparisonResult.setFeatureType(featureKey);
+
+            if (!featureMap1.containsKey(featureKey)) {
+                featureComparisonResult.setMissingInTranscript1(true);
+                String msg = featureKey + " not in " + t1.getTranscriptId();
+                featureComparisons.add(featureComparisonResult);
+                LOG.info(msg);
+            }
+        }
+
         for (var featureKey : featureMap1.keySet()) {
+            var featureComparisonResult = new FeatureComparisonResult();
+            featureComparisonResult.setFeatureType(featureKey);
+
+            // If the feature type is missing from the second transcript, record it.
             if (!featureMap2.containsKey(featureKey)) {
-                LOG.info("{} not in {}", featureKey, t2.getTranscriptId());
+                featureComparisonResult.setMissingInTranscript2(true);
+                String msg = featureKey + " not in " + t2.getTranscriptId();
+                //transcriptComparisonResult.addMessage(msg);
+                //featureComparisonResult.addMessage(msg);
+                featureComparisons.add(featureComparisonResult);
+                LOG.info(msg);
                 continue;
             }
-            List<GtfFeature> sortedExons1 = new ArrayList<>(featureMap1.get(featureKey));
-            List<GtfFeature> sortedExons2 = new ArrayList<>(featureMap2.get(featureKey));
 
-            sortedExons1.sort(
+            List<GtfFeature> sortedFeatures1 = new ArrayList<>(featureMap1.get(featureKey));
+            List<GtfFeature> sortedFeatures2 = new ArrayList<>(featureMap2.get(featureKey));
+
+            sortedFeatures1.sort(
                     Comparator.comparingInt((GtfFeature f) -> f.getBaseData().getStart())
                             .thenComparingInt(f -> f.getBaseData().getEnd())
             );
-            sortedExons2.sort(
+            sortedFeatures2.sort(
                     Comparator.comparingInt((GtfFeature f) -> f.getBaseData().getStart())
                             .thenComparingInt(f -> f.getBaseData().getEnd())
             );
 
             int i = 0, j = 0;
-            while (i < sortedExons1.size() && j < sortedExons2.size()) {
-                GtfFeature exon1 = sortedExons1.get(i);
-                GtfFeature exon2 = sortedExons2.get(j);
+            while (i < sortedFeatures1.size() && j < sortedFeatures2.size()) {
+                GtfFeature feature1 = sortedFeatures1.get(i);
+                GtfFeature feature2 = sortedFeatures2.get(j);
 
-                int start1 = exon1.getBaseData().getStart();
-                int start2 = exon2.getBaseData().getStart();
-                int end1 = exon1.getBaseData().getEnd();
-                int end2 = exon2.getBaseData().getEnd();
+                int start1 = feature1.getBaseData().getStart();
+                int start2 = feature2.getBaseData().getStart();
+                int end1 = feature1.getBaseData().getEnd();
+                int end2 = feature2.getBaseData().getEnd();
 
-                // Case: Both start and end are identical.
+                // Case 1: Both start and end are identical.
                 if (start1 == start2 && end1 == end2) {
                     i++;
                     j++;
-
+                    var regionComparison = new RegionComparison(start1, end1, start2, end2, false);
+                    featureComparisonResult.addRegionComparison(regionComparison);
                 }
-                // Case: Different end position
+                // Case 2: Same start but different end positions.
                 else if (start1 == start2) {
-                    LOG.info("{} end changed: list 1: {}-{}, list 2: {}-{}", featureKey, start1, end1, start2, end2);
+                    // TODO evtl. einfach als missing markieren?
+                    String msg = featureKey + " end changed: list 1: " + start1 + "-" + end1 +
+                            ", list 2: " + start2 + "-" + end2;
+                    LOG.info(msg);
+                    var regionComparison = new RegionComparison(start1, end1, start2, end2, true);
+                    featureComparisonResult.addRegionComparison(regionComparison);
+                    //featureComparisonResult.addMessage(msg);
                     i++;
                     j++;
                 }
-                // Case: Different start position
+                // Case 3: Same end but different start positions.
                 else if (end1 == end2) {
-                    LOG.info("{} start changed: list 1: {}-{}, list 2: {}-{}", featureKey, start1, end1, start2, end2);
+                    // TODO evtl. einfach als missing markieren?
+                    String msg = featureKey + " start changed: list 1: " + start1 + "-" + end1 +
+                            ", list 2: " + start2 + "-" + end2;
+                    LOG.info(msg);
+                    var regionComparison = new RegionComparison(start1, end1, start2, end2, true);
+                    featureComparisonResult.addRegionComparison(regionComparison);
+                    //featureComparisonResult.addMessage(msg);
                     i++;
                     j++;
                 }
-                // Case: exon1 has an earlier start, indicating it is missing in list2.
+                // Case 4: Feature from list 1 starts earlier, indicating it is missing in t2.
                 else if (start1 < start2) {
-                    LOG.info("{} in {} missing in list 2: {}-{}", featureKey, t1.getTranscriptId(), start1, end1);
+                    String msg = featureKey + " in " + t1.getTranscriptId() +
+                            " missing in list 2: " + start1 + "-" + end1;
+                    LOG.info(msg);
+
+                    featureComparisonResult.addRegionComparison(new RegionComparison(start1, end1, -1, -1, true));
+                    //featureComparisonResult.addMessage(msg);
                     i++;
                 }
-                // Otherwise: exon2 must have an earlier start, so report it as missing in list1.
+                // Case 5: Feature from list 2 starts earlier, indicating it is missing in t1.
                 else {
-                    LOG.info("{} in {} missing in list 1: {}-{}", featureKey, t2.getTranscriptId(), start2, end2);
+                    String msg = featureKey + " in " + t2.getTranscriptId() +
+                            " missing in list 1: " + start2 + "-" + end2;
+                    LOG.info(msg);
+                    featureComparisonResult.addRegionComparison(new RegionComparison(-1, -1, start2, end2, true));
+                    //featureComparisonResult.addMessage(msg);
                     j++;
                 }
             }
 
-            // Log extra features if any remain.
-            while (i < sortedExons1.size()) {
-                GtfFeature exon1 = sortedExons1.get(i);
-                LOG.info("Extra {} in {} in list 1: {}-{}", featureKey, t1.getTranscriptId(), exon1.getBaseData().getStart(), exon1.getBaseData().getEnd());
+            // Process any leftover features in sortedFeatures1.
+            while (i < sortedFeatures1.size()) {
+                GtfFeature feature1 = sortedFeatures1.get(i);
+                var start = feature1.getBaseData().getStart();
+                var stop = feature1.getBaseData().getEnd();
+                String msg = featureKey + " in " + t2.getTranscriptId() +
+                        " missing in list 1: " + start  + "-" + stop;
+                LOG.info(msg);
+                featureComparisonResult.addRegionComparison(new RegionComparison(start, stop, -1, -1, true));
+                //featureComparisonResult.addMessage(msg);
                 i++;
             }
-            while (j < sortedExons2.size()) {
-                GtfFeature exon2 = sortedExons2.get(j);
-                LOG.info("Extra {} in {} in list 2: {}-{}", featureKey, t2.getTranscriptId(), exon2.getBaseData().getStart(), exon2.getBaseData().getEnd());
+
+            // Process any leftover features in sortedFeatures2.
+            while (j < sortedFeatures2.size()) {
+                GtfFeature feature2 = sortedFeatures2.get(j);
+                var start = feature2.getBaseData().getStart();
+                var stop = feature2.getBaseData().getEnd();
+                String msg = featureKey + " in " + t2.getTranscriptId() +
+                        " missing in list 2: " + start + "-" + stop;
+                LOG.info(msg);
+                //featureComparisonResult.setMissingInTranscript1(true);
+                featureComparisonResult.addRegionComparison(new RegionComparison(-1, -1, start, stop, true));
                 j++;
             }
+
+            featureComparisons.add(featureComparisonResult);
         }
     }
 
