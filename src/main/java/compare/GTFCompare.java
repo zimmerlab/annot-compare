@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.sql.Array;
 import java.util.*;
 
 // TODO analyse und auslagern
@@ -72,7 +71,7 @@ public class GTFCompare {
         return comparisonResult;
     }
 
-    private static List<TranscriptPair> getTranscriptPairs(GeneFeature g1, GeneFeature g2, ComparisonResult comparisonResult) {
+    private static List<TranscriptPair> getTranscriptPairs(GeneFeature g1, GeneFeature g2) {
         var transcriptsMap1 = new HashMap<String, TranscriptFeature>();
         var transcriptsMap2 = new HashMap<String, TranscriptFeature>();
 
@@ -142,15 +141,25 @@ public class GTFCompare {
     }
 
     private static void compareTranscripts(GeneFeature g1, GeneFeature g2, ComparisonResult comparisonResult, boolean isSameGeneSequence) {
-        var transcriptPairs = getTranscriptPairs(g1, g2, comparisonResult);
+        var transcriptPairs = getTranscriptPairs(g1, g2);
         for (var transcripts : transcriptPairs) {
                 TranscriptFeature t1 = transcripts.getTranscript1();
                 TranscriptFeature t2 = transcripts.getTranscript2();
                 var transcriptComparisonResult = transcripts.getTranscriptComparisonResult();
+                boolean isSameTranscriptSequence = false;
+                if(t1 != null && t2 != null){
+                    isSameTranscriptSequence = compareTranscriptDetails(t1, t2, isSameGeneSequence, transcriptComparisonResult);
+                    compareFeatures(t1, t2, transcriptComparisonResult, isSameTranscriptSequence);
+                }
+                try{
+                    transcriptComparisonResult.setTranscriptId(t1.getTranscriptId());
+                } catch (Exception ignored) {
+                    LOG.warn("No transcript id found");
+                }
 
-                var isSameTranscriptSequence = compareTranscriptDetails(t1, t2, isSameGeneSequence, transcriptComparisonResult);
+            comparisonResult.addTranscriptComparison(transcriptComparisonResult);
 
-                compareFeatures(t1, t2, transcriptComparisonResult, isSameTranscriptSequence);
+
         }
     }
 
