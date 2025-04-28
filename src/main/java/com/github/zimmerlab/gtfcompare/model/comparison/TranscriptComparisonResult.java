@@ -10,6 +10,7 @@ public class TranscriptComparisonResult {
     private boolean startDifferent;
     private boolean stopDifferent;
     private boolean lengthDifferent;
+    private boolean isSequenceDifferent;
     private List<FeatureComparisonResult> featureComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
 
@@ -62,5 +63,13 @@ public class TranscriptComparisonResult {
 
     public boolean isLengthDifferent() {
         return lengthDifferent;
+    }
+
+    public void setSequenceDifferent(boolean sequenceDifferent) {
+        isSequenceDifferent = sequenceDifferent;
+    }
+
+    public boolean isSequenceDifferent() {
+        return isSequenceDifferent;
     }
 }

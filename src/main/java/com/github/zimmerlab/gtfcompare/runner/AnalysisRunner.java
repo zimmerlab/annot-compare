@@ -147,84 +147,80 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var geneIds = gtfFile.getAllGeneFeatureIds();
         try (var writer = new BufferedWriter(new FileWriter(cmd.getOptionValue("o")))) {
-            writer.write("geneId\tisSameGene\tdifference\n");
+            writer.write("geneId\tcategory\tdifference\n");
 
-            geneLoop:
             for (String geneId : geneIds) {
                 var geneFeature1 = gtfFile.getGeneFeature(geneId);
                 var geneFeature2 = gtfFile2.getGeneFeature(geneId);
 
                 if(geneFeature2 == null){
-                    writer.write(geneId + "\tfalse\tgeneMissingInFile2\n");
-                    continue geneLoop;
+                    writer.write(geneId + "\tgene\tmissingInFile2\n");
+                    continue;
                 }
+
                 var comparisonResult = GTFCompare.compare(geneId, geneId, geneFeature1, geneFeature2, genomeSequenceExtractor1, genomeSequenceExtractor2);
 
                 if (comparisonResult.areSameGene()) {
-                    writer.write(geneId + "\ttrue\n");
+                    writer.write(geneId + "\n");
                 } else {
-                    writer.write(geneId + "\tfalse\t");
                     var geneComparison = comparisonResult.getGeneComparison();
 
                     if (geneComparison.isStartDifferent()) {
-                        writer.write("gene_start\n");
-                        continue geneLoop;
+                        writer.write(geneId + "\tgene\tstart\n");
                     }
                     if (geneComparison.isStopDifferent()) {
-                        writer.write( "gene_stop\n");
-                        continue geneLoop;
+                        writer.write( geneId + "\tgene\tstop\n");
                     }
                     if (geneComparison.isStrandDifferent()) {
-                        writer.write( "strand\n");
-                        continue geneLoop;
+                        writer.write(geneId + "\tgene\tstrand\n");
                     }
                     if (!geneComparison.getSequenceComparison().isSameSequence()) {
-                        writer.write( "gene_sequence\n");
-                        continue geneLoop;
+                        writer.write( geneId + "\tgene\tseq\n");
+                    }
+                    if(geneComparison.isDifferentLength()){
+                        writer.write( geneId + "\tgene\tlength\n");
                     }
 
                     var transcriptComparisonResult = comparisonResult.getTranscriptComparisons();
 
                     for(var transcriptComparison : transcriptComparisonResult){
                         if (transcriptComparison.isStartDifferent()) {
-                            writer.write("transcriptStart_" + transcriptComparison.getTranscriptId() + "\n");
-                            continue geneLoop;
+                            writer.write(geneId + "\ttranscript\tstart_" + transcriptComparison.getTranscriptId() + "\n");
                         }
                         if (transcriptComparison.isStopDifferent()) {
-                            writer.write("transcriptStop_" + transcriptComparison.getTranscriptId() + "\n");
-                            continue geneLoop;
+                            writer.write(geneId + "\ttranscript\tstop_" + transcriptComparison.getTranscriptId() + "\n");
+                        }
+                        if(transcriptComparison.isSequenceDifferent()){
+                            writer.write(geneId + "\ttranscript\tseq_" + transcriptComparison.getTranscriptId() + "\n");
                         }
                         if (transcriptComparison.isTranscriptMissingInGene1()) {
-                            writer.write("transcriptMissingInFile1_" + transcriptComparison.getTranscriptId() + "\n");
-                            continue geneLoop;
+                            writer.write(geneId + "\ttranscript\tmissingInFile1_" + transcriptComparison.getTranscriptId() + "\n");
                         }
                         if (transcriptComparison.isTranscriptMissingInGene2()) {
-                            writer.write("transcriptMissingInFile2_" + transcriptComparison.getTranscriptId() + "\n");
-                            continue geneLoop;
+                            writer.write(geneId + "\ttranscript\tmissingInFile2_" + transcriptComparison.getTranscriptId() + "\n");
+                        }
+                        if(transcriptComparison.isLengthDifferent()){
+                            writer.write(geneId + "\ttranscript\tlength_" + transcriptComparison.getTranscriptId() + "\n");
+
                         }
 
                         for(FeatureComparisonResult featureComparison : transcriptComparison.getFeatureComparisons()){
                             if(featureComparison.isMissingInTranscript1()){
-                                writer.write("featureMissingInTranscript1_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
-                                continue geneLoop;
+                                writer.write(geneId + "\tfeature\tmissingInTranscript1_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                             }
                             if(featureComparison.isMissingInTranscript2()){
-                                writer.write("featureMissingInTranscript2_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
-                                continue geneLoop;
+                                writer.write(geneId + "\tfeature\tmissingInTranscript2_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                             }
 
                             for(RegionComparison regionComparison : featureComparison.getRegionComparisons()){
                                 if(regionComparison.isLengthDifferenceFound()){
-                                    writer.write("regionLengthDifferent_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
-                                    continue geneLoop;
+                                    writer.write(geneId + "\tfeature\tlength_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                                 if(regionComparison.isPositionDifferenceFound()){
-                                    writer.write("regionPositionDifferent_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
-                                    continue geneLoop;
+                                    writer.write(geneId + "\tfeature\tposition_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                                 if(regionComparison.isSequenceDifferenceFound()){
-                                    writer.write("regionSequenceDifferent_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
-                                    continue geneLoop;
+                                    writer.write(geneId + "\tfeature\tseq_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                             }
                         }
@@ -234,7 +230,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
             for (String geneId : gtfFile2.getAllGeneFeatureIds()) {
                 if(gtfFile.getGeneFeature(geneId) == null){
-                    writer.write(geneId + "\tfalse\tgeneMissingInFile1\n");
+                    writer.write(geneId + "\tgene\tmissingInFile1\n");
                 }
             }
 
