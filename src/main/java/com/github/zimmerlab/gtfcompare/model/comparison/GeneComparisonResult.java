@@ -6,6 +6,7 @@ import java.util.List;
 public class GeneComparisonResult {
     private boolean startDifferent;
     private boolean stopDifferent;
+    private boolean differentLength;
     private boolean strandDifferent;
     private SequenceComparisonResult sequenceComparison;
 
@@ -31,6 +32,15 @@ public class GeneComparisonResult {
     public void setStrandDifferent(boolean strandDifferent) {
         this.strandDifferent = strandDifferent;
     }
+
+    public boolean isDifferentLength() {
+        return differentLength;
+    }
+
+    public void setDifferentLength(boolean differentLength) {
+        this.differentLength = differentLength;
+    }
+
     public SequenceComparisonResult getSequenceComparison() {
         if(sequenceComparison == null){
             sequenceComparison = new SequenceComparisonResult();

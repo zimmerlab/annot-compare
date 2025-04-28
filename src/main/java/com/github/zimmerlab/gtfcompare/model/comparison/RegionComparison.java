@@ -8,6 +8,7 @@ public class RegionComparison {
     private int start2;
     private int end2;
     private boolean positionDifferenceFound;
+    private boolean lengthDifferenceFound;
     private boolean sequenceDifferenceFound;
 
     public RegionComparison(int start1, int end1, int start2, int end2){
@@ -76,4 +77,11 @@ public class RegionComparison {
         this.start2 = start2;
     }
 
+    public boolean isLengthDifferenceFound() {
+        return lengthDifferenceFound;
+    }
+
+    public void setLengthDifferenceFound(boolean lengthDifferenceFound) {
+        this.lengthDifferenceFound = lengthDifferenceFound;
+    }
 }

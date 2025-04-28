@@ -1,6 +1,7 @@
-package com.github.zimmerlab.gtfcompare;
+package com.github.zimmerlab.gtfcompare.runner;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
+import com.github.zimmerlab.gtfcompare.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import compare.GTFCompare;
 import org.apache.commons.cli.*;
@@ -132,7 +133,7 @@ public class TestRunner implements CommandLineRunner {
 
         var geneIds = gtfFile.getAllGeneFeatureIds();
         var genomeSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
-        var genomeSequenceExtractor2 = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta2")), fidxEntries);
+        var genomeSequenceExtractor2 = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta2")), fidx2Entries);
         for(String geneId : geneIds){
             var geneFeature1 = gtfFile.getGeneFeature(geneId);
             var geneFeature2 = gtfFile2.getGeneFeature(geneId);

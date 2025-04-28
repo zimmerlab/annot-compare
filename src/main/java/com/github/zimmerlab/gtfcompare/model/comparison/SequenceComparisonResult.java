@@ -6,6 +6,7 @@ import java.util.List;
 public class SequenceComparisonResult {
     private String seq1;
     private String seq2;
+    private boolean isSameSequence = true;
     private List<SequenceDifference> differences = new ArrayList<>();
 
     // Getter / Setter
@@ -26,5 +27,13 @@ public class SequenceComparisonResult {
     }
     public void addDifference(SequenceDifference difference) {
         this.differences.add(difference);
+    }
+
+    public boolean isSameSequence() {
+        return isSameSequence;
+    }
+
+    public void setSameSequence(boolean sameSequence) {
+        isSameSequence = sameSequence;
     }
 }

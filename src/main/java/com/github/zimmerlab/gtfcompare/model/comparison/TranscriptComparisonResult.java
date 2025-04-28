@@ -9,6 +9,7 @@ public class TranscriptComparisonResult {
     private boolean transcriptMissingInGene2;
     private boolean startDifferent;
     private boolean stopDifferent;
+    private boolean lengthDifferent;
     private List<FeatureComparisonResult> featureComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
 
@@ -53,5 +54,13 @@ public class TranscriptComparisonResult {
     }
     public void addMessage(String message) {
         this.messages.add(message);
+    }
+
+    public void setLengthDifferent(boolean lengthDifferent) {
+        this.lengthDifferent = lengthDifferent;
+    }
+
+    public boolean isLengthDifferent() {
+        return lengthDifferent;
     }
 }

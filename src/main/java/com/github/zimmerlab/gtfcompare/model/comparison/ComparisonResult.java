@@ -6,6 +6,7 @@ import java.util.List;
 public class ComparisonResult {
     private String geneId1;
     private String geneId2;
+    private boolean areSameGene = true;
     private GeneComparisonResult geneComparison = new GeneComparisonResult();
     private List<TranscriptComparisonResult> transcriptComparisons = new ArrayList<>();
 
@@ -37,5 +38,13 @@ public class ComparisonResult {
 
     public void setGeneId2(String geneId2) {
         this.geneId2 = geneId2;
+    }
+
+    public boolean areSameGene() {
+        return areSameGene;
+    }
+
+    public void setAreSameGene(boolean areSameGene) {
+        this.areSameGene = areSameGene;
     }
 }
