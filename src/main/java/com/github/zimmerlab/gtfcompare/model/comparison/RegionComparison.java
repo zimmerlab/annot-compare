@@ -8,7 +8,11 @@ public class RegionComparison {
     private int start2;
     private int end2;
 
-
+    private boolean positionDifferenceFound;
+    private boolean lengthDifferenceFound;
+    private boolean sequenceDifferenceFound;
+    private boolean isMissingInFile1;
+    private boolean isMissingInFile2;
 
     public RegionComparison(int start1, int end1, int start2, int end2){
         this.start1 = start1;
