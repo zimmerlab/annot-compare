@@ -1,4 +1,4 @@
-package com.github.zimmerlab.gtfcompare;
+package com.github.zimmerlab.gtfcompare.utils;
 
 import com.github.zimmerlab.gtfcompare.model.FidxEntry;
 import org.slf4j.Logger;

@@ -1,7 +1,7 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.zimmerlab.gtfcompare.GenomeSequenceExtractor;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import compare.GTFCompare;
 import org.apache.commons.cli.*;

@@ -1,10 +1,12 @@
 package compare;
 
+import com.github.kleinsamuel.gtfutils.GtfConfig;
+import com.github.kleinsamuel.gtfutils.GtfConstants;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.GtfBaseData;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
-import com.github.zimmerlab.gtfcompare.GenomeSequenceExtractor;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.*;
 import org.slf4j.Logger;
@@ -12,15 +14,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 
-// TODO analyse und auslagern
 public class GTFCompare {
     public static final Logger LOG = LoggerFactory.getLogger(GTFCompare.class);
 
     private static GenomeSequenceExtractor sequenceExtractor1;
     private static GenomeSequenceExtractor sequenceExtractor2;
 
+    // TODO do I need to check the sequence if the position changed but length and sequence on the lvl above stayed the same?
     public static ComparisonResult compare(String geneId1, String geneId2,
                                            GeneFeature gene1, GeneFeature gene2,
                                            GenomeSequenceExtractor genomeSequenceExtractor1,
@@ -34,9 +35,6 @@ public class GTFCompare {
         comparisonResult.setGeneId2(geneId2);
 
         compareGenes(gene1, gene2, comparisonResult);
-
-        if(!comparisonResult.areSameGene())
-            return comparisonResult;
 
         compareTranscripts(gene1, gene2, comparisonResult, comparisonResult.getGeneComparison().getSequenceComparison().isSameSequence());
 
@@ -81,6 +79,7 @@ public class GTFCompare {
             var sequenceComparison = geneComparisonResult.getSequenceComparison();
             sequenceComparison.setSameSequence(false);
             geneComparisonResult.addMessage("Gene sequence not the same");
+            return;
         }
 
         try {
@@ -163,14 +162,12 @@ public class GTFCompare {
 
         if((stop1 - start1) != (stop2 - start2)){
             transcriptComparisonResult.setLengthDifferent(true);
-        }
-
-        boolean isSameTranscriptSequence = true;
-
-        if(transcriptComparisonResult.isLengthDifferent()){
+            transcriptComparisonResult.setSequenceDifferent(true);
             comparisonResult.setAreSameGene(false);
             return false;
         }
+
+        boolean isSameTranscriptSequence = true;
 
         if (!isSameGeneSequence || isStartDifferent || isStopDifferent) {
             var sequenceComparisonResult = isSameSequence(
@@ -233,7 +230,6 @@ public class GTFCompare {
                                                    TranscriptComparisonResult transcriptComparisonResult,
                                                    boolean isSameTranscriptSequence, ComparisonResult comparisonResult) {
         var featureComparisons = transcriptComparisonResult.getFeatureComparisons();
-        // TODO length -> seq -> position
         for (var featureKey : featureMap2.keySet()) {
             var featureComparisonResult = new FeatureComparisonResult();
             featureComparisonResult.setFeatureType(featureKey);
@@ -280,6 +276,9 @@ public class GTFCompare {
                 GtfFeature feature1 = sortedFeatures1.get(i);
                 GtfFeature feature2 = sortedFeatures2.get(j);
 
+                i++;
+                j++;
+
                 var baseData1 = feature1.getBaseData();
                 var baseData2 = feature2.getBaseData();
 
@@ -296,8 +295,6 @@ public class GTFCompare {
                 featureComparisonResult.addRegionComparison(regionComparison);
                 featureComparisons.add(featureComparisonResult);
 
-                i++;
-                j++;
                 if(length1 != length2){
                     regionComparison.setLengthDifferenceFound(true);
                     regionComparison.setSequenceDifferenceFound(true);
@@ -308,7 +305,7 @@ public class GTFCompare {
                     regionComparison.setPositionDifferenceFound(true);
                 }
 
-                if(!regionComparison.isSequenceDifferenceFound() && (!isSameTranscriptSequence || (regionComparison.isPositionDifferenceFound() || regionComparison.isLengthDifferenceFound()))){
+                if(!regionComparison.isSequenceDifferenceFound() && (!isSameTranscriptSequence || regionComparison.isLengthDifferenceFound())){
                     try{
                         var seq1 = sequenceExtractor1.getSequence(currentContig, start1, end1);
                         var seq2 = sequenceExtractor2.getSequence(currentContig, start2, end2);
@@ -322,7 +319,7 @@ public class GTFCompare {
                 }
             }
 
-            /*// Process any leftover features in sortedFeatures1.
+            // Process any leftover features in sortedFeatures1.
             while (i < sortedFeatures1.size()) {
                 GtfFeature feature1 = sortedFeatures1.get(i);
                 var start = feature1.getBaseData().getStart();
@@ -330,7 +327,9 @@ public class GTFCompare {
                 String msg = featureKey + " in " + t2.getTranscriptId() +
                         " missing in list 1: " + start + "-" + stop;
                 LOG.info(msg);
-                featureComparisonResult.addRegionComparison(new RegionComparison(start, stop, -1, -1, true));
+                var regionComparison = new RegionComparison(start, stop, -1, -1);
+                regionComparison.setMissingInFile2(true);
+                featureComparisonResult.addRegionComparison(regionComparison);
                 //featureComparisonResult.addMessage(msg);
                 i++;
             }
@@ -344,9 +343,11 @@ public class GTFCompare {
                         " missing in list 2: " + start + "-" + stop;
                 LOG.info(msg);
                 //featureComparisonResult.setMissingInTranscript1(true);
-                featureComparisonResult.addRegionComparison(new RegionComparison(-1, -1, start, stop, true));
+                var regionComparison = new RegionComparison(-1, -1, start, stop);
+                regionComparison.setMissingInFile1(true);
+                featureComparisonResult.addRegionComparison(regionComparison);
                 j++;
-            }*/
+            }
 
         }
     }

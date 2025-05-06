@@ -7,9 +7,8 @@ public class RegionComparison {
     private int end1;
     private int start2;
     private int end2;
-    private boolean positionDifferenceFound;
-    private boolean lengthDifferenceFound;
-    private boolean sequenceDifferenceFound;
+
+
 
     public RegionComparison(int start1, int end1, int start2, int end2){
         this.start1 = start1;
@@ -83,5 +82,21 @@ public class RegionComparison {
 
     public void setLengthDifferenceFound(boolean lengthDifferenceFound) {
         this.lengthDifferenceFound = lengthDifferenceFound;
+    }
+
+    public boolean isMissingInFile1() {
+        return isMissingInFile1;
+    }
+
+    public boolean isMissingInFile2() {
+        return isMissingInFile2;
+    }
+
+    public void setMissingInFile1(boolean missingInFile1) {
+        isMissingInFile1 = missingInFile1;
+    }
+
+    public void setMissingInFile2(boolean missingInFile2) {
+        isMissingInFile2 = missingInFile2;
     }
 }

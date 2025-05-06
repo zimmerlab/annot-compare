@@ -1,10 +1,11 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.zimmerlab.gtfcompare.GenomeSequenceExtractor;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.model.comparison.FeatureComparisonResult;
 import com.github.zimmerlab.gtfcompare.model.comparison.RegionComparison;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
 import compare.GTFCompare;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -17,13 +18,14 @@ import org.springframework.util.StopWatch;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.util.List;
 
 @Profile("analysis")
 @Service
 public class AnalysisRunner implements CommandLineRunner {
 
     private final static Logger LOG = LogManager.getLogger(TestRunner.class);
-
+    private final static List<StopWatch> stopWatches = Constants.STOP_WATCHES;
     public AnalysisRunner() {
 
     }
@@ -133,6 +135,7 @@ public class AnalysisRunner implements CommandLineRunner {
         try {
             LOG.info("Starting to parse gtfs");
             var stopWatch = new StopWatch();
+            stopWatches.add(stopWatch);
             stopWatch.start("gtf parsing");
             gtfFile.parseAllContigs();
             LOG.info("GTF 1 parsed");
@@ -221,6 +224,12 @@ public class AnalysisRunner implements CommandLineRunner {
                                 }
                                 if(regionComparison.isSequenceDifferenceFound()){
                                     writer.write(geneId + "\tfeature\tseq_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                                if(regionComparison.isMissingInFile1()){
+                                    writer.write(geneId + "\tfeature\tmissingFeatureEntryFile1_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                                if(regionComparison.isMissingInFile2()){
+                                    writer.write(geneId + "\tfeature\tmissingFeatureEntryFile2_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                             }
                         }
