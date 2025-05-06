@@ -26,6 +26,7 @@ public class Application {
         TreeMap<String, String> modeDescriptions = new TreeMap<>();
 
         modeDescriptions.put("test", "Test mode");
+        modeDescriptions.put("analysis", "Analysis mode");
 
         return modeDescriptions;
     }
@@ -47,6 +48,10 @@ public class Application {
         switch (mode) {
             case "test":
                 builder.profiles("test");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "analysis":
+                builder.profiles("analysis");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:
