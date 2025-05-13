@@ -17,20 +17,29 @@ public class ComparisonContext {
                              ComparisonConfig config,
                              GenomeSequenceExtractor targetExtractor,
                              GenomeSequenceExtractor queryExtractor) {
-        this.targetFeature   = targetFeature;
-        this.queryFeature    = queryFeature;
-        this.config          = config;
+        this.targetFeature = targetFeature;
+        this.queryFeature = queryFeature;
+        this.config = config;
         this.targetExtractor = targetExtractor;
-        this.queryExtractor  = queryExtractor;
+        this.queryExtractor = queryExtractor;
     }
 
-    public GtfFeature getTargetFeature() { return targetFeature; }
-    public GtfFeature getQueryFeature()  { return queryFeature; }
-    public ComparisonConfig getConfig()  { return config; }
+    public GtfFeature getTargetFeature() {
+        return targetFeature;
+    }
+
+    public GtfFeature getQueryFeature() {
+        return queryFeature;
+    }
+
+    public ComparisonConfig getConfig() {
+        return config;
+    }
 
     public Optional<GenomeSequenceExtractor> getTargetExtractor() {
         return Optional.ofNullable(targetExtractor);
     }
+
     public Optional<GenomeSequenceExtractor> getQueryExtractor() {
         return Optional.ofNullable(queryExtractor);
     }

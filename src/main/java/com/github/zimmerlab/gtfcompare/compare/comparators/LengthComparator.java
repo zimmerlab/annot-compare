@@ -22,7 +22,8 @@ public class LengthComparator implements ComparisonFeature {
         var queryStart = queryBaseData.getStart();
         var queryStop = queryBaseData.getEnd();
 
-        // Check if the lengths are equal
-        return (targetStop - targetStart) != (queryStop - queryStart);
+        var thr = ctx.getConfig().getThreshold(getName());
+
+        return Math.abs((targetStop - targetStart) - (queryStop - queryStart)) > thr;
     }
 }

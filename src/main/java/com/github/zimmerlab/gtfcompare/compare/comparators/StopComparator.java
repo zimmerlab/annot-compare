@@ -20,6 +20,8 @@ public class StopComparator implements ComparisonFeature {
         var targetStop = targetBaseData.getEnd();
         var queryStop = queryBaseData.getEnd();
 
-        return targetStop != queryStop;
+        var thr = ctx.getConfig().getThreshold(getName());
+
+        return Math.abs(targetStop - queryStop) > thr;
     }
 }

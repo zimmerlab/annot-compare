@@ -208,15 +208,30 @@ public class AnalysisRunner implements CommandLineRunner {
         var length = configFeatures.get("length");
         if (length != null && length.isEnabled()) {
             configBuilder.enableFeature("Length");
+            var th =length.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold("length", th);
+            }
         }
+
         var start = configFeatures.get("start");
         if (start != null && start.isEnabled()) {
             configBuilder.enableFeature("Start");
+            var th = start.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold("Start", th);
+            }
         }
+
         var stop = configFeatures.get("stop");
         if (stop != null && stop.isEnabled()) {
             configBuilder.enableFeature("Stop");
+            var th = stop.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold("Stop", th);
+            }
         }
+
         var seq = configFeatures.get("sequence");
         if (seq != null && seq.isEnabled()) {
             configBuilder.enableFeature("Sequence");

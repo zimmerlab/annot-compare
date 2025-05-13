@@ -11,12 +11,11 @@ public class StartComparator implements ComparisonFeature {
 
     @Override
     public boolean compare(ComparisonContext ctx) {
-        var targetBaseData = ctx.getTargetFeature().getBaseData();
-        var queryBaseData = ctx.getQueryFeature().getBaseData();
+        var targetStart = ctx.getTargetFeature().getBaseData().getStart();
+        var queryStart  = ctx.getQueryFeature().getBaseData().getStart();
 
-        var targetStart = targetBaseData.getStart();
-        var queryStart = queryBaseData.getStart();
+        var thr = ctx.getConfig().getThreshold(getName());
 
-        return targetStart != queryStart;
+        return Math.abs(targetStart - queryStart) > thr;
     }
 }
