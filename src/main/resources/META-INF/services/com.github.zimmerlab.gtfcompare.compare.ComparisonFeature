@@ -1,0 +1,4 @@
+com.github.zimmerlab.gtfcompare.compare.comparators.StartComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.StopComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.LengthComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.SequenceComparator
