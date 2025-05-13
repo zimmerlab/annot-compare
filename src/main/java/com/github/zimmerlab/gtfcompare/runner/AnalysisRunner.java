@@ -94,6 +94,14 @@ public class AnalysisRunner implements CommandLineRunner {
                 .type(File.class)
                 .build());
 
+        o.addOption(Option.builder()
+                .longOpt("config")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to config file")
+                .type(File.class)
+                .build());
+
         CommandLineParser parser = new DefaultParser();
 
         CommandLine cmd = null;
@@ -123,6 +131,11 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        if (!cmd.hasOption("config")) {
+            LOG.error("No config file specified");
+            System.exit(1);
+        }
+
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
@@ -135,7 +148,7 @@ public class AnalysisRunner implements CommandLineRunner {
         gtfFile.parseAllContigs();
         gtfFile2.parseAllContigs();
 
-        var configPath = "input/config.json";
+        var configPath = cmd.getOptionValue("config");
 
         var objectMapper = new ObjectMapper();
         ConfigJSON jsonConfig = null;
@@ -208,7 +221,7 @@ public class AnalysisRunner implements CommandLineRunner {
         var length = configFeatures.get("length");
         if (length != null && length.isEnabled()) {
             configBuilder.enableFeature("Length");
-            var th =length.getThreshold();
+            var th = length.getThreshold();
             if (th != null) {
                 configBuilder.setThreshold("length", th);
             }
