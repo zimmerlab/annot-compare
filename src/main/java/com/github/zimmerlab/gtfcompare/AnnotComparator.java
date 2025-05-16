@@ -19,6 +19,10 @@ import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.springframework.util.StopWatch;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 public class AnnotComparator {
@@ -29,13 +33,16 @@ public class AnnotComparator {
     private final GenomeSequenceExtractor targetSequenceExtractor;
     private final GenomeSequenceExtractor querySequenceExtractor;
     private final ComparisonConfig config;
+    private final String outputPath;
+    private final List<ComparisonResult> comparisonResults = new ArrayList<>();
 
-    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config) {
+    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config, String outputPath) {
         this.targetGtf = targetGtf;
         this.queryGtf = queryGtf;
         this.targetSequenceExtractor = targetSequenceExtractor;
         this.querySequenceExtractor = querySequenceExtractor;
         this.config = config;
+        this.outputPath = outputPath;
     }
 
     public void compare() {
@@ -46,12 +53,112 @@ public class AnnotComparator {
             //result.setTargetGeneId(pair.getTargetGene() != null ? pair.getTargetGene().getGeneId() : null);
             //result.setQueryGeneId(pair.getQueryGene() != null ? pair.getQueryGene().getGeneId() : null);
             compareGene(pair.getTargetGene(), pair.getQueryGene(), result);
-            writeComparisonResult(result);
+            comparisonResults.add(result);
         }
+
+        writeComparisonResult(comparisonResults);
     }
 
-    private void writeComparisonResult(ComparisonResult comparisonResult) {
-        var x = 0;
+    private void writeComparisonResult(List<ComparisonResult> comparisonResults) {
+        var idCounter = 0;
+        try (var writer = new BufferedWriter(new FileWriter((outputPath)))) {
+            writer.write("targetGeneId\tqueryGeneId\tcategory\tdifference\n");
+            for (var comparisonResult : comparisonResults) {
+
+                var targetGeneId = comparisonResult.getTargetGeneId();
+                var queryGeneId = comparisonResult.getQueryGeneId();
+                if(targetGeneId == null){
+                    targetGeneId = String.valueOf(idCounter++);
+                }
+
+                if(queryGeneId == null){
+                    queryGeneId = String.valueOf(idCounter++);
+                }
+
+                var geneComparison = comparisonResult.getGeneComparison();
+
+                if (geneComparison.isMissingInQueryFile()) {
+                    writer.write(targetGeneId + "\t" + queryGeneId + "\tgene\tmissingInQueryFile\n");
+                    continue;
+                }
+
+
+                if (comparisonResult.areSameGene()) {
+                    writer.write(targetGeneId + "\t" + queryGeneId + "\n");
+                } else {
+
+                    if (geneComparison.isStartDifferent()) {
+                        writer.write(targetGeneId + "\t" + queryGeneId + "\tgene\tstart\n");
+                    }
+                    if (geneComparison.isStopDifferent()) {
+                        writer.write(targetGeneId + "\t" + queryGeneId + "\tgene\tstop\n");
+                    }
+                    if (geneComparison.isStrandDifferent()) {
+                        writer.write(targetGeneId + "\t" + queryGeneId + "\tgene\tstrand\n");
+                    }
+                    if (!geneComparison.getSequenceComparison().isSameSequence()) {
+                        writer.write(targetGeneId + "\t" + queryGeneId+ "\tgene\tseq\n");
+                    }
+                    if (geneComparison.isDifferentLength()) {
+                        writer.write(targetGeneId + "\t" + queryGeneId+ "\tgene\tlength\n");
+                    }
+
+                    var transcriptComparisonResult = comparisonResult.getTranscriptComparisons();
+
+                    for (var transcriptComparison : transcriptComparisonResult) {
+                        if (transcriptComparison.isStartDifferent()) {
+                            writer.write(targetGeneId + "\t" + queryGeneId+ "\ttranscript\tstart_" + transcriptComparison.getQueryTranscriptId() + "\n");
+                        }
+                        if (transcriptComparison.isStopDifferent()) {
+                            writer.write(targetGeneId + "\t" + queryGeneId+ "\ttranscript\tstop_" + transcriptComparison.getQueryTranscriptId() + "\n");
+                        }
+                        if (transcriptComparison.isSequenceDifferent()) {
+                            writer.write(targetGeneId + "\t" + queryGeneId+ "\ttranscript\tseq_" + transcriptComparison.getQueryTranscriptId() + "\n");
+                        }
+                        if (transcriptComparison.isTranscriptMissingInTargetGene()) {
+                            writer.write(targetGeneId + "\t" + queryGeneId+ "\ttranscript\tmissingInFile1_" + transcriptComparison.getQueryTranscriptId() + "\n");
+                        }
+                        if (transcriptComparison.isTranscriptMissingInQueryGene()) {
+                            writer.write(targetGeneId + "\t" + queryGeneId+ "\ttranscript\tmissingInFile2_" + transcriptComparison.getQueryTranscriptId() + "\n");
+                        }
+                        if (transcriptComparison.isLengthDifferent()) {
+                            writer.write(targetGeneId + "\t" + queryGeneId+ "\ttranscript\tlength_" + transcriptComparison.getQueryTranscriptId() + "\n");
+
+                        }
+
+                        for (FeatureComparisonResult featureComparison : transcriptComparison.getFeatureComparisons()) {
+                            if (featureComparison.isMissingInTargetTranscript()) {
+                                writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tmissingInTranscript1_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                            }
+                            if (featureComparison.isMissingInQueryTranscript()) {
+                                writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tmissingInTranscript2_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                            }
+
+                            for (RegionComparisonResult regionComparison : featureComparison.getRegionComparisons()) {
+                                if (regionComparison.isLengthDifferenceFound()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tlength_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                                if (regionComparison.isPositionDifferenceFound()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tposition_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                                if (regionComparison.isSequenceDifferenceFound()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tseq_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                                if (regionComparison.isMissingInTargetFile()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tmissingFeatureEntryFile1_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                                if (regionComparison.isMissingInQueryFile()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\tfeature\tmissingFeatureEntryFile2_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private List<GenePair> getGenePairs() {
@@ -94,11 +201,11 @@ public class AnnotComparator {
 
         var transcriptPairs = getTranscriptPairs(targetGene, queryGene, result);
         for (var tp : transcriptPairs) {
-            result.addTranscriptComparison(compareTranscript(tp, result));
+            compareTranscript(tp, result);
         }
     }
 
-    private TranscriptComparisonResult compareTranscript(TranscriptPair tp, ComparisonResult geneResult) {
+    private void compareTranscript(TranscriptPair tp, ComparisonResult geneResult) {
 
         var transcriptComparisonResult = tp.getTranscriptComparisonResult();
         var targetTranscript = tp.getTargetTranscript();
@@ -106,7 +213,7 @@ public class AnnotComparator {
 
         if (targetTranscript == null || queryTranscript == null) {
             handleMissingTranscript(targetTranscript, queryTranscript, transcriptComparisonResult, geneResult);
-            return transcriptComparisonResult;
+            return;
         }
 
         transcriptComparisonResult.setTargetTranscriptId(targetTranscript.getTranscriptId());
@@ -117,7 +224,6 @@ public class AnnotComparator {
 
         compareFeatures(targetMap, queryMap, transcriptComparisonResult, geneResult);
 
-        return transcriptComparisonResult;
     }
 
     private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
@@ -191,7 +297,8 @@ public class AnnotComparator {
         featureComparisonResult.addRegionComparison(regionComparisonResult);
         var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor);
         for (var comp : loader) {
-            if (!config.isEnabled(comp.getName())) continue;
+            if (!config.isEnabled(comp.getName()))
+                continue;
             var changed = comp.compare(ctx);
 
             if (changed) {
@@ -205,6 +312,7 @@ public class AnnotComparator {
         }
     }
 
+    // TODO cases should be constants
     private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult) {
         switch (name) {
             case "Length":
@@ -234,14 +342,14 @@ public class AnnotComparator {
         geneResult.setAreSameGene(false);
         if (targetFeature == null) {
             var bd = queryFeature.getBaseData();
-            var regionComparison = new RegionComparisonResult(-1, -1, bd.getStart(), bd.getEnd(),;
+            var regionComparison = new RegionComparisonResult(-1, -1, bd.getStart(), bd.getEnd());
             regionComparison.setMissingInTargetFile(true);
             featRes.addRegionComparison(regionComparison);
         } else {
             var bd = targetFeature.getBaseData();
-            featRes.addRegionComparison(
-                    new RegionComparisonResult(bd.getStart(), bd.getEnd(), -1, -1, true)
-            );
+            var regionComparison = new RegionComparisonResult(bd.getStart(), bd.getEnd(), -1, -1);
+            regionComparison.setMissingInQueryFile(true);
+            featRes.addRegionComparison(regionComparison);
         }
     }
 

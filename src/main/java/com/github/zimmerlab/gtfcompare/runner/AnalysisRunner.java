@@ -132,6 +132,11 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        if (!cmd.hasOption("o")) {
+            LOG.error("No output path specified");
+            System.exit(1);
+        }
+
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
@@ -157,7 +162,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var config = getComparisonConfig(jsonConfig);
 
-        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config);
+        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"));
         annotCompare.compare();
     }
     private static ComparisonConfig getComparisonConfig(ConfigJSON jsonConfig) {
