@@ -1,5 +1,6 @@
 package com.github.zimmerlab.gtfcompare;
 
+
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
@@ -20,7 +21,6 @@ import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.springframework.util.StopWatch;
 
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -50,8 +50,8 @@ public class AnnotComparator {
 
         for (var pair : genePairs) {
             var result = new ComparisonResult();
-            //result.setTargetGeneId(pair.getTargetGene() != null ? pair.getTargetGene().getGeneId() : null);
-            //result.setQueryGeneId(pair.getQueryGene() != null ? pair.getQueryGene().getGeneId() : null);
+            result.setTargetGeneId(pair.getTargetGene() != null ? pair.getTargetGene().getGeneId() : "");
+            result.setQueryGeneId(pair.getQueryGene() != null ? pair.getQueryGene().getGeneId() : "");
             compareGene(pair.getTargetGene(), pair.getQueryGene(), result);
             comparisonResults.add(result);
         }
@@ -60,20 +60,12 @@ public class AnnotComparator {
     }
 
     private void writeComparisonResult(List<ComparisonResult> comparisonResults) {
-        var idCounter = 0;
         try (var writer = new BufferedWriter(new FileWriter((outputPath)))) {
             writer.write("targetGeneId\tqueryGeneId\tcategory\tdifference\n");
             for (var comparisonResult : comparisonResults) {
 
                 var targetGeneId = comparisonResult.getTargetGeneId();
                 var queryGeneId = comparisonResult.getQueryGeneId();
-                if(targetGeneId == null){
-                    targetGeneId = String.valueOf(idCounter++);
-                }
-
-                if(queryGeneId == null){
-                    queryGeneId = String.valueOf(idCounter++);
-                }
 
                 var geneComparison = comparisonResult.getGeneComparison();
 
@@ -81,6 +73,7 @@ public class AnnotComparator {
                     writer.write(targetGeneId + "\t" + queryGeneId + "\tgene\tmissingInQueryFile\n");
                     continue;
                 }
+
 
 
                 if (comparisonResult.areSameGene()) {
@@ -229,6 +222,8 @@ public class AnnotComparator {
     private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
 
         geneResult.setAreSameGene(false);
+        txResult.setAreSameTranscript(false);
+
         if (a == null) {
             txResult.setTranscriptMissingInTargetGene(true);
             txResult.setQueryTranscriptId(b.getTranscriptId());
@@ -259,14 +254,16 @@ public class AnnotComparator {
             transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
 
             if (queries.isEmpty()) {
+                featureComparisonResult.setAreSameFeatures(false);
                 featureComparisonResult.setMissingInQueryTranscript(true);
+                transcriptComparisonResult.setAreSameTranscript(false);
                 geneResult.setAreSameGene(false);
                 continue;
             }
 
             List<FeaturePair> pairs = pairByPosition(targets, queries);
             for (var pair : pairs) {
-                compareFeaturePair(pair, featureComparisonResult, geneResult);
+                compareFeaturePair(pair, featureComparisonResult, transcriptComparisonResult, geneResult);
             }
         }
 
@@ -274,19 +271,22 @@ public class AnnotComparator {
             if (!targetMap.containsKey(featureName)) {
                 var featRes = new FeatureComparisonResult();
                 featRes.setFeatureType(featureName);
+                featRes.setAreSameFeatures(false);
                 transcriptComparisonResult.addFeatureComparison(featRes);
                 featRes.setMissingInTargetTranscript(true);
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneResult.setAreSameGene(false);
             }
         }
     }
 
-    private void compareFeaturePair(FeaturePair pair, FeatureComparisonResult featureComparisonResult, ComparisonResult geneResult) {
+    private void compareFeaturePair(FeaturePair pair, FeatureComparisonResult featureComparisonResult, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
 
         var targetFeature = pair.getTarget();
         var queryFeature = pair.getQuery();
 
         if (targetFeature == null || queryFeature == null) {
-            markMissingFeature(targetFeature, queryFeature, featureComparisonResult, geneResult);
+            markMissingFeature(targetFeature, queryFeature, featureComparisonResult, transcriptComparisonResult, geneResult);
             return;
         }
 
@@ -299,10 +299,11 @@ public class AnnotComparator {
         for (var comp : loader) {
             if (!config.isEnabled(comp.getName()))
                 continue;
+
             var changed = comp.compare(ctx);
 
             if (changed) {
-                addToRegionComparison(comp.getName(), regionComparisonResult);
+                addToRegionComparison(comp.getName(), regionComparisonResult, featureComparisonResult, transcriptComparisonResult, geneResult);
             }
 
             System.out.printf(
@@ -312,19 +313,31 @@ public class AnnotComparator {
         }
     }
 
-    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult) {
+    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult, FeatureComparisonResult featureComparisonResult ,TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
         switch (name) {
             case Constants.LENGTH_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneResult.setAreSameGene(false);
+                featureComparisonResult.setAreSameFeatures(false);
                 regionComparisonResult.setLengthDifferenceFound(true);
                 break;
             case Constants.SEQUENCE_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneResult.setAreSameGene(false);
+                featureComparisonResult.setAreSameFeatures(false);
                 regionComparisonResult.setSequenceDifferenceFound(true);
                 // TODO Add Sequence Difference
                 break;
             case Constants.START_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneResult.setAreSameGene(false);
+                featureComparisonResult.setAreSameFeatures(false);
                 regionComparisonResult.setStartDifferent(true);
                 break;
             case Constants.STOP_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneResult.setAreSameGene(false);
+                featureComparisonResult.setAreSameFeatures(false);
                 regionComparisonResult.setEndDifferent(true);
                 break;
             default:
@@ -335,10 +348,12 @@ public class AnnotComparator {
 
     private void markMissingFeature(
             GtfFeature targetFeature, GtfFeature queryFeature,
-            FeatureComparisonResult featRes,
+            FeatureComparisonResult featRes, TranscriptComparisonResult transcriptComparisonResult,
             ComparisonResult geneResult) {
 
         geneResult.setAreSameGene(false);
+        transcriptComparisonResult.setAreSameTranscript(false);
+        featRes.setAreSameFeatures(false);
         if (targetFeature == null) {
             var bd = queryFeature.getBaseData();
             var regionComparison = new RegionComparisonResult(-1, -1, bd.getStart(), bd.getEnd());

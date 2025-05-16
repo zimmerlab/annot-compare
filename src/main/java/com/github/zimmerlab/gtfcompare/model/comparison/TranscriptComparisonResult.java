@@ -6,6 +6,7 @@ import java.util.List;
 public class TranscriptComparisonResult {
     private String queryTranscriptId;
     private String targetTranscriptId;
+    private boolean areSameTranscript = true;
     private boolean transcriptMissingInTargetGene;
     private boolean transcriptMissingInQueryGene;
     private boolean startDifferent;
@@ -81,5 +82,13 @@ public class TranscriptComparisonResult {
 
     public boolean isSequenceDifferent() {
         return isSequenceDifferent;
+    }
+
+    public boolean areSameTranscript() {
+        return areSameTranscript;
+    }
+
+    public void setAreSameTranscript(boolean areSameTranscript) {
+        this.areSameTranscript = areSameTranscript;
     }
 }

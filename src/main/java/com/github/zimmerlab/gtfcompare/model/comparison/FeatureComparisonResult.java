@@ -7,6 +7,7 @@ public class FeatureComparisonResult {
     private String featureType;
     private boolean missinInTargetTranscript;
     private boolean missingInQueryTranscript;
+    private boolean areSameFeatures = true;
     private List<RegionComparisonResult> regionComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
 
@@ -48,5 +49,13 @@ public class FeatureComparisonResult {
 
     public void addMessage(String message) {
         this.messages.add(message);
+    }
+
+    public boolean areSameFeatures() {
+        return areSameFeatures;
+    }
+
+    public void setAreSameFeatures(boolean areSameFeatures) {
+        this.areSameFeatures = areSameFeatures;
     }
 }
