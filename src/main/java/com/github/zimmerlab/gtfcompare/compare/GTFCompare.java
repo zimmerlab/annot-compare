@@ -1,7 +1,5 @@
 package compare;
 
-import com.github.kleinsamuel.gtfutils.GtfConfig;
-import com.github.kleinsamuel.gtfutils.GtfConstants;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.GtfBaseData;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
@@ -25,50 +23,50 @@ public class GTFCompare {
     private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
 
     // TODO do I need to check the sequence if the position changed but length and sequence on the lvl above stayed the same?
-    public static ComparisonResult compare(String geneId1, String geneId2,
-                                           GeneFeature gene1, GeneFeature gene2,
-                                           GenomeSequenceExtractor genomeSequenceExtractor1,
-                                           GenomeSequenceExtractor genomeSequenceExtractor2) {
+    public static ComparisonResult compare(String targetGeneId, String queryGeneId,
+                                           GeneFeature targetGene, GeneFeature queryGene,
+                                           GenomeSequenceExtractor targetGenomeSequenceExtractor,
+                                           GenomeSequenceExtractor queryGenomeSequenceExtractor) {
 
-        sequenceExtractor1 = genomeSequenceExtractor1;
-        sequenceExtractor2 = genomeSequenceExtractor2;
+        sequenceExtractor1 = targetGenomeSequenceExtractor;
+        sequenceExtractor2 = queryGenomeSequenceExtractor;
 
         ComparisonResult comparisonResult = new ComparisonResult();
-        comparisonResult.setGeneId1(geneId1);
-        comparisonResult.setGeneId2(geneId2);
+        comparisonResult.setTargetGeneId(targetGeneId);
+        comparisonResult.setQueryGeneId(queryGeneId);
 
-        compareGenes(gene1, gene2, comparisonResult);
+        compareGenes(targetGene, queryGene, comparisonResult);
 
-        compareTranscripts(gene1, gene2, comparisonResult, comparisonResult.getGeneComparison().getSequenceComparison().isSameSequence());
+        compareTranscripts(targetGene, queryGene, comparisonResult, comparisonResult.getGeneComparison().getSequenceComparison().isSameSequence());
 
         return comparisonResult;
     }
 
-    private static void compareGenes(GeneFeature gene1, GeneFeature gene2, ComparisonResult comparisonResult) {
+    private static void compareGenes(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult comparisonResult) {
         var stopWatch = new StopWatch();
         stopWatches.add(stopWatch);
         stopWatch.start("compareGene");
 
-        var baseData1 = gene1.getBaseData();
-        var baseData2 = gene2.getBaseData();
+        var targetBaseData = targetGene.getBaseData();
+        var queryBaseData = queryGene.getBaseData();
         var geneComparisonResult = comparisonResult.getGeneComparison();
 
 
-        var start1 = baseData1.getStart();
-        var stop1 = baseData1.getEnd();
+        var start1 = targetBaseData.getStart();
+        var stop1 = targetBaseData.getEnd();
 
-        var start2 = baseData2.getStart();
-        var stop2 = baseData2.getEnd();
+        var start2 = queryBaseData.getStart();
+        var stop2 = queryBaseData.getEnd();
 
         if ((stop1 - start1) != (stop2 - start2)) {
             geneComparisonResult.setDifferentLength(true);
             comparisonResult.setAreSameGene(false);
         }
 
-        if (baseData1.isForwardStrand() != baseData2.isForwardStrand()) {
+        if (targetBaseData.isForwardStrand() != queryBaseData.isForwardStrand()) {
             geneComparisonResult.setStrandDifferent(true);
             comparisonResult.setAreSameGene(false);
-            geneComparisonResult.addMessage("Strand changed from " + baseData1.isForwardStrand() + " to " + baseData2.isForwardStrand());
+            geneComparisonResult.addMessage("Strand changed from " + targetBaseData.isForwardStrand() + " to " + queryBaseData.isForwardStrand());
         }
 
         if (start1 != start2) {
@@ -92,8 +90,8 @@ public class GTFCompare {
         stopWatch.stop();
         stopWatch.start("compareGene_SequenceExtraction");
         try {
-            String seq1 = sequenceExtractor1.getSequence(baseData1.getContig(), baseData1.getStart(), baseData1.getEnd());
-            String seq2 = sequenceExtractor2.getSequence(baseData2.getContig(), baseData2.getStart(), baseData2.getEnd());
+            String seq1 = sequenceExtractor1.getSequence(targetBaseData.getContig(), targetBaseData.getStart(), targetBaseData.getEnd());
+            String seq2 = sequenceExtractor2.getSequence(queryBaseData.getContig(), queryBaseData.getStart(), queryBaseData.getEnd());
 
             if (!seq1.equals(seq2)) {
                 comparisonResult.setAreSameGene(false);
@@ -108,18 +106,18 @@ public class GTFCompare {
         stopWatch.stop();
     }
 
-    private static List<TranscriptPair> getTranscriptPairs(GeneFeature g1, GeneFeature g2, ComparisonResult comparisonResult) {
+    private static List<TranscriptPair> getTranscriptPairs(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult comparisonResult) {
         var stopWatch = new StopWatch();
         stopWatches.add(stopWatch);
         stopWatch.start("getTranscriptPairs");
         var transcriptsMap1 = new HashMap<String, TranscriptFeature>();
         var transcriptsMap2 = new HashMap<String, TranscriptFeature>();
 
-        for (TranscriptFeature transcript : g1.getTranscripts()) {
+        for (TranscriptFeature transcript : targetGene.getTranscripts()) {
             transcriptsMap1.put(transcript.getTranscriptId(), transcript);
         }
 
-        for (TranscriptFeature transcript : g2.getTranscripts()) {
+        for (TranscriptFeature transcript : queryGene.getTranscripts()) {
             transcriptsMap2.put(transcript.getTranscriptId(), transcript);
         }
 
@@ -136,12 +134,12 @@ public class GTFCompare {
 
             if (t1 == null) {
                 comparisonResult.setAreSameGene(false);
-                transcriptComparisonResult.setTranscriptMissingInGene1(true);
-                transcriptComparisonResult.setTranscriptId(transcriptId);
+                transcriptComparisonResult.setTranscriptMissingInTargetGene(true);
+                transcriptComparisonResult.setTargetTranscriptId(transcriptId);
             } else if (t2 == null) {
                 comparisonResult.setAreSameGene(false);
-                transcriptComparisonResult.setTranscriptMissingInGene2(true);
-                transcriptComparisonResult.setTranscriptId(transcriptId);
+                transcriptComparisonResult.setTranscriptMissingInQueryGene(true);
+                transcriptComparisonResult.setQueryTranscriptId(transcriptId);
             }
 
             transcriptPairs.add(new TranscriptPair(t1, t2, transcriptComparisonResult));
@@ -193,7 +191,7 @@ public class GTFCompare {
                     baseData1.getEnd(),
                     baseData2.getStart(),
                     baseData2.getEnd());
-            if (sequenceComparisonResult.getSeq1() != null) {
+            if (sequenceComparisonResult.getTargetSeq() != null) {
                 LOG.info("Transcript sequence not the same");
                 isSameTranscriptSequence = false;
                 comparisonResult.setAreSameGene(false);
@@ -208,15 +206,15 @@ public class GTFCompare {
         var transcriptPairs = getTranscriptPairs(g1, g2, comparisonResult);
 
         for (var transcripts : transcriptPairs) {
-            TranscriptFeature t1 = transcripts.getTranscript1();
-            TranscriptFeature t2 = transcripts.getTranscript2();
+            TranscriptFeature t1 = transcripts.getTargetTranscript();
+            TranscriptFeature t2 = transcripts.getQueryTranscript();
             var transcriptComparisonResult = transcripts.getTranscriptComparisonResult();
 
             try {
-                transcriptComparisonResult.setTranscriptId(t1.getTranscriptId());
+                transcriptComparisonResult.setQueryTranscriptId(t1.getTranscriptId());
             } catch (Exception e) {
                 try {
-                    transcriptComparisonResult.setTranscriptId(t2.getTranscriptId());
+                    transcriptComparisonResult.setTargetTranscriptId(t2.getTranscriptId());
                 } catch (Exception ignored) {
                 }
             }
@@ -257,7 +255,7 @@ public class GTFCompare {
             featureComparisonResult.setFeatureType(featureKey);
 
             if (!featureMap1.containsKey(featureKey)) {
-                featureComparisonResult.setMissingInTranscript1(true);
+                featureComparisonResult.setMissingInTargetTranscript(true);
                 String msg = featureKey + " not in " + t1.getTranscriptId();
                 featureComparisons.add(featureComparisonResult);
                 LOG.info(msg);
@@ -271,7 +269,7 @@ public class GTFCompare {
 
             // If the feature type is missing from the second transcript, record it.
             if (!featureMap2.containsKey(featureKey)) {
-                featureComparisonResult.setMissingInTranscript2(true);
+                featureComparisonResult.setMissingInQueryTranscript(true);
                 String msg = featureKey + " not in " + t2.getTranscriptId();
                 //transcriptComparisonResult.addMessage(msg);
                 //featureComparisonResult.addMessage(msg);
@@ -313,7 +311,7 @@ public class GTFCompare {
 
                 var length1 = end1 - start1;
                 var length2 = end2 - start2;
-                var regionComparison = new RegionComparison(start1, end1, start2, end2);
+                var regionComparison = new RegionComparisonResult(start1, end1, start2, end2);
                 featureComparisonResult.addRegionComparison(regionComparison);
                 featureComparisons.add(featureComparisonResult);
 
@@ -359,8 +357,8 @@ public class GTFCompare {
                 String msg = featureKey + " in " + t2.getTranscriptId() +
                         " missing in list 1: " + start + "-" + stop;
                 LOG.info(msg);
-                var regionComparison = new RegionComparison(start, stop, -1, -1);
-                regionComparison.setMissingInFile2(true);
+                var regionComparison = new RegionComparisonResult(start, stop, -1, -1);
+                regionComparison.setMissingInQueryFile(true);
                 featureComparisonResult.addRegionComparison(regionComparison);
                 //featureComparisonResult.addMessage(msg);
                 i++;
@@ -375,8 +373,8 @@ public class GTFCompare {
                         " missing in list 2: " + start + "-" + stop;
                 LOG.info(msg);
                 //featureComparisonResult.setMissingInTranscript1(true);
-                var regionComparison = new RegionComparison(-1, -1, start, stop);
-                regionComparison.setMissingInFile1(true);
+                var regionComparison = new RegionComparisonResult(-1, -1, start, stop);
+                regionComparison.setMissingInTargetFile(true);
                 featureComparisonResult.addRegionComparison(regionComparison);
                 j++;
             }
@@ -396,7 +394,7 @@ public class GTFCompare {
             featureComparisonResult.setFeatureType(featureKey);
 
             if (!featureMap1.containsKey(featureKey)) {
-                featureComparisonResult.setMissingInTranscript1(true);
+                featureComparisonResult.setMissingInTargetTranscript(true);
                 String msg = featureKey + " not in " + t1.getTranscriptId();
                 featureComparisons.add(featureComparisonResult);
                 LOG.info(msg);
@@ -409,7 +407,7 @@ public class GTFCompare {
 
             // If the feature type is missing from the second transcript, record it.
             if (!featureMap2.containsKey(featureKey)) {
-                featureComparisonResult.setMissingInTranscript2(true);
+                featureComparisonResult.setMissingInQueryTranscript(true);
                 String msg = featureKey + " not in " + t2.getTranscriptId();
                 //transcriptComparisonResult.addMessage(msg);
                 //featureComparisonResult.addMessage(msg);
@@ -442,7 +440,7 @@ public class GTFCompare {
                 int start2 = baseData2.getStart();
                 int end1 = baseData1.getEnd();
                 int end2 = baseData2.getEnd();
-                var regionComparison = new RegionComparison(start1, end1, start2, end2);
+                var regionComparison = new RegionComparisonResult(start1, end1, start2, end2);
                 // Case 1: Both start and end are identical.
                 if (start1 == start2 && end1 == end2) {
                     i++;
@@ -450,7 +448,7 @@ public class GTFCompare {
 
                     if (!isSameTranscriptSequence) {
                         var sequenceComparisonResult = isSameSequence(baseData1.getContig(), start1, end1, start2, end2);
-                        if (sequenceComparisonResult.getSeq1() != null) {
+                        if (sequenceComparisonResult.getTargetSeq() != null) {
                             LOG.info("{} has not the same sequence start: {}, stop: {}", featureKey, start1, end1);
                             regionComparison.setSequenceDifferenceFound(true);
                         }
@@ -469,7 +467,7 @@ public class GTFCompare {
                     j++;
 
                     var sequenceComparisonResult = isSameSequence(baseData1.getContig(), start1, end1, start2, end2);
-                    if (sequenceComparisonResult.getSeq1() != null) {
+                    if (sequenceComparisonResult.getTargetSeq() != null) {
                         LOG.info("{} has not the same sequence start: {}, stop: {}", featureKey, start1, end1);
                         regionComparison.setSequenceDifferenceFound(true);
                     }
@@ -487,7 +485,7 @@ public class GTFCompare {
                     j++;
 
                     var sequenceComparisonResult = isSameSequence(baseData1.getContig(), start1, end1, start2, end2);
-                    if (sequenceComparisonResult.getSeq1() != null) {
+                    if (sequenceComparisonResult.getTargetSeq() != null) {
                         LOG.info("{} has not the same sequence start: {}, stop: {}", featureKey, start1, end1);
                         regionComparison.setSequenceDifferenceFound(true);
                     }
@@ -497,8 +495,8 @@ public class GTFCompare {
                     String msg = featureKey + " in " + t1.getTranscriptId() +
                             " missing in list 2: " + start1 + "-" + end1;
                     LOG.info(msg);
-                    regionComparison.setStart2(-1);
-                    regionComparison.setEnd2(-1);
+                    regionComparison.setQueryStart(-1);
+                    regionComparison.setQueryEnd(-1);
                     regionComparison.setPositionDifferenceFound(true);
                     //featureComparisonResult.addMessage(msg);
                     i++;
@@ -508,8 +506,8 @@ public class GTFCompare {
                     String msg = featureKey + " in " + t2.getTranscriptId() +
                             " missing in list 1: " + start2 + "-" + end2;
                     LOG.info(msg);
-                    regionComparison.setStart1(-1);
-                    regionComparison.setEnd1(-1);
+                    regionComparison.setTargetStart(-1);
+                    regionComparison.setTargetEnd(-1);
                     regionComparison.setPositionDifferenceFound(true);
                     //featureComparisonResult.addMessage(msg);
                     j++;
@@ -526,7 +524,7 @@ public class GTFCompare {
                 String msg = featureKey + " in " + t2.getTranscriptId() +
                         " missing in list 1: " + start + "-" + stop;
                 LOG.info(msg);
-                featureComparisonResult.addRegionComparison(new RegionComparison(start, stop, -1, -1, true));
+                featureComparisonResult.addRegionComparison(new RegionComparisonResult(start, stop, -1, -1, true));
                 //featureComparisonResult.addMessage(msg);
                 i++;
             }
@@ -540,7 +538,7 @@ public class GTFCompare {
                         " missing in list 2: " + start + "-" + stop;
                 LOG.info(msg);
                 //featureComparisonResult.setMissingInTranscript1(true);
-                featureComparisonResult.addRegionComparison(new RegionComparison(-1, -1, start, stop, true));
+                featureComparisonResult.addRegionComparison(new RegionComparisonResult(-1, -1, start, stop, true));
                 j++;
             }
 
@@ -555,8 +553,8 @@ public class GTFCompare {
             var sequenceComparisonResult = new SequenceComparisonResult();
 
             if (!seq1.equals(seq2)) {
-                sequenceComparisonResult.setSeq1(seq1);
-                sequenceComparisonResult.setSeq2(seq2);
+                sequenceComparisonResult.setTargetSeq(seq1);
+                sequenceComparisonResult.setQuerySeq(seq2);
                 // TODO add differences
                 // TODO add type of difference(s)
                 // TODO alignment?

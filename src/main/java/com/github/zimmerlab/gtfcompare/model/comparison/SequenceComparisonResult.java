@@ -4,23 +4,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SequenceComparisonResult {
-    private String seq1;
-    private String seq2;
+    private String targetSeq;
+    private String querySeq;
     private boolean isSameSequence = true;
     private List<SequenceDifference> differences = new ArrayList<>();
 
     // Getter / Setter
-    public String getSeq1() {
-        return seq1;
+    public String getTargetSeq() {
+        return targetSeq;
     }
-    public void setSeq1(String seq1) {
-        this.seq1 = seq1;
+    public void setTargetSeq(String targetSeq) {
+        this.targetSeq = targetSeq;
     }
-    public String getSeq2() {
-        return seq2;
+    public String getQuerySeq() {
+        return querySeq;
     }
-    public void setSeq2(String seq2) {
-        this.seq2 = seq2;
+    public void setQuerySeq(String querySeq) {
+        this.querySeq = querySeq;
     }
     public List<SequenceDifference> getDifferences() {
         return differences;

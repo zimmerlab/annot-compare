@@ -1,5 +1,8 @@
 package com.github.zimmerlab.gtfcompare.compare;
 
+import com.github.zimmerlab.gtfcompare.model.Impact;
+import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
+
 import java.util.Map;
 import java.util.Set;
 

@@ -1,0 +1,304 @@
+package com.github.zimmerlab.gtfcompare;
+
+import com.github.kleinsamuel.gtfutils.GtfConfig;
+import com.github.kleinsamuel.gtfutils.GtfFile;
+import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
+import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
+import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
+import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
+import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
+import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
+import com.github.zimmerlab.gtfcompare.model.FeaturePair;
+import com.github.zimmerlab.gtfcompare.model.GenePair;
+import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
+import com.github.zimmerlab.gtfcompare.model.comparison.ComparisonResult;
+import com.github.zimmerlab.gtfcompare.model.comparison.FeatureComparisonResult;
+import com.github.zimmerlab.gtfcompare.model.comparison.RegionComparisonResult;
+import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
+import org.springframework.util.StopWatch;
+
+import java.util.*;
+
+public class AnnotComparator {
+    private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
+    private static final ServiceLoader<ComparisonFeature> loader = ServiceLoader.load(ComparisonFeature.class);
+    private final GtfFile targetGtf;
+    private final GtfFile queryGtf;
+    private final GenomeSequenceExtractor targetSequenceExtractor;
+    private final GenomeSequenceExtractor querySequenceExtractor;
+    private final ComparisonConfig config;
+
+    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config) {
+        this.targetGtf = targetGtf;
+        this.queryGtf = queryGtf;
+        this.targetSequenceExtractor = targetSequenceExtractor;
+        this.querySequenceExtractor = querySequenceExtractor;
+        this.config = config;
+    }
+
+    public void compare() {
+        var genePairs = getGenePairs();
+
+        for (var pair : genePairs) {
+            var result = new ComparisonResult();
+            //result.setTargetGeneId(pair.getTargetGene() != null ? pair.getTargetGene().getGeneId() : null);
+            //result.setQueryGeneId(pair.getQueryGene() != null ? pair.getQueryGene().getGeneId() : null);
+            compareGene(pair.getTargetGene(), pair.getQueryGene(), result);
+            writeComparisonResult(result);
+        }
+    }
+
+    private void writeComparisonResult(ComparisonResult comparisonResult) {
+        var x = 0;
+    }
+
+    private List<GenePair> getGenePairs() {
+        var targetGeneMap = new HashMap<String, GeneFeature>();
+        var queryGeneMap = new HashMap<String, GeneFeature>();
+
+        for (var geneId : targetGtf.getAllGeneFeatureIds()) {
+            targetGeneMap.put(geneId, targetGtf.getGeneFeature(geneId));
+        }
+
+        for (var geneId : queryGtf.getAllGeneFeatureIds()) {
+            queryGeneMap.put(geneId, queryGtf.getGeneFeature(geneId));
+        }
+
+        var allGeneIds = new HashSet<String>();
+        allGeneIds.addAll(targetGeneMap.keySet());
+        allGeneIds.addAll(queryGeneMap.keySet());
+
+        var genePairs = new ArrayList<GenePair>();
+        for (var geneId : allGeneIds) {
+            GeneFeature t1 = targetGeneMap.get(geneId);
+            GeneFeature t2 = queryGeneMap.get(geneId);
+            genePairs.add(new GenePair(t1, t2));
+        }
+        return genePairs;
+    }
+
+    private void compareGene(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult result) {
+
+        if (targetGene == null) {
+            result.setAreSameGene(false);
+            result.getGeneComparison().setMissingInTargetFile(true);
+            return;
+        }
+        if (queryGene == null) {
+            result.setAreSameGene(false);
+            result.getGeneComparison().setMissingInQueryFile(true);
+            return;
+        }
+
+        var transcriptPairs = getTranscriptPairs(targetGene, queryGene, result);
+        for (var tp : transcriptPairs) {
+            result.addTranscriptComparison(compareTranscript(tp, result));
+        }
+    }
+
+    private TranscriptComparisonResult compareTranscript(TranscriptPair tp, ComparisonResult geneResult) {
+
+        var transcriptComparisonResult = tp.getTranscriptComparisonResult();
+        var targetTranscript = tp.getTargetTranscript();
+        var queryTranscript = tp.getQueryTranscript();
+
+        if (targetTranscript == null || queryTranscript == null) {
+            handleMissingTranscript(targetTranscript, queryTranscript, transcriptComparisonResult, geneResult);
+            return transcriptComparisonResult;
+        }
+
+        transcriptComparisonResult.setTargetTranscriptId(targetTranscript.getTranscriptId());
+        transcriptComparisonResult.setQueryTranscriptId(queryTranscript.getTranscriptId());
+
+        var targetMap = mapFeaturesByType(targetTranscript);
+        var queryMap = mapFeaturesByType(queryTranscript);
+
+        compareFeatures(targetMap, queryMap, transcriptComparisonResult, geneResult);
+
+        return transcriptComparisonResult;
+    }
+
+    private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
+
+        geneResult.setAreSameGene(false);
+        if (a == null) {
+            txResult.setTranscriptMissingInTargetGene(true);
+            txResult.setQueryTranscriptId(b.getTranscriptId());
+        } else {
+            txResult.setTranscriptMissingInQueryGene(true);
+            txResult.setTargetTranscriptId(a.getTranscriptId());
+        }
+    }
+
+    private Map<String, List<GtfFeature>> mapFeaturesByType(TranscriptFeature transcriptFeature) {
+        var map = new HashMap<String, List<GtfFeature>>();
+        for (var f : transcriptFeature.getFeatures()) {
+            var type = GtfConfig.getDefault(f.getBaseData().getType());
+            map.computeIfAbsent(type, k -> new ArrayList<>()).add(f);
+        }
+        return map;
+    }
+
+    private void compareFeatures(Map<String, List<GtfFeature>> targetMap, Map<String, List<GtfFeature>> queryMap, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
+
+        for (var entry : targetMap.entrySet()) {
+            var featureType = entry.getKey();
+            List<GtfFeature> targets = entry.getValue();
+            List<GtfFeature> queries = queryMap.getOrDefault(featureType, List.of());
+
+            var featureComparisonResult = new FeatureComparisonResult();
+            featureComparisonResult.setFeatureType(featureType);
+            transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
+
+            if (queries.isEmpty()) {
+                featureComparisonResult.setMissingInQueryTranscript(true);
+                geneResult.setAreSameGene(false);
+                continue;
+            }
+
+            List<FeaturePair> pairs = pairByPosition(targets, queries);
+            for (var pair : pairs) {
+                compareFeaturePair(pair, featureComparisonResult, geneResult);
+            }
+        }
+
+        for (var featureName : queryMap.keySet()) {
+            if (!targetMap.containsKey(featureName)) {
+                var featRes = new FeatureComparisonResult();
+                featRes.setFeatureType(featureName);
+                transcriptComparisonResult.addFeatureComparison(featRes);
+                featRes.setMissingInTargetTranscript(true);
+            }
+        }
+    }
+
+    private void compareFeaturePair(FeaturePair pair, FeatureComparisonResult featureComparisonResult, ComparisonResult geneResult) {
+
+        var targetFeature = pair.getTarget();
+        var queryFeature = pair.getQuery();
+
+        if (targetFeature == null || queryFeature == null) {
+            markMissingFeature(targetFeature, queryFeature, featureComparisonResult, geneResult);
+            return;
+        }
+
+        var targetBaseData = targetFeature.getBaseData();
+        var queryBaseData = queryFeature.getBaseData();
+
+        var regionComparisonResult = new RegionComparisonResult(targetBaseData.getStart(), targetBaseData.getEnd(), queryBaseData.getStart(), queryBaseData.getEnd());
+        featureComparisonResult.addRegionComparison(regionComparisonResult);
+        var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor);
+        for (var comp : loader) {
+            if (!config.isEnabled(comp.getName())) continue;
+            var changed = comp.compare(ctx);
+
+            if (changed) {
+                addToRegionComparison(comp.getName(), regionComparisonResult);
+            }
+
+            System.out.printf(
+                    "Feature %s: %s changed: %b%n",
+                    targetFeature.getBaseData().getType(), comp.getName(), changed
+            );
+        }
+    }
+
+    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult) {
+        switch (name) {
+            case "Length":
+                regionComparisonResult.setLengthDifferenceFound(true);
+                break;
+            case "Sequence":
+                regionComparisonResult.setSequenceDifferenceFound(true);
+                // TODO Add Sequence Difference
+                break;
+            case "Start":
+                regionComparisonResult.setStartDifferent(true);
+                break;
+            case "Stop":
+                regionComparisonResult.setEndDifferent(true);
+                break;
+            default:
+                // TODO add logging
+                break;
+        }
+    }
+
+    private void markMissingFeature(
+            GtfFeature targetFeature, GtfFeature queryFeature,
+            FeatureComparisonResult featRes,
+            ComparisonResult geneResult) {
+
+        geneResult.setAreSameGene(false);
+        if (targetFeature == null) {
+            var bd = queryFeature.getBaseData();
+            var regionComparison = new RegionComparisonResult(-1, -1, bd.getStart(), bd.getEnd(),;
+            regionComparison.setMissingInTargetFile(true);
+            featRes.addRegionComparison(regionComparison);
+        } else {
+            var bd = targetFeature.getBaseData();
+            featRes.addRegionComparison(
+                    new RegionComparisonResult(bd.getStart(), bd.getEnd(), -1, -1, true)
+            );
+        }
+    }
+
+
+    private List<FeaturePair> pairByPosition(
+            List<GtfFeature> targets,
+            List<GtfFeature> queries) {
+
+        Comparator<GtfFeature> byStartThenEnd = Comparator
+                .comparingInt((GtfFeature f) -> f.getBaseData().getStart())
+                .thenComparingInt(f -> f.getBaseData().getEnd());
+
+        var a = new ArrayList<>(targets);
+        var b = new ArrayList<>(queries);
+        a.sort(byStartThenEnd);
+        b.sort(byStartThenEnd);
+
+        var n = Math.max(a.size(), b.size());
+        var pairs = new ArrayList<FeaturePair>(n);
+        for (int i = 0; i < n; i++) {
+            GtfFeature ta = i < a.size() ? a.get(i) : null;
+            GtfFeature qb = i < b.size() ? b.get(i) : null;
+            pairs.add(new FeaturePair(ta, qb));
+        }
+        return pairs;
+    }
+
+    private List<TranscriptPair> getTranscriptPairs(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult comparisonResult) {
+        var stopWatch = new StopWatch();
+        stopWatches.add(stopWatch);
+        stopWatch.start("getTranscriptPairs");
+        var targetTranscriptMap = new HashMap<String, TranscriptFeature>();
+        var queryTranscriptMap = new HashMap<String, TranscriptFeature>();
+
+        for (TranscriptFeature transcript : targetGene.getTranscripts()) {
+            targetTranscriptMap.put(transcript.getTranscriptId(), transcript);
+        }
+
+        for (TranscriptFeature transcript : queryGene.getTranscripts()) {
+            queryTranscriptMap.put(transcript.getTranscriptId(), transcript);
+        }
+
+        var allTranscriptIds = new HashSet<String>();
+        allTranscriptIds.addAll(targetTranscriptMap.keySet());
+        allTranscriptIds.addAll(queryTranscriptMap.keySet());
+
+        var transcriptPairs = new ArrayList<TranscriptPair>();
+        for (var transcriptId : allTranscriptIds) {
+            var transcriptComparisonResult = new TranscriptComparisonResult();
+            comparisonResult.addTranscriptComparison(transcriptComparisonResult);
+            TranscriptFeature t1 = targetTranscriptMap.get(transcriptId);
+            TranscriptFeature t2 = queryTranscriptMap.get(transcriptId);
+            transcriptPairs.add(new TranscriptPair(t1, t2, transcriptComparisonResult));
+        }
+
+        stopWatch.stop();
+        return transcriptPairs;
+    }
+
+}

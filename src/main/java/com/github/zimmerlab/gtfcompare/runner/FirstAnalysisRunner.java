@@ -3,7 +3,7 @@ package com.github.zimmerlab.gtfcompare.runner;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.model.comparison.FeatureComparisonResult;
-import com.github.zimmerlab.gtfcompare.model.comparison.RegionComparison;
+import com.github.zimmerlab.gtfcompare.model.comparison.RegionComparisonResult;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.ProgramEvaluator;
@@ -189,48 +189,48 @@ public class FirstAnalysisRunner implements CommandLineRunner {
 
                     for(var transcriptComparison : transcriptComparisonResult){
                         if (transcriptComparison.isStartDifferent()) {
-                            writer.write(geneId + "\ttranscript\tstart_" + transcriptComparison.getTranscriptId() + "\n");
+                            writer.write(geneId + "\ttranscript\tstart_" + transcriptComparison.getQueryTranscriptId() + "\n");
                         }
                         if (transcriptComparison.isStopDifferent()) {
-                            writer.write(geneId + "\ttranscript\tstop_" + transcriptComparison.getTranscriptId() + "\n");
+                            writer.write(geneId + "\ttranscript\tstop_" + transcriptComparison.getQueryTranscriptId() + "\n");
                         }
                         if(transcriptComparison.isSequenceDifferent()){
-                            writer.write(geneId + "\ttranscript\tseq_" + transcriptComparison.getTranscriptId() + "\n");
+                            writer.write(geneId + "\ttranscript\tseq_" + transcriptComparison.getQueryTranscriptId() + "\n");
                         }
-                        if (transcriptComparison.isTranscriptMissingInGene1()) {
-                            writer.write(geneId + "\ttranscript\tmissingInFile1_" + transcriptComparison.getTranscriptId() + "\n");
+                        if (transcriptComparison.isTranscriptMissingInTargetGene()) {
+                            writer.write(geneId + "\ttranscript\tmissingInFile1_" + transcriptComparison.getQueryTranscriptId() + "\n");
                         }
-                        if (transcriptComparison.isTranscriptMissingInGene2()) {
-                            writer.write(geneId + "\ttranscript\tmissingInFile2_" + transcriptComparison.getTranscriptId() + "\n");
+                        if (transcriptComparison.isTranscriptMissingInQueryGene()) {
+                            writer.write(geneId + "\ttranscript\tmissingInFile2_" + transcriptComparison.getQueryTranscriptId() + "\n");
                         }
                         if(transcriptComparison.isLengthDifferent()){
-                            writer.write(geneId + "\ttranscript\tlength_" + transcriptComparison.getTranscriptId() + "\n");
+                            writer.write(geneId + "\ttranscript\tlength_" + transcriptComparison.getQueryTranscriptId() + "\n");
 
                         }
 
                         for(FeatureComparisonResult featureComparison : transcriptComparison.getFeatureComparisons()){
-                            if(featureComparison.isMissingInTranscript1()){
-                                writer.write(geneId + "\tfeature\tmissingInTranscript1_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                            if(featureComparison.isMissingInTargetTranscript()){
+                                writer.write(geneId + "\tfeature\tmissingInTranscript1_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                             }
-                            if(featureComparison.isMissingInTranscript2()){
-                                writer.write(geneId + "\tfeature\tmissingInTranscript2_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                            if(featureComparison.isMissingInQueryTranscript()){
+                                writer.write(geneId + "\tfeature\tmissingInTranscript2_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                             }
 
-                            for(RegionComparison regionComparison : featureComparison.getRegionComparisons()){
+                            for(RegionComparisonResult regionComparison : featureComparison.getRegionComparisons()){
                                 if(regionComparison.isLengthDifferenceFound()){
-                                    writer.write(geneId + "\tfeature\tlength_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                    writer.write(geneId + "\tfeature\tlength_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                                 if(regionComparison.isPositionDifferenceFound()){
-                                    writer.write(geneId + "\tfeature\tposition_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                    writer.write(geneId + "\tfeature\tposition_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                                 if(regionComparison.isSequenceDifferenceFound()){
-                                    writer.write(geneId + "\tfeature\tseq_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                    writer.write(geneId + "\tfeature\tseq_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
-                                if(regionComparison.isMissingInFile1()){
-                                    writer.write(geneId + "\tfeature\tmissingFeatureEntryFile1_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                if(regionComparison.isMissingInTargetFile()){
+                                    writer.write(geneId + "\tfeature\tmissingFeatureEntryFile1_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
-                                if(regionComparison.isMissingInFile2()){
-                                    writer.write(geneId + "\tfeature\tmissingFeatureEntryFile2_" + transcriptComparison.getTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
+                                if(regionComparison.isMissingInQueryFile()){
+                                    writer.write(geneId + "\tfeature\tmissingFeatureEntryFile2_" + transcriptComparison.getQueryTranscriptId() + "_" + featureComparison.getFeatureType() + "\n");
                                 }
                             }
                         }

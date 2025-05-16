@@ -5,9 +5,9 @@ import java.util.List;
 
 public class FeatureComparisonResult {
     private String featureType;
-    private boolean missingInTranscript1;
-    private boolean missingInTranscript2;
-    private List<RegionComparison> regionComparisons = new ArrayList<>();
+    private boolean missinInTargetTranscript;
+    private boolean missingInQueryTranscript;
+    private List<RegionComparisonResult> regionComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
 
     public String getFeatureType() {
@@ -18,27 +18,27 @@ public class FeatureComparisonResult {
         this.featureType = featureType;
     }
 
-    public boolean isMissingInTranscript1() {
-        return missingInTranscript1;
+    public boolean isMissingInTargetTranscript() {
+        return missinInTargetTranscript;
     }
 
-    public void setMissingInTranscript1(boolean missingInTranscript1) {
-        this.missingInTranscript1 = missingInTranscript1;
+    public void setMissingInTargetTranscript(boolean missinInTargetTranscript) {
+        this.missinInTargetTranscript = missinInTargetTranscript;
     }
 
-    public boolean isMissingInTranscript2() {
-        return missingInTranscript2;
+    public boolean isMissingInQueryTranscript() {
+        return missingInQueryTranscript;
     }
 
-    public void setMissingInTranscript2(boolean missingInTranscript2) {
-        this.missingInTranscript2 = missingInTranscript2;
+    public void setMissingInQueryTranscript(boolean missingInQueryTranscript) {
+        this.missingInQueryTranscript = missingInQueryTranscript;
     }
 
-    public List<RegionComparison> getRegionComparisons() {
+    public List<RegionComparisonResult> getRegionComparisons() {
         return regionComparisons;
     }
 
-    public void addRegionComparison(RegionComparison regionComparison) {
+    public void addRegionComparison(RegionComparisonResult regionComparison) {
         this.regionComparisons.add(regionComparison);
     }
 

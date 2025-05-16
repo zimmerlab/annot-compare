@@ -4,9 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TranscriptComparisonResult {
-    private String transcriptId;
-    private boolean transcriptMissingInGene1;
-    private boolean transcriptMissingInGene2;
+    private String queryTranscriptId;
+    private String targetTranscriptId;
+    private boolean transcriptMissingInTargetGene;
+    private boolean transcriptMissingInQueryGene;
     private boolean startDifferent;
     private boolean stopDifferent;
     private boolean lengthDifferent;
@@ -14,23 +15,32 @@ public class TranscriptComparisonResult {
     private List<FeatureComparisonResult> featureComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
 
-    public String getTranscriptId() {
-        return transcriptId;
+    public String getQueryTranscriptId() {
+        return queryTranscriptId;
     }
-    public void setTranscriptId(String transcriptId) {
-        this.transcriptId = transcriptId;
+    public void setQueryTranscriptId(String transcriptId) {
+        this.queryTranscriptId = transcriptId;
     }
-    public boolean isTranscriptMissingInGene1() {
-        return transcriptMissingInGene1;
+
+    public String getTargetTranscriptId() {
+        return targetTranscriptId;
     }
-    public void setTranscriptMissingInGene1(boolean transcriptMissingInGene1) {
-        this.transcriptMissingInGene1 = transcriptMissingInGene1;
+
+    public void setTargetTranscriptId(String targetTranscriptId) {
+        this.targetTranscriptId = targetTranscriptId;
     }
-    public boolean isTranscriptMissingInGene2() {
-        return transcriptMissingInGene2;
+
+    public boolean isTranscriptMissingInTargetGene() {
+        return transcriptMissingInTargetGene;
     }
-    public void setTranscriptMissingInGene2(boolean transcriptMissingInGene2) {
-        this.transcriptMissingInGene2 = transcriptMissingInGene2;
+    public void setTranscriptMissingInTargetGene(boolean transcriptMissingInTargetGene) {
+        this.transcriptMissingInTargetGene = transcriptMissingInTargetGene;
+    }
+    public boolean isTranscriptMissingInQueryGene() {
+        return transcriptMissingInQueryGene;
+    }
+    public void setTranscriptMissingInQueryGene(boolean transcriptMissingInQueryGene) {
+        this.transcriptMissingInQueryGene = transcriptMissingInQueryGene;
     }
     public boolean isStartDifferent() {
         return startDifferent;

@@ -1,6 +1,7 @@
 package com.github.zimmerlab.gtfcompare.model.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.zimmerlab.gtfcompare.model.Impact;
 
 public class FeatureConfig {
     @JsonProperty("enabled")
@@ -8,6 +9,9 @@ public class FeatureConfig {
 
     @JsonProperty("threshold")
     private Double threshold;
+
+    @JsonProperty("impact_level")
+    private Impact impactLevel;
 
     public boolean isEnabled() {
         return enabled;
@@ -23,5 +27,13 @@ public class FeatureConfig {
 
     public void setThreshold(Double threshold) {
         this.threshold = threshold;
+    }
+
+    public Impact getImpactLevel() {
+        return impactLevel;
+    }
+
+    public void setImpactLevel(Impact impactLevel) {
+        this.impactLevel = impactLevel;
     }
 }

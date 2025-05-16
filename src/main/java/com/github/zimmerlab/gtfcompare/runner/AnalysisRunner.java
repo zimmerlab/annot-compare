@@ -2,12 +2,9 @@ package com.github.zimmerlab.gtfcompare.runner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.kleinsamuel.gtfutils.GtfFile;
+import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
-import com.github.zimmerlab.gtfcompare.model.comparison.ComparisonResult;
-import com.github.zimmerlab.gtfcompare.model.comparison.GeneComparisonResult;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
@@ -21,8 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
 import java.io.File;
-import java.util.List;
-import java.util.ServiceLoader;
+import java.util.*;
 
 @Profile("analysis")
 @Service
@@ -160,59 +156,10 @@ public class AnalysisRunner implements CommandLineRunner {
         }
 
         var config = getComparisonConfig(jsonConfig);
-        var loader = ServiceLoader.load(ComparisonFeature.class);
 
-        var geneIds = gtfFile.getAllGeneFeatureIds();
-
-        for (String geneId : geneIds) {
-            var comparisonResult = new ComparisonResult();
-            var geneComparisonResult = new GeneComparisonResult();
-            comparisonResult.setGeneComparison(geneComparisonResult);
-
-            var targetGene = gtfFile.getGeneFeature(geneId);
-            var queryGene = gtfFile2.getGeneFeature(geneId);
-
-            if (queryGene == null) {
-                comparisonResult.setAreSameGene(false);
-                geneComparisonResult.setMissingInQueryFile(true);
-                continue;
-            }
-
-            for (var comparator : loader) {
-                if (!config.isEnabled(comparator.getName())) {
-                    continue;
-                }
-                var featureContext = new ComparisonContext(targetGene, queryGene, config, targetSequenceExtractor, querySequenceExtractor);
-                var changed = comparator.compare(featureContext);
-                System.out.printf("Gene %s: %s changed: %b%n", geneId, comparator.getName(), changed);
-            }
-
-            var targetTranscripts = targetGene.getTranscripts();
-            var queryTranscripts = queryGene.getTranscripts();
-
-            for (var targetTranscript : targetTranscripts) {
-                var queryTranscript = queryTranscripts.stream()
-                        .filter(t -> t.getTranscriptId().equals(targetTranscript.getTranscriptId()))
-                        .findFirst()
-                        .orElse(null);
-
-                if (queryTranscript == null) {
-                    continue;
-                }
-
-                for (var comparator : loader) {
-                    if (!config.isEnabled(comparator.getName())) {
-                        continue;
-                    }
-                    var featureContext = new ComparisonContext(targetTranscript, queryTranscript, config, targetSequenceExtractor, querySequenceExtractor);
-                    var changed = comparator.compare(featureContext);
-                    System.out.printf("Transcript %s: %s changed: %b%n", targetTranscript.getTranscriptId(), comparator.getName(), changed);
-                }
-            }
-        }
+        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config);
+        annotCompare.compare();
     }
-
-
     private static ComparisonConfig getComparisonConfig(ConfigJSON jsonConfig) {
         var configBuilder = new ComparisonConfigBuilder();
 
