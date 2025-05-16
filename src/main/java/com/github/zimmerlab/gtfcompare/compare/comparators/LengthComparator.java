@@ -2,13 +2,14 @@ package com.github.zimmerlab.gtfcompare.compare.comparators;
 
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
 
 public class LengthComparator implements ComparisonFeature {
 
     public LengthComparator() {}
     @Override
     public String getName() {
-        return "Length";
+        return Constants.LENGTH_COMPARATOR_NAME;
     }
 
     @Override

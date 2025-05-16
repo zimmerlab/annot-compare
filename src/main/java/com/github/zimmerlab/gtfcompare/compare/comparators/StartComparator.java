@@ -2,11 +2,12 @@ package com.github.zimmerlab.gtfcompare.compare.comparators;
 
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
 
 public class StartComparator implements ComparisonFeature {
     @Override
     public String getName() {
-        return "Start";
+        return Constants.START_COMPARATOR_NAME;
     }
 
     @Override

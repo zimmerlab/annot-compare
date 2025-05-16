@@ -312,20 +312,19 @@ public class AnnotComparator {
         }
     }
 
-    // TODO cases should be constants
     private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult) {
         switch (name) {
-            case "Length":
+            case Constants.LENGTH_COMPARATOR_NAME:
                 regionComparisonResult.setLengthDifferenceFound(true);
                 break;
-            case "Sequence":
+            case Constants.SEQUENCE_COMPARATOR_NAME:
                 regionComparisonResult.setSequenceDifferenceFound(true);
                 // TODO Add Sequence Difference
                 break;
-            case "Start":
+            case Constants.START_COMPARATOR_NAME:
                 regionComparisonResult.setStartDifferent(true);
                 break;
-            case "Stop":
+            case Constants.STOP_COMPARATOR_NAME:
                 regionComparisonResult.setEndDifferent(true);
                 break;
             default:
