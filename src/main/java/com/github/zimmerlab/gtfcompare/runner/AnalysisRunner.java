@@ -170,36 +170,36 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var configFeatures = jsonConfig.getFeatures();
 
-        var length = configFeatures.get("length");
+        var length = configFeatures.get(Constants.LENGTH_COMPARATOR_NAME);
         if (length != null && length.isEnabled()) {
-            configBuilder.enableFeature("Length");
+            configBuilder.enableFeature(Constants.LENGTH_COMPARATOR_NAME);
             var th = length.getThreshold();
             if (th != null) {
-                configBuilder.setThreshold("length", th);
+                configBuilder.setThreshold(Constants.LENGTH_COMPARATOR_NAME, th);
             }
         }
 
-        var start = configFeatures.get("start");
+        var start = configFeatures.get(Constants.START_COMPARATOR_NAME);
         if (start != null && start.isEnabled()) {
-            configBuilder.enableFeature("Start");
+            configBuilder.enableFeature(Constants.START_COMPARATOR_NAME);
             var th = start.getThreshold();
             if (th != null) {
-                configBuilder.setThreshold("Start", th);
+                configBuilder.setThreshold(Constants.START_COMPARATOR_NAME, th);
             }
         }
 
-        var stop = configFeatures.get("stop");
+        var stop = configFeatures.get(Constants.STOP_COMPARATOR_NAME);
         if (stop != null && stop.isEnabled()) {
-            configBuilder.enableFeature("Stop");
+            configBuilder.enableFeature(Constants.STOP_COMPARATOR_NAME);
             var th = stop.getThreshold();
             if (th != null) {
-                configBuilder.setThreshold("Stop", th);
+                configBuilder.setThreshold(Constants.STOP_COMPARATOR_NAME, th);
             }
         }
 
-        var seq = configFeatures.get("sequence");
+        var seq = configFeatures.get(Constants.SEQUENCE_COMPARATOR_NAME);
         if (seq != null && seq.isEnabled()) {
-            configBuilder.enableFeature("Sequence");
+            configBuilder.enableFeature(Constants.SEQUENCE_COMPARATOR_NAME);
         }
 
         return configBuilder.build();

@@ -21,9 +21,6 @@ import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.utils.ResultWriter;
 import org.springframework.util.StopWatch;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.*;
 
 public class AnnotComparator {
@@ -59,8 +56,6 @@ public class AnnotComparator {
 
         ResultWriter.writeComparisonResult(comparisonResults, outputPath);
     }
-
-
 
     private List<GenePair> getGenePairs() {
         var targetGeneMap = new HashMap<String, GeneFeature>();
@@ -330,5 +325,4 @@ public class AnnotComparator {
         stopWatch.stop();
         return transcriptPairs;
     }
-
 }
