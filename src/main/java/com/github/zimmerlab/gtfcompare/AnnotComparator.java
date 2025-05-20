@@ -6,10 +6,7 @@ import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
-import com.github.zimmerlab.gtfcompare.compare.TranscriptComparisonFeature;
+import com.github.zimmerlab.gtfcompare.compare.*;
 import com.github.zimmerlab.gtfcompare.model.FeaturePair;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
@@ -28,6 +25,7 @@ public class AnnotComparator {
     private final static Logger logger = LogManager.getLogger(AnnotComparator.class);
     private static final ServiceLoader<ComparisonFeature> featureLoader = ServiceLoader.load(ComparisonFeature.class);
     private static final ServiceLoader<TranscriptComparisonFeature> transcriptLoader = ServiceLoader.load(TranscriptComparisonFeature.class);
+    private static final ServiceLoader<GeneComparisonFeature> geneLoader = ServiceLoader.load(GeneComparisonFeature.class);
     private final GtfFile targetGtf;
     private final GtfFile queryGtf;
     private final GenomeSequenceExtractor targetSequenceExtractor;
@@ -98,22 +96,22 @@ public class AnnotComparator {
         var targetTranscripts = targetGene.getTranscripts();
         var queryTranscripts = queryGene.getTranscripts();
 
-        var startStopDifferent = checkStartStop(targetTranscripts, queryTranscripts);
+        var ctx = new ComparisonContext(targetGene, queryGene, config, targetSequenceExtractor, querySequenceExtractor, targetTranscripts, queryTranscripts);
 
-        if(startStopDifferent == null)
-            return;
+        for(var comp : geneLoader) {
+            if (!config.isEnabled(comp.getName()))
+                continue;
 
-        var geneResult = result.getGeneComparison();
-        if(startStopDifferent.startDifferent){
-            geneResult.setStartDifferent(true);
-        }
+            var changed = comp.compare(ctx);
 
-        if(startStopDifferent.stopDifferent){
-            geneResult.setStartDifferent(true);
-        }
+            if (changed) {
+                addToGeneComparison(comp.getName(), result);
+            }
 
-        if(startStopDifferent.lengthDifferent){
-            geneResult.setLengthDifferent(true);
+            logger.debug(
+                    "Gene {}: {} changed: {}",
+                    targetGene.getBaseData().getType(), comp.getName(), changed
+            );
         }
     }
 
@@ -166,37 +164,11 @@ public class AnnotComparator {
                 addToTranscriptComparison(comp.getName(), transcriptComparisonResult, geneResult);
             }
 
-            System.out.printf(
-                    "Feature %s: %s changed: %b%n",
+            logger.debug(
+                    "Transcript {}: {} changed: {}",
                     targetTranscript.getBaseData().getType(), comp.getName(), changed
             );
         }
-    }
-
-    // TODO refactor to comparison logic
-    private record StartStopDifferent(boolean startDifferent, boolean stopDifferent, boolean lengthDifferent) {}
-    private StartStopDifferent checkStartStop(List<? extends GtfFeature> targetFeatures, List<? extends GtfFeature> queryFeatures) {
-        if (targetFeatures.isEmpty() || queryFeatures.isEmpty()) {
-            return null;
-        }
-
-        int minTargetStart = Integer.MAX_VALUE;
-        int maxTargetStop = Integer.MIN_VALUE;
-        for(var feature : targetFeatures) {
-            var baseData = feature.getBaseData();
-            minTargetStart = Math.min(minTargetStart, baseData.getStart());
-            maxTargetStop = Math.max(maxTargetStop, baseData.getEnd());
-        }
-
-        int minQueryStart = Integer.MAX_VALUE;
-        int maxQueryStop = Integer.MIN_VALUE;
-        for(var feature : queryFeatures) {
-            var baseData = feature.getBaseData();
-            minQueryStart = Math.min(minQueryStart, baseData.getStart());
-            maxQueryStop = Math.max(maxQueryStop, baseData.getEnd());
-        }
-
-        return new StartStopDifferent(minTargetStart != minQueryStart, maxTargetStop != maxQueryStop, maxTargetStop - minTargetStart != maxQueryStop - minQueryStart);
     }
 
     private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
@@ -288,8 +260,8 @@ public class AnnotComparator {
                 addToRegionComparison(comp.getName(), regionComparisonResult, featureComparisonResult, transcriptComparisonResult, geneResult);
             }
 
-            System.out.printf(
-                    "Feature %s: %s changed: %b%n",
+            logger.debug(
+                    "Feature {}: {} changed: {}",
                     targetFeature.getBaseData().getType(), comp.getName(), changed
             );
         }
@@ -363,6 +335,34 @@ public class AnnotComparator {
                 result.setAreSameGene(false);
 
                 transcriptComparisonResult.setStopDifferent(true);
+                break;
+            default:
+                logger.warn("Unknown comparison feature: {}", name);
+                break;
+        }
+    }
+
+    private void addToGeneComparison(String name, ComparisonResult result) {
+        var geneComparisonResult = result.getGeneComparison();
+        switch (name) {
+            case Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME:
+                result.setAreSameGene(false);
+                geneComparisonResult.setAreSameGene(false);
+
+                geneComparisonResult.setLengthDifferent(true);
+                break;
+            case Constants.TRANSCRIPT_START_COMPARATOR_NAME:
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                geneComparisonResult.setStartDifferent(true);
+
+                break;
+            case Constants.TRANSCRIPT_STOP_COMPARATOR_NAME:
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                geneComparisonResult.setStopDifferent(true);
                 break;
             default:
                 logger.warn("Unknown comparison feature: {}", name);

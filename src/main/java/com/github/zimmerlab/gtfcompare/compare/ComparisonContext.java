@@ -20,15 +20,15 @@ public class ComparisonContext {
                              ComparisonConfig config,
                              GenomeSequenceExtractor targetExtractor,
                              GenomeSequenceExtractor queryExtractor,
-                             List<? extends GtfFeature> targetTranscriptFeatures,
-                             List<? extends GtfFeature> queryTranscriptFeatures) {
+                             List<? extends GtfFeature> targetChildFeatures,
+                             List<? extends GtfFeature> queryChildFeatures) {
         this.targetFeature = targetFeature;
         this.queryFeature = queryFeature;
         this.config = config;
         this.targetExtractor = targetExtractor;
         this.queryExtractor = queryExtractor;
-        this.targetTranscriptFeatures = targetTranscriptFeatures;
-        this.queryTranscriptFeatures = queryTranscriptFeatures;
+        this.targetTranscriptFeatures = targetChildFeatures;
+        this.queryTranscriptFeatures = queryChildFeatures;
     }
 
     public GtfFeature getTargetFeature() {

@@ -9,6 +9,12 @@ import java.util.List;
 public class Constants {
     public final static List<StopWatch> STOP_WATCHES = new ArrayList<>();
 
+    // Gene Feature Comparator Names
+    public final static String GENE_LENGTH_COMPARATOR_NAME = "gene_length";
+    public final static String GENE_SEQUENCE_COMPARATOR_NAME = "gene_sequence";
+    public final static String GENE_START_COMPARATOR_NAME = "gene_start";
+    public final static String GENE_STOP_COMPARATOR_NAME = "gene_stop";
+
     // Transcript Feature Comparator Names
     public final static String LENGTH_COMPARATOR_NAME = "length";
     public final static String SEQUENCE_COMPARATOR_NAME = "sequence";

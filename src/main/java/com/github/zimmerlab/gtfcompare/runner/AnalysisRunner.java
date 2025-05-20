@@ -229,6 +229,33 @@ public class AnalysisRunner implements CommandLineRunner {
             }
         }
 
+        var geneLength = configFeatures.get(Constants.GENE_LENGTH_COMPARATOR_NAME);
+        if (geneLength != null && geneLength.isEnabled()) {
+            configBuilder.enableFeature(Constants.GENE_LENGTH_COMPARATOR_NAME);
+            var th = geneLength.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(Constants.GENE_LENGTH_COMPARATOR_NAME, th);
+            }
+        }
+
+        var geneStart = configFeatures.get(Constants.GENE_START_COMPARATOR_NAME);
+        if (geneStart != null && geneStart.isEnabled()) {
+            configBuilder.enableFeature(Constants.GENE_START_COMPARATOR_NAME);
+            var th = geneStart.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(Constants.GENE_START_COMPARATOR_NAME, th);
+            }
+        }
+
+        var geneStop = configFeatures.get(Constants.GENE_STOP_COMPARATOR_NAME);
+        if (geneStop != null && geneStop.isEnabled()) {
+            configBuilder.enableFeature(Constants.GENE_STOP_COMPARATOR_NAME);
+            var th = geneStop.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(Constants.GENE_STOP_COMPARATOR_NAME, th);
+            }
+        }
+
         var transcriptFeatures = jsonConfig.getTranscriptFeatures();
 
         for (var transcriptFeature : Constants.FEATURE_TYPES){
