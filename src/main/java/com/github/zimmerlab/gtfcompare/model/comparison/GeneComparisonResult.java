@@ -7,9 +7,11 @@ public class GeneComparisonResult {
     private boolean startDifferent;
     private boolean stopDifferent;
     private boolean differentLength;
+    private boolean sequenceDifferent;
     private boolean strandDifferent;
     private boolean missingInTargetFile;
     private boolean missingInQueryFile;
+    private boolean areSameGene = true;
     private SequenceComparisonResult sequenceComparison;
 
     // optional infos (gene name, errors, ...)
@@ -44,7 +46,7 @@ public class GeneComparisonResult {
         return differentLength;
     }
 
-    public void setDifferentLength(boolean differentLength) {
+    public void setLengthDifferent(boolean differentLength) {
         this.differentLength = differentLength;
     }
 
@@ -64,6 +66,13 @@ public class GeneComparisonResult {
         this.missingInTargetFile = missingInTargetFile;
     }
 
+    public boolean isSequenceDifferent() {
+        return sequenceDifferent;
+    }
+    public void setSequenceDifferent(boolean sequenceDifferent) {
+        this.sequenceDifferent = sequenceDifferent;
+    }
+
     public SequenceComparisonResult getSequenceComparison() {
         if (sequenceComparison == null) {
             sequenceComparison = new SequenceComparisonResult();
@@ -81,5 +90,13 @@ public class GeneComparisonResult {
 
     public void addMessage(String message) {
         this.messages.add(message);
+    }
+
+    public void setAreSameGene(boolean areSameGene) {
+        this.areSameGene = areSameGene;
+    }
+
+    public boolean areSameGene() {
+        return areSameGene;
     }
 }

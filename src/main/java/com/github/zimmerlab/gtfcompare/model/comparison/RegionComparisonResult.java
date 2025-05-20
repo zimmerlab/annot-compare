@@ -79,7 +79,7 @@ public class RegionComparisonResult {
         return lengthDifferenceFound;
     }
 
-    public void setLengthDifferenceFound(boolean lengthDifferenceFound) {
+    public void setLengthDifferent(boolean lengthDifferenceFound) {
         this.lengthDifferenceFound = lengthDifferenceFound;
     }
 

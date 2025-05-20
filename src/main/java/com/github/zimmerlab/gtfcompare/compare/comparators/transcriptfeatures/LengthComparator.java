@@ -1,4 +1,4 @@
-package com.github.zimmerlab.gtfcompare.compare.comparators;
+package com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures;
 
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;

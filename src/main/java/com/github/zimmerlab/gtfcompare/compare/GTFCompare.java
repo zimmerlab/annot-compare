@@ -59,7 +59,7 @@ public class GTFCompare {
         var stop2 = queryBaseData.getEnd();
 
         if ((stop1 - start1) != (stop2 - start2)) {
-            geneComparisonResult.setDifferentLength(true);
+            geneComparisonResult.setLengthDifferent(true);
             comparisonResult.setAreSameGene(false);
         }
 
@@ -316,7 +316,7 @@ public class GTFCompare {
                 featureComparisons.add(featureComparisonResult);
 
                 if (length1 != length2) {
-                    regionComparison.setLengthDifferenceFound(true);
+                    regionComparison.setLengthDifferent(true);
                     regionComparison.setSequenceDifferenceFound(true);
                     comparisonResult.setAreSameGene(false);
                 }

@@ -202,6 +202,46 @@ public class AnalysisRunner implements CommandLineRunner {
             configBuilder.enableFeature(Constants.SEQUENCE_COMPARATOR_NAME);
         }
 
+        var transcriptLength = configFeatures.get(Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME);
+        if (transcriptLength != null && transcriptLength.isEnabled()) {
+            configBuilder.enableFeature(Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME);
+            var th = transcriptLength.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME, th);
+            }
+        }
+
+        var transcriptStart = configFeatures.get(Constants.TRANSCRIPT_START_COMPARATOR_NAME);
+        if (transcriptStart != null && transcriptStart.isEnabled()) {
+            configBuilder.enableFeature(Constants.TRANSCRIPT_START_COMPARATOR_NAME);
+            var th = transcriptStart.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(Constants.TRANSCRIPT_START_COMPARATOR_NAME, th);
+            }
+        }
+
+        var transcriptStop = configFeatures.get(Constants.TRANSCRIPT_STOP_COMPARATOR_NAME);
+        if (transcriptStop != null && transcriptStop.isEnabled()) {
+            configBuilder.enableFeature(Constants.TRANSCRIPT_STOP_COMPARATOR_NAME);
+            var th = transcriptStop.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(Constants.TRANSCRIPT_STOP_COMPARATOR_NAME, th);
+            }
+        }
+
+        var transcriptFeatures = jsonConfig.getTranscriptFeatures();
+
+        for (var transcriptFeature : Constants.FEATURE_TYPES){
+            var feature = transcriptFeatures.get(transcriptFeature);
+            if (feature != null && feature.isEnabled()) {
+                configBuilder.enableTranscriptTranscriptFeatures(transcriptFeature);
+                /*var th = feature.getThreshold();
+                if (th != null) {
+                    configBuilder.setThreshold(transcriptFeature, th);
+                }*/
+            }
+        }
+
         return configBuilder.build();
     }
 }

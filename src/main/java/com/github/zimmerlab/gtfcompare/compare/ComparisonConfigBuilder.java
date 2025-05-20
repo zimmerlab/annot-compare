@@ -9,6 +9,7 @@ import java.util.Set;
 
 public class ComparisonConfigBuilder {
     private final Set<String> enabledFeatures = new HashSet<>();
+    private final Set<String> enabledTranscriptFeatures = new HashSet<>();
     private final Map<String, Double> thresholds = new HashMap<>();
     private final Map<String, Impact> impactLevels = new HashMap<>();
 
@@ -16,6 +17,12 @@ public class ComparisonConfigBuilder {
         enabledFeatures.add(name);
         return this;
     }
+
+    public ComparisonConfigBuilder enableTranscriptTranscriptFeatures(String name) {
+        enabledTranscriptFeatures.add(name);
+        return this;
+    }
+
     public ComparisonConfigBuilder setThreshold(String name, double value) {
         thresholds.put(name, value);
         return this;
@@ -26,6 +33,6 @@ public class ComparisonConfigBuilder {
         return this;
     }
     public ComparisonConfig build() {
-        return new ComparisonConfig(enabledFeatures, thresholds);
+        return new ComparisonConfig(enabledFeatures, enabledTranscriptFeatures, thresholds);
     }
 }

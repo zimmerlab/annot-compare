@@ -8,15 +8,17 @@ import java.util.Set;
 
 public class ComparisonConfig {
     private final Set<String> enabledFeatures;
+    private final Set<String> enabledTranscriptFeatures;
     private final Map<String, Double> thresholds;
 
-    ComparisonConfig(Set<String> enabledFeatures, Map<String, Double> thresholds) {
+    ComparisonConfig(Set<String> enabledFeatures, Set<String> enabledTranscriptFeatures, Map<String, Double> thresholds) {
         this.enabledFeatures = enabledFeatures;
+        this.enabledTranscriptFeatures = enabledTranscriptFeatures;
         this.thresholds = thresholds;
     }
 
     public boolean isEnabled(String feature) {
-        return enabledFeatures.contains(feature);
+        return enabledFeatures.contains(feature) || enabledTranscriptFeatures.contains(feature);
     }
 
     public Double getThreshold(String feature) {

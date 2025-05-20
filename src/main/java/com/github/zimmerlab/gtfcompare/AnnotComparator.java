@@ -9,23 +9,25 @@ import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
+import com.github.zimmerlab.gtfcompare.compare.TranscriptComparisonFeature;
 import com.github.zimmerlab.gtfcompare.model.FeaturePair;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
-import com.github.zimmerlab.gtfcompare.model.comparison.ComparisonResult;
-import com.github.zimmerlab.gtfcompare.model.comparison.FeatureComparisonResult;
-import com.github.zimmerlab.gtfcompare.model.comparison.RegionComparisonResult;
-import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
+import com.github.zimmerlab.gtfcompare.model.comparison.*;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.utils.ResultWriter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.util.StopWatch;
 
 import java.util.*;
 
 public class AnnotComparator {
     private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
-    private static final ServiceLoader<ComparisonFeature> loader = ServiceLoader.load(ComparisonFeature.class);
+    private final static Logger logger = LogManager.getLogger(AnnotComparator.class);
+    private static final ServiceLoader<ComparisonFeature> featureLoader = ServiceLoader.load(ComparisonFeature.class);
+    private static final ServiceLoader<TranscriptComparisonFeature> transcriptLoader = ServiceLoader.load(TranscriptComparisonFeature.class);
     private final GtfFile targetGtf;
     private final GtfFile queryGtf;
     private final GenomeSequenceExtractor targetSequenceExtractor;
@@ -83,21 +85,49 @@ public class AnnotComparator {
     }
 
     private void compareGene(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult result) {
-
-        if (targetGene == null) {
-            result.setAreSameGene(false);
-            result.getGeneComparison().setMissingInTargetFile(true);
-            return;
-        }
-        if (queryGene == null) {
-            result.setAreSameGene(false);
-            result.getGeneComparison().setMissingInQueryFile(true);
+        if(targetGene == null || queryGene == null) {
+            handleMissingGene(targetGene == null, result);
             return;
         }
 
         var transcriptPairs = getTranscriptPairs(targetGene, queryGene, result);
         for (var tp : transcriptPairs) {
             compareTranscript(tp, result);
+        }
+
+        var targetTranscripts = targetGene.getTranscripts();
+        var queryTranscripts = queryGene.getTranscripts();
+
+        var startStopDifferent = checkStartStop(targetTranscripts, queryTranscripts);
+
+        if(startStopDifferent == null)
+            return;
+
+        var geneResult = result.getGeneComparison();
+        if(startStopDifferent.startDifferent){
+            geneResult.setStartDifferent(true);
+        }
+
+        if(startStopDifferent.stopDifferent){
+            geneResult.setStartDifferent(true);
+        }
+
+        if(startStopDifferent.lengthDifferent){
+            geneResult.setLengthDifferent(true);
+        }
+    }
+
+    private void handleMissingGene(boolean isTargetNull, ComparisonResult result) {
+        if (isTargetNull) {
+            result.setAreSameGene(false);
+            var geneComparison = result.getGeneComparison();
+            geneComparison.setAreSameGene(false);
+            geneComparison.setMissingInTargetFile(true);
+        } else {
+            result.setAreSameGene(false);
+            var geneComparison = result.getGeneComparison();
+            geneComparison.setAreSameGene(false);
+            geneComparison.setMissingInQueryFile(true);
         }
     }
 
@@ -115,11 +145,58 @@ public class AnnotComparator {
         transcriptComparisonResult.setTargetTranscriptId(targetTranscript.getTranscriptId());
         transcriptComparisonResult.setQueryTranscriptId(queryTranscript.getTranscriptId());
 
+
         var targetMap = mapFeaturesByType(targetTranscript);
         var queryMap = mapFeaturesByType(queryTranscript);
 
         compareFeatures(targetMap, queryMap, transcriptComparisonResult, geneResult);
 
+        // todo mby checken ob aktiviert in config?
+        var targetFeatures = targetTranscript.getFeatures();
+        var queryFeatures = queryTranscript.getFeatures();
+
+        var ctx = new ComparisonContext(targetTranscript, queryTranscript, config, targetSequenceExtractor, querySequenceExtractor, targetFeatures, queryFeatures);
+        for (var comp : transcriptLoader) {
+            if (!config.isEnabled(comp.getName()))
+                continue;
+
+            var changed = comp.compare(ctx);
+
+            if (changed) {
+                addToTranscriptComparison(comp.getName(), transcriptComparisonResult, geneResult);
+            }
+
+            System.out.printf(
+                    "Feature %s: %s changed: %b%n",
+                    targetTranscript.getBaseData().getType(), comp.getName(), changed
+            );
+        }
+    }
+
+    // TODO refactor to comparison logic
+    private record StartStopDifferent(boolean startDifferent, boolean stopDifferent, boolean lengthDifferent) {}
+    private StartStopDifferent checkStartStop(List<? extends GtfFeature> targetFeatures, List<? extends GtfFeature> queryFeatures) {
+        if (targetFeatures.isEmpty() || queryFeatures.isEmpty()) {
+            return null;
+        }
+
+        int minTargetStart = Integer.MAX_VALUE;
+        int maxTargetStop = Integer.MIN_VALUE;
+        for(var feature : targetFeatures) {
+            var baseData = feature.getBaseData();
+            minTargetStart = Math.min(minTargetStart, baseData.getStart());
+            maxTargetStop = Math.max(maxTargetStop, baseData.getEnd());
+        }
+
+        int minQueryStart = Integer.MAX_VALUE;
+        int maxQueryStop = Integer.MIN_VALUE;
+        for(var feature : queryFeatures) {
+            var baseData = feature.getBaseData();
+            minQueryStart = Math.min(minQueryStart, baseData.getStart());
+            maxQueryStop = Math.max(maxQueryStop, baseData.getEnd());
+        }
+
+        return new StartStopDifferent(minTargetStart != minQueryStart, maxTargetStop != maxQueryStop, maxTargetStop - minTargetStart != maxQueryStop - minQueryStart);
     }
 
     private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
@@ -140,6 +217,8 @@ public class AnnotComparator {
         var map = new HashMap<String, List<GtfFeature>>();
         for (var f : transcriptFeature.getFeatures()) {
             var type = GtfConfig.getDefault(f.getBaseData().getType());
+            if(!config.isEnabled(type))
+                continue;
             map.computeIfAbsent(type, k -> new ArrayList<>()).add(f);
         }
         return map;
@@ -148,7 +227,7 @@ public class AnnotComparator {
     private void compareFeatures(Map<String, List<GtfFeature>> targetMap, Map<String, List<GtfFeature>> queryMap, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
 
         for (var entry : targetMap.entrySet()) {
-            var featureType = entry.getKey();
+            String featureType = entry.getKey();
             List<GtfFeature> targets = entry.getValue();
             List<GtfFeature> queries = queryMap.getOrDefault(featureType, List.of());
 
@@ -198,8 +277,8 @@ public class AnnotComparator {
 
         var regionComparisonResult = new RegionComparisonResult(targetBaseData.getStart(), targetBaseData.getEnd(), queryBaseData.getStart(), queryBaseData.getEnd());
         featureComparisonResult.addRegionComparison(regionComparisonResult);
-        var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor);
-        for (var comp : loader) {
+        var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor, null, null);
+        for (var comp : featureLoader) {
             if (!config.isEnabled(comp.getName()))
                 continue;
 
@@ -216,35 +295,77 @@ public class AnnotComparator {
         }
     }
 
-    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult, FeatureComparisonResult featureComparisonResult ,TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
+    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult, FeatureComparisonResult featureComparisonResult ,TranscriptComparisonResult transcriptComparisonResult, ComparisonResult result) {
+        var geneComparisonResult = result.getGeneComparison();
         switch (name) {
             case Constants.LENGTH_COMPARATOR_NAME:
                 transcriptComparisonResult.setAreSameTranscript(false);
-                geneResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+                geneComparisonResult.setAreSameGene(false);
                 featureComparisonResult.setAreSameFeatures(false);
-                regionComparisonResult.setLengthDifferenceFound(true);
+
+                regionComparisonResult.setLengthDifferent(true);
                 break;
             case Constants.SEQUENCE_COMPARATOR_NAME:
                 transcriptComparisonResult.setAreSameTranscript(false);
-                geneResult.setAreSameGene(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
                 featureComparisonResult.setAreSameFeatures(false);
+
                 regionComparisonResult.setSequenceDifferenceFound(true);
+                transcriptComparisonResult.setSequenceDifferent(true);
+                geneComparisonResult.setSequenceDifferent(true);
                 // TODO Add Sequence Difference
                 break;
             case Constants.START_COMPARATOR_NAME:
                 transcriptComparisonResult.setAreSameTranscript(false);
-                geneResult.setAreSameGene(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
                 featureComparisonResult.setAreSameFeatures(false);
+
                 regionComparisonResult.setStartDifferent(true);
                 break;
             case Constants.STOP_COMPARATOR_NAME:
                 transcriptComparisonResult.setAreSameTranscript(false);
-                geneResult.setAreSameGene(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
                 featureComparisonResult.setAreSameFeatures(false);
+
                 regionComparisonResult.setEndDifferent(true);
                 break;
             default:
-                // TODO add logging
+                logger.warn("Unknown comparison feature: {}", name);
+                break;
+        }
+    }
+
+    private void addToTranscriptComparison(String name, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult result) {
+        var geneComparisonResult = result.getGeneComparison();
+        switch (name) {
+            case Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                result.setAreSameGene(false);
+                geneComparisonResult.setAreSameGene(false);
+
+                transcriptComparisonResult.setLengthDifferent(true);
+                break;
+            case Constants.TRANSCRIPT_START_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                transcriptComparisonResult.setStartDifferent(true);
+
+                break;
+            case Constants.TRANSCRIPT_STOP_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                transcriptComparisonResult.setStopDifferent(true);
+                break;
+            default:
+                logger.warn("Unknown comparison feature: {}", name);
                 break;
         }
     }
@@ -252,9 +373,10 @@ public class AnnotComparator {
     private void markMissingFeature(
             GtfFeature targetFeature, GtfFeature queryFeature,
             FeatureComparisonResult featRes, TranscriptComparisonResult transcriptComparisonResult,
-            ComparisonResult geneResult) {
+            ComparisonResult comparisonResult) {
 
-        geneResult.setAreSameGene(false);
+        comparisonResult.setAreSameGene(false);
+        comparisonResult.getGeneComparison().setAreSameGene(false);
         transcriptComparisonResult.setAreSameTranscript(false);
         featRes.setAreSameFeatures(false);
         if (targetFeature == null) {
@@ -284,11 +406,13 @@ public class AnnotComparator {
         a.sort(byStartThenEnd);
         b.sort(byStartThenEnd);
 
-        var n = Math.max(a.size(), b.size());
+        var aSize = a.size();
+        var bSize = b.size();
+        var n = Math.max(aSize, bSize);
         var pairs = new ArrayList<FeaturePair>(n);
         for (int i = 0; i < n; i++) {
-            GtfFeature ta = i < a.size() ? a.get(i) : null;
-            GtfFeature qb = i < b.size() ? b.get(i) : null;
+            GtfFeature ta = i < aSize ? a.get(i) : null;
+            GtfFeature qb = i < bSize ? b.get(i) : null;
             pairs.add(new FeaturePair(ta, qb));
         }
         return pairs;
