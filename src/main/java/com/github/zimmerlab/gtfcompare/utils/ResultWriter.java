@@ -86,8 +86,11 @@ public class ResultWriter {
                                 if (regionComparison.isLengthDifferenceFound()) {
                                     writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tlength\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId() + "\n");
                                 }
-                                if (regionComparison.isPositionDifferenceFound()) {
-                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tposition\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId()+ "\n");
+                                if (regionComparison.isStartDifferent()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tstart\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId()+ "\n");
+                                }
+                                if (regionComparison.isEndDifferent()) {
+                                    writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tstop\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId()+ "\n");
                                 }
                                 if (regionComparison.isSequenceDifferenceFound()) {
                                     writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tseq\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId() + "\n");
