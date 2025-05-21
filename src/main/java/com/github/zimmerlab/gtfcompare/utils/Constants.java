@@ -14,6 +14,8 @@ public class Constants {
     public final static String GENE_SEQUENCE_COMPARATOR_NAME = "gene_sequence";
     public final static String GENE_START_COMPARATOR_NAME = "gene_start";
     public final static String GENE_STOP_COMPARATOR_NAME = "gene_stop";
+    public final static String GENE_STRAND_COMPARATOR_NAME = "gene_strand";
+    public final static String GENE_CONTIG_COMPARATOR_NAME = "gene_contig";
 
     // Transcript Feature Comparator Names
     public final static String LENGTH_COMPARATOR_NAME = "length";

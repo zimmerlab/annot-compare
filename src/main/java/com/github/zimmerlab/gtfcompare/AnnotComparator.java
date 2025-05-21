@@ -306,7 +306,7 @@ public class AnnotComparator {
                 regionComparisonResult.setEndDifferent(true);
                 break;
             default:
-                logger.warn("Unknown comparison feature: {}", name);
+                logger.warn("Unknown gene comparison feature: {}", name);
                 break;
         }
     }
@@ -337,7 +337,7 @@ public class AnnotComparator {
                 transcriptComparisonResult.setStopDifferent(true);
                 break;
             default:
-                logger.warn("Unknown comparison feature: {}", name);
+                logger.warn("Unknown transcript comparison feature: {}", name);
                 break;
         }
     }
@@ -345,27 +345,40 @@ public class AnnotComparator {
     private void addToGeneComparison(String name, ComparisonResult result) {
         var geneComparisonResult = result.getGeneComparison();
         switch (name) {
-            case Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME:
+            case Constants.GENE_LENGTH_COMPARATOR_NAME:
                 result.setAreSameGene(false);
                 geneComparisonResult.setAreSameGene(false);
 
                 geneComparisonResult.setLengthDifferent(true);
                 break;
-            case Constants.TRANSCRIPT_START_COMPARATOR_NAME:
+            case Constants.GENE_START_COMPARATOR_NAME:
                 geneComparisonResult.setAreSameGene(false);
                 result.setAreSameGene(false);
 
                 geneComparisonResult.setStartDifferent(true);
 
                 break;
-            case Constants.TRANSCRIPT_STOP_COMPARATOR_NAME:
+            case Constants.GENE_STOP_COMPARATOR_NAME:
                 geneComparisonResult.setAreSameGene(false);
                 result.setAreSameGene(false);
 
                 geneComparisonResult.setStopDifferent(true);
                 break;
+            case Constants.GENE_STRAND_COMPARATOR_NAME:
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                geneComparisonResult.setStrandDifferent(true);
+                break;
+
+            case Constants.GENE_CONTIG_COMPARATOR_NAME:
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                geneComparisonResult.setContigDifferent(true);
+                break;
             default:
-                logger.warn("Unknown comparison feature: {}", name);
+                logger.warn("Unknown gene comparison feature: {}", name);
                 break;
         }
     }

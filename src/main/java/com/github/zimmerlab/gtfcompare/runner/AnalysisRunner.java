@@ -256,6 +256,16 @@ public class AnalysisRunner implements CommandLineRunner {
             }
         }
 
+        var geneStrand = configFeatures.get(Constants.GENE_STRAND_COMPARATOR_NAME);
+        if (geneStrand != null && geneStrand.isEnabled()) {
+            configBuilder.enableFeature(Constants.GENE_STRAND_COMPARATOR_NAME);
+        }
+
+        var geneContig = configFeatures.get(Constants.GENE_CONTIG_COMPARATOR_NAME);
+        if (geneContig != null && geneContig.isEnabled()) {
+            configBuilder.enableFeature(Constants.GENE_CONTIG_COMPARATOR_NAME);
+        }
+
         var transcriptFeatures = jsonConfig.getTranscriptFeatures();
 
         for (var transcriptFeature : Constants.FEATURE_TYPES){

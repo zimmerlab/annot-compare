@@ -9,6 +9,7 @@ public class GeneComparisonResult {
     private boolean differentLength;
     private boolean sequenceDifferent;
     private boolean strandDifferent;
+    private boolean contigDifferent;
     private boolean missingInTargetFile;
     private boolean missingInQueryFile;
     private boolean areSameGene = true;
@@ -98,5 +99,12 @@ public class GeneComparisonResult {
 
     public boolean areSameGene() {
         return areSameGene;
+    }
+
+    public boolean isContigDifferent() {
+        return contigDifferent;
+    }
+    public void setContigDifferent(boolean contigDifferent) {
+        this.contigDifferent = contigDifferent;
     }
 }
