@@ -6,6 +6,7 @@ import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
+import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
@@ -165,113 +166,43 @@ public class AnalysisRunner implements CommandLineRunner {
         var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"));
         annotCompare.compare();
     }
+
     private static ComparisonConfig getComparisonConfig(ConfigJSON jsonConfig) {
         var configBuilder = new ComparisonConfigBuilder();
 
         var configFeatures = jsonConfig.getFeatures();
 
-        var length = configFeatures.get(Constants.LENGTH_COMPARATOR_NAME);
-        if (length != null && length.isEnabled()) {
-            configBuilder.enableFeature(Constants.LENGTH_COMPARATOR_NAME);
-            var th = length.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.LENGTH_COMPARATOR_NAME, th);
-            }
-        }
+        // FEATURE COMPARATORS
+        enableFeatureWithThreshold(configBuilder, Constants.LENGTH_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.START_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.STOP_COMPARATOR_NAME, configFeatures);
 
-        var start = configFeatures.get(Constants.START_COMPARATOR_NAME);
-        if (start != null && start.isEnabled()) {
-            configBuilder.enableFeature(Constants.START_COMPARATOR_NAME);
-            var th = start.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.START_COMPARATOR_NAME, th);
-            }
-        }
+        enableFeature(configBuilder, Constants.SEQUENCE_COMPARATOR_NAME, configFeatures);
+        enableFeature(configBuilder, Constants.SAME_PROTEIN_COMPARATOR_NAME, configFeatures);
 
-        var stop = configFeatures.get(Constants.STOP_COMPARATOR_NAME);
-        if (stop != null && stop.isEnabled()) {
-            configBuilder.enableFeature(Constants.STOP_COMPARATOR_NAME);
-            var th = stop.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.STOP_COMPARATOR_NAME, th);
-            }
-        }
 
-        var seq = configFeatures.get(Constants.SEQUENCE_COMPARATOR_NAME);
-        if (seq != null && seq.isEnabled()) {
-            configBuilder.enableFeature(Constants.SEQUENCE_COMPARATOR_NAME);
-        }
+        // TRANSCRIPT COMPARATORS
 
-        var transcriptLength = configFeatures.get(Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME);
-        if (transcriptLength != null && transcriptLength.isEnabled()) {
-            configBuilder.enableFeature(Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME);
-            var th = transcriptLength.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME, th);
-            }
-        }
+        enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_START_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_STOP_COMPARATOR_NAME, configFeatures);
 
-        var transcriptStart = configFeatures.get(Constants.TRANSCRIPT_START_COMPARATOR_NAME);
-        if (transcriptStart != null && transcriptStart.isEnabled()) {
-            configBuilder.enableFeature(Constants.TRANSCRIPT_START_COMPARATOR_NAME);
-            var th = transcriptStart.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.TRANSCRIPT_START_COMPARATOR_NAME, th);
-            }
-        }
 
-        var transcriptStop = configFeatures.get(Constants.TRANSCRIPT_STOP_COMPARATOR_NAME);
-        if (transcriptStop != null && transcriptStop.isEnabled()) {
-            configBuilder.enableFeature(Constants.TRANSCRIPT_STOP_COMPARATOR_NAME);
-            var th = transcriptStop.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.TRANSCRIPT_STOP_COMPARATOR_NAME, th);
-            }
-        }
+        // GENE COMPARATORS
 
-        var geneLength = configFeatures.get(Constants.GENE_LENGTH_COMPARATOR_NAME);
-        if (geneLength != null && geneLength.isEnabled()) {
-            configBuilder.enableFeature(Constants.GENE_LENGTH_COMPARATOR_NAME);
-            var th = geneLength.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.GENE_LENGTH_COMPARATOR_NAME, th);
-            }
-        }
+        enableFeatureWithThreshold(configBuilder, Constants.GENE_LENGTH_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.START_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.STOP_COMPARATOR_NAME, configFeatures);
 
-        var geneStart = configFeatures.get(Constants.GENE_START_COMPARATOR_NAME);
-        if (geneStart != null && geneStart.isEnabled()) {
-            configBuilder.enableFeature(Constants.GENE_START_COMPARATOR_NAME);
-            var th = geneStart.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.GENE_START_COMPARATOR_NAME, th);
-            }
-        }
-
-        var geneStop = configFeatures.get(Constants.GENE_STOP_COMPARATOR_NAME);
-        if (geneStop != null && geneStop.isEnabled()) {
-            configBuilder.enableFeature(Constants.GENE_STOP_COMPARATOR_NAME);
-            var th = geneStop.getThreshold();
-            if (th != null) {
-                configBuilder.setThreshold(Constants.GENE_STOP_COMPARATOR_NAME, th);
-            }
-        }
-
-        var geneStrand = configFeatures.get(Constants.GENE_STRAND_COMPARATOR_NAME);
-        if (geneStrand != null && geneStrand.isEnabled()) {
-            configBuilder.enableFeature(Constants.GENE_STRAND_COMPARATOR_NAME);
-        }
-
-        var geneContig = configFeatures.get(Constants.GENE_CONTIG_COMPARATOR_NAME);
-        if (geneContig != null && geneContig.isEnabled()) {
-            configBuilder.enableFeature(Constants.GENE_CONTIG_COMPARATOR_NAME);
-        }
+        enableFeature(configBuilder, Constants.GENE_STRAND_COMPARATOR_NAME, configFeatures);
+        enableFeature(configBuilder, Constants.GENE_CONTIG_COMPARATOR_NAME, configFeatures);
 
         var transcriptFeatures = jsonConfig.getTranscriptFeatures();
 
-        for (var transcriptFeature : Constants.FEATURE_TYPES){
+        for (var transcriptFeature : Constants.FEATURE_TYPES) {
             var feature = transcriptFeatures.get(transcriptFeature);
             if (feature != null && feature.isEnabled()) {
-                configBuilder.enableTranscriptTranscriptFeatures(transcriptFeature);
+                configBuilder.enableTranscriptFeatures(transcriptFeature);
                 /*var th = feature.getThreshold();
                 if (th != null) {
                     configBuilder.setThreshold(transcriptFeature, th);
@@ -281,4 +212,23 @@ public class AnalysisRunner implements CommandLineRunner {
 
         return configBuilder.build();
     }
+
+    private static void enableFeature(ComparisonConfigBuilder configBuilder, String featureName, Map<String, FeatureConfig> featureConfig) {
+        var feature = featureConfig.get(featureName);
+        if (feature != null && feature.isEnabled()) {
+            configBuilder.enableFeature(featureName);
+        }
+    }
+
+    private static void enableFeatureWithThreshold(ComparisonConfigBuilder configBuilder, String featureName, Map<String, FeatureConfig> featureConfig) {
+        var feature = featureConfig.get(featureName);
+        if (feature != null && feature.isEnabled()) {
+            configBuilder.enableFeature(featureName);
+            var th = feature.getThreshold();
+            if (th != null) {
+                configBuilder.setThreshold(featureName, th);
+            }
+        }
+    }
+
 }

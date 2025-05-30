@@ -5,5 +5,5 @@ public interface ComparisonFeature {
 
     String getName();
 
-    boolean compare(ComparisonContext ctx);
+    boolean compare(ComparisonContext ctx) throws Exception;
 }

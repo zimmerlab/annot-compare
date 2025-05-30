@@ -15,6 +15,8 @@ public class ComparisonContext {
     private final List<? extends GtfFeature> targetTranscriptFeatures;
     private final List<? extends GtfFeature> queryTranscriptFeatures;
 
+    private Boolean lengthChanged = null;
+
     public ComparisonContext(GtfFeature targetFeature,
                              GtfFeature queryFeature,
                              ComparisonConfig config,
@@ -57,5 +59,13 @@ public class ComparisonContext {
 
     public Optional<List<? extends GtfFeature>> getQueryTranscriptFeatures() {
         return Optional.ofNullable(queryTranscriptFeatures);
+    }
+
+    public void setLengthChanged(Boolean lengthChanged) {
+        this.lengthChanged = lengthChanged;
+    }
+
+    public Boolean hasLengthChanged() {
+        return lengthChanged;
     }
 }

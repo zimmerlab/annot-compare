@@ -2,3 +2,4 @@ com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures.StartComp
 com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures.StopComparator
 com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures.LengthComparator
 com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures.SequenceComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures.SameProteinComparator

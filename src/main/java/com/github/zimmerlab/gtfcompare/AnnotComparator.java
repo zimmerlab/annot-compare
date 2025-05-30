@@ -254,7 +254,12 @@ public class AnnotComparator {
             if (!config.isEnabled(comp.getName()))
                 continue;
 
-            var changed = comp.compare(ctx);
+            boolean changed;
+            try {
+                changed = comp.compare(ctx);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
 
             if (changed) {
                 addToRegionComparison(comp.getName(), regionComparisonResult, featureComparisonResult, transcriptComparisonResult, geneResult);

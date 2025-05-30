@@ -82,6 +82,7 @@ public class ResultWriter {
                                 writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tmissingInTranscript2\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId() + "\n");
                             }
 
+                            // TODO add exon id
                             for (RegionComparisonResult regionComparison : featureComparison.getRegionComparisons()) {
                                 if (regionComparison.isLengthDifferenceFound()) {
                                     writer.write(targetGeneId + "\t" + queryGeneId+ "\t" + featureComparison.getFeatureType() + "\tlength\t" + transcriptComparison.getTargetTranscriptId() + "\t"  + transcriptComparison.getQueryTranscriptId() + "\n");

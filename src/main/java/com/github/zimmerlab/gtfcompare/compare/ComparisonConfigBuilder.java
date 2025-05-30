@@ -18,7 +18,7 @@ public class ComparisonConfigBuilder {
         return this;
     }
 
-    public ComparisonConfigBuilder enableTranscriptTranscriptFeatures(String name) {
+    public ComparisonConfigBuilder enableTranscriptFeatures(String name) {
         enabledTranscriptFeatures.add(name);
         return this;
     }
