@@ -24,6 +24,7 @@ public class AnnotComparator {
     private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
     private final static Logger logger = LogManager.getLogger(AnnotComparator.class);
     private static final ServiceLoader<ComparisonFeature> featureLoader = ServiceLoader.load(ComparisonFeature.class);
+    private static final ServiceLoader<CDSComparisonFeature> cdsLoader = ServiceLoader.load(CDSComparisonFeature.class);
     private static final ServiceLoader<TranscriptComparisonFeature> transcriptLoader = ServiceLoader.load(TranscriptComparisonFeature.class);
     private static final ServiceLoader<GeneComparisonFeature> geneLoader = ServiceLoader.load(GeneComparisonFeature.class);
     private final GtfFile targetGtf;
@@ -250,7 +251,12 @@ public class AnnotComparator {
         var regionComparisonResult = new RegionComparisonResult(targetBaseData.getStart(), targetBaseData.getEnd(), queryBaseData.getStart(), queryBaseData.getEnd());
         featureComparisonResult.addRegionComparison(regionComparisonResult);
         var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor, null, null);
-        for (var comp : featureLoader) {
+        var currentFeatureType = targetBaseData.getType();
+        ServiceLoader<? extends ComparisonFeature> currentLoader = featureLoader;
+        if(Constants.CDS.equals(GtfConfig.getDefault(currentFeatureType))){
+            currentLoader = cdsLoader;
+        }
+        for (var comp : currentLoader) {
             if (!config.isEnabled(comp.getName()))
                 continue;
 

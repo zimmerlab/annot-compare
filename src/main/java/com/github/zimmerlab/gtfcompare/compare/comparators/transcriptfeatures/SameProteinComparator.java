@@ -1,12 +1,13 @@
 package com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures;
 
+import com.github.zimmerlab.gtfcompare.compare.CDSComparisonFeature;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 
 import java.util.Map;
 
-public class SameProteinComparator implements ComparisonFeature {
+public class SameProteinComparator implements CDSComparisonFeature {
     private static final Map<String, Character> CODON_TABLE = Constants.CODON_TABLE;
     @Override
     public String getName() {

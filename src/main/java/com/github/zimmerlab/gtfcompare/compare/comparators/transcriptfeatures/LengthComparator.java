@@ -1,10 +1,11 @@
 package com.github.zimmerlab.gtfcompare.compare.comparators.transcriptfeatures;
 
+import com.github.zimmerlab.gtfcompare.compare.CDSComparisonFeature;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 
-public class LengthComparator implements ComparisonFeature {
+public class LengthComparator implements ComparisonFeature, CDSComparisonFeature {
 
     public LengthComparator() {}
     @Override
