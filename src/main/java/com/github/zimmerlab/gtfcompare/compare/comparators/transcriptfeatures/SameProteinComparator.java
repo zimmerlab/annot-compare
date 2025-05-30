@@ -48,22 +48,22 @@ public class SameProteinComparator implements ComparisonFeature {
     }
 
     private boolean isSameProtein(String targetProtein, String queryProtein) {
-        for (int i = 0; i < targetProtein.length(); i += 3) {
-            String codon1 = targetProtein.substring(i, i + 3).toUpperCase();
-            String codon2 = queryProtein.substring(i, i + 3).toUpperCase();
+        for (int i = 0; i + 3 < targetProtein.length(); i += 3) {
+            String targetCodon = targetProtein.substring(i, i + 3);
+            String queryCodon = queryProtein.substring(i, i + 3);
 
-            Character aa1 = CODON_TABLE.get(codon1);
-            Character aa2 = CODON_TABLE.get(codon2);
-            if (aa1 == null || aa2 == null) {
+            Character targetAA = CODON_TABLE.get(targetCodon);
+            Character queryAA = CODON_TABLE.get(queryCodon);
+            if (targetAA == null || queryAA == null) {
                 throw new IllegalArgumentException("Invalid Codon: "
-                        + (aa1==null ? codon1 : codon2));
+                        + (targetAA ==null ? targetCodon : queryCodon));
             }
 
-            if (!aa1.equals(aa2)) {
+            if (!targetAA.equals(queryAA)) {
                 return false;
             }
 
-            if (aa1 == '*') {
+            if (targetAA == '*') {
                 return true;
             }
         }

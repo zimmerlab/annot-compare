@@ -13,6 +13,7 @@ public class RegionComparisonResult {
     private boolean sequenceDifferenceFound;
     private boolean isMissingInTargetFile;
     private boolean isMissingInQueryFile;
+    private boolean isProteinDifferent;
 
     public RegionComparisonResult(int targetStart, int targetEnd, int queryStart, int queryEnd){
         this.targetStart = targetStart;
@@ -113,5 +114,13 @@ public class RegionComparisonResult {
 
     public void setStartDifferent(boolean startDifferent) {
         this.startDifferent = startDifferent;
+    }
+
+    public boolean isProteinDifferent() {
+        return isProteinDifferent;
+    }
+
+    public void setProteinDifferent(boolean proteinDifferent) {
+        isProteinDifferent = proteinDifferent;
     }
 }

@@ -310,6 +310,14 @@ public class AnnotComparator {
 
                 regionComparisonResult.setEndDifferent(true);
                 break;
+            case Constants.SAME_PROTEIN_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+                featureComparisonResult.setAreSameFeatures(false);
+
+                regionComparisonResult.setProteinDifferent(true);
+                break;
             default:
                 logger.warn("Unknown gene comparison feature: {}", name);
                 break;
