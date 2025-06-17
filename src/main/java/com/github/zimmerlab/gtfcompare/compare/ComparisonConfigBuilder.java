@@ -2,14 +2,12 @@ package com.github.zimmerlab.gtfcompare.compare;
 
 import com.github.zimmerlab.gtfcompare.model.Impact;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class ComparisonConfigBuilder {
     private final Set<String> enabledFeatures = new HashSet<>();
     private final Set<String> enabledTranscriptFeatures = new HashSet<>();
+    private final Set<String> allowedGeneBioTypes = new HashSet<>();
     private final Map<String, Double> thresholds = new HashMap<>();
     private final Map<String, Impact> impactLevels = new HashMap<>();
 
@@ -28,11 +26,16 @@ public class ComparisonConfigBuilder {
         return this;
     }
 
+    public ComparisonConfigBuilder setAllowedGeneBiotypes(List<String> biotypes) {
+        allowedGeneBioTypes.addAll(biotypes);
+        return this;
+    }
+
     public ComparisonConfigBuilder setImpactLevels(String name, Impact level) {
         impactLevels.put(name, level);
         return this;
     }
     public ComparisonConfig build() {
-        return new ComparisonConfig(enabledFeatures, enabledTranscriptFeatures, thresholds);
+        return new ComparisonConfig(enabledFeatures, enabledTranscriptFeatures, thresholds, allowedGeneBioTypes);
     }
 }

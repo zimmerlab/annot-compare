@@ -62,12 +62,33 @@ public class AnnotComparator {
         var targetGeneMap = new HashMap<String, GeneFeature>();
         var queryGeneMap = new HashMap<String, GeneFeature>();
 
+        var everyBiotypeAllowed = config.getAllowedGeneBiotypes().isEmpty();
         for (var geneId : targetGtf.getAllGeneFeatureIds()) {
-            targetGeneMap.put(geneId, targetGtf.getGeneFeature(geneId));
+            var gene = targetGtf.getGeneFeature(geneId);
+
+            if(everyBiotypeAllowed) {
+                targetGeneMap.put(geneId, gene);
+                continue;
+            }
+            var baseData = gene.getBaseData();
+            var geneBiotypeEmpty = baseData.getAttributes("gene_biotype").isEmpty();
+
+
+            String geneBiotype = geneBiotypeEmpty ? baseData.getSource() : baseData.getAttributes("gene_biotype").getFirst();
+            if(config.getAllowedGeneBiotypes().contains(geneBiotype)) targetGeneMap.put(geneId, gene);
         }
 
         for (var geneId : queryGtf.getAllGeneFeatureIds()) {
-            queryGeneMap.put(geneId, queryGtf.getGeneFeature(geneId));
+            var gene = queryGtf.getGeneFeature(geneId);
+            if(everyBiotypeAllowed) {
+                queryGeneMap.put(geneId, gene);
+                continue;
+            }
+            var baseData = gene.getBaseData();
+            var geneBiotypeEmpty = baseData.getAttributes("gene_biotype").isEmpty();
+
+            String geneBiotype = geneBiotypeEmpty ? baseData.getSource() : baseData.getAttributes("gene_biotype").getFirst();
+            if(config.getAllowedGeneBiotypes().contains(geneBiotype)) queryGeneMap.put(geneId, gene);
         }
 
         var allGeneIds = new HashSet<String>();

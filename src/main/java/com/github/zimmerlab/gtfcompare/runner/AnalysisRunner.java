@@ -5,9 +5,11 @@ import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
+import com.github.zimmerlab.gtfcompare.model.Mapping;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
+import com.github.zimmerlab.gtfcompare.parser.GeneMappingParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
@@ -20,6 +22,7 @@ import org.springframework.util.StopWatch;
 
 import java.io.File;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Profile("analysis")
 @Service
@@ -99,6 +102,14 @@ public class AnalysisRunner implements CommandLineRunner {
                 .type(File.class)
                 .build());
 
+        o.addOption(Option.builder()
+                .longOpt("gene-mapping")
+                .numberOfArgs(1)
+                .required()
+                .desc("Path to mapping file")
+                .type(File.class)
+                .build());
+
         CommandLineParser parser = new DefaultParser();
 
         CommandLine cmd = null;
@@ -138,6 +149,18 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        if (!cmd.hasOption("gene-mapping")) {
+            LOG.error("No gene mapping path specified");
+            System.exit(1);
+        }
+
+        var startRelease = 55;
+        var endRelease = 114;
+
+
+        Map<Mapping, List<Mapping>> adjacency = GeneMappingParser.loadChainMap(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
+        var geneMap = GeneMappingParser.makeFinalMap(adjacency, startRelease, endRelease);
+        //var geneMap =  GeneMappingParser.buildFinalMap(adjacency, 114);
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
@@ -169,7 +192,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
     private static ComparisonConfig getComparisonConfig(ConfigJSON jsonConfig) {
         var configBuilder = new ComparisonConfigBuilder();
-
+        configBuilder.setAllowedGeneBiotypes(jsonConfig.getGeneBiotypes().getOrDefault("allowed", new ArrayList<>()));
         var configFeatures = jsonConfig.getFeatures();
 
         // FEATURE COMPARATORS

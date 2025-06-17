@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -13,6 +14,8 @@ public class ConfigJSON {
     private Map<String, FeatureConfig> features = new HashMap<>();
     @JsonProperty("transcript_features")
     private Map<String, FeatureConfig> transcriptFeatures = new HashMap<>();
+    @JsonProperty("gene_biotypes")
+    private Map<String, List<String>> geneBiotypes = new HashMap<>();
 
     public Map<String, FeatureConfig> getFeatures() {
         return features;
@@ -32,5 +35,9 @@ public class ConfigJSON {
                         e -> GtfConfig.getDefault(e.getKey()),
                         Map.Entry::getValue
                 ));
+    }
+
+    public Map<String, List<String>> getGeneBiotypes() {
+        return geneBiotypes;
     }
 }
