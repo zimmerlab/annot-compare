@@ -9,9 +9,11 @@ import java.util.stream.Collectors;
 public class GeneMappingParser {
 
 
+    private final static HashSet<String> removed = new HashSet<>();
+    ;
+
     public static Map<Mapping, List<Mapping>> adjacencyMapping(String mappingTsv, float oldRelease, float newRelease) throws IOException {
         var map = new HashMap<Mapping, List<Mapping>>();
-        var removed = new HashSet<Mapping>();
         try (BufferedReader br = new BufferedReader(new FileReader(mappingTsv))) {
             String line = br.readLine();
             while ((line = br.readLine()) != null) {
@@ -29,9 +31,10 @@ public class GeneMappingParser {
 
                 var newMapping = new Mapping(newIdEntry, newRelEntry, newVersion);
 
-                if((oldIdEntry.equals("ENSG00000229852") || newIdEntry.equals("ENSG00000229852"))){
+                /*if ((oldIdEntry.equals("ENSG00000229852") || newIdEntry.equals("ENSG00000229852"))) {
                     var a = 2;
-                }
+                }*/
+
                 // only add new entry if its release is older than newRelease, then go to next entry
                 if (oldIdEntry.isEmpty()) {
                     if (newRelEntry <= newRelease) {
@@ -46,8 +49,8 @@ public class GeneMappingParser {
 
                 // if old entry does not exist anymore within the range oldRelease-newRelease, remove it
                 if (newIdEntry.isEmpty() && newRelEntry <= newRelease) {
-                    map.remove(oldKey);
-                    removed.add(oldKey);
+                    //map.remove(oldKey);
+                    removed.add(oldKey.getGeneId());
                     continue;
                 }
 
@@ -65,10 +68,6 @@ public class GeneMappingParser {
             }
         }
 
-        // genes that do not exist anymore have to be removed from all the successor lists
-        for (var successors : map.values()) {
-            successors.removeAll(removed);
-        }
 
         return map;
     }
@@ -86,6 +85,7 @@ public class GeneMappingParser {
                 }
             }
         }
+
 
         var result = new HashMap<String, List<String>>();
 
@@ -124,6 +124,14 @@ public class GeneMappingParser {
 
             result.put(oldId, allIds);
         }
+
+        // genes that do not exist anymore have to be removed from all the successor lists
+        for (var successors : result.values()) {
+            successors.removeAll(removed);
+        }
+
+        result.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+
 
         return result;
     }

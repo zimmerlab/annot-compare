@@ -153,7 +153,7 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
-        var startRelease = 55;
+        var startRelease = 111;
         var endRelease = 114;
 
 
