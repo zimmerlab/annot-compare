@@ -9,8 +9,9 @@ import java.util.stream.Collectors;
 public class GeneMappingParser {
 
 
-    public static Map<Mapping, List<Mapping>> loadChainMap(String mappingTsv, float oldRelease, float newRelease) throws IOException {
+    public static Map<Mapping, List<Mapping>> adjacencyMapping(String mappingTsv, float oldRelease, float newRelease) throws IOException {
         var map = new HashMap<Mapping, List<Mapping>>();
+        var removed = new HashSet<Mapping>();
         try (BufferedReader br = new BufferedReader(new FileReader(mappingTsv))) {
             String line = br.readLine();
             while ((line = br.readLine()) != null) {
@@ -23,30 +24,40 @@ public class GeneMappingParser {
                 var oldRelEntry = Float.parseFloat(f[7]);
                 var newRelEntry = Float.parseFloat(f[8]);
 
+                // if old and new entry is newer than newRelease, skip entry
                 if (oldRelEntry > newRelease && newRelEntry > newRelease) continue;
 
                 var newMapping = new Mapping(newIdEntry, newRelEntry, newVersion);
 
+                if((oldIdEntry.equals("ENSG00000229852") || newIdEntry.equals("ENSG00000229852"))){
+                    var a = 2;
+                }
+                // only add new entry if its release is older than newRelease, then go to next entry
                 if (oldIdEntry.isEmpty()) {
                     if (newRelEntry <= newRelease) {
-                        var seedValue = new Mapping(newIdEntry, newRelEntry, newVersion);
-
-                        map.computeIfAbsent(seedValue, k -> new ArrayList<>()).add(seedValue);
+                        map.computeIfAbsent(newMapping, k -> new ArrayList<>()).add(newMapping);
                     }
                     continue;
                 }
 
+                // make new list if old entry does not exist yet
                 var oldKey = new Mapping(oldIdEntry, oldRelEntry, oldVersion);
                 map.computeIfAbsent(oldKey, k -> new ArrayList<>());
 
-                if (newIdEntry.isEmpty() && newRelEntry <= oldRelease) {
+                // if old entry does not exist anymore within the range oldRelease-newRelease, remove it
+                if (newIdEntry.isEmpty() && newRelEntry <= newRelease) {
                     map.remove(oldKey);
+                    removed.add(oldKey);
                     continue;
                 }
 
+                // if entry is in range than make new mapping from old entry to new entry
                 if (newRelEntry >= oldRelEntry && newRelEntry <= newRelease) {
                     map.get(oldKey).add(newMapping);
 
+                    // TODO stimmt das wirklich?
+                    // remove entries if they are not relevant
+                    // meaning that start id changed before our oldRelease
                     if (!oldIdEntry.equals(newIdEntry) && oldRelEntry < oldRelease) {
                         map.remove(oldKey);
                     }
@@ -54,59 +65,64 @@ public class GeneMappingParser {
             }
         }
 
+        // genes that do not exist anymore have to be removed from all the successor lists
+        for (var successors : map.values()) {
+            successors.removeAll(removed);
+        }
+
         return map;
     }
 
     public static Map<String, List<String>> makeFinalMap(Map<Mapping, List<Mapping>> adjacency, float startRelease, float endRelease) {
-        Map<String, Mapping> startNodes = new HashMap<>();
+        // get all start nodes --> the latest release for every gene id that is <= start release
+        var startNodes = new HashMap<String, Mapping>();
         for (Mapping key : adjacency.keySet()) {
-            String gid = key.getGeneId();
-            float rel = key.getRelease();
+            var gid = key.getGeneId();
+            var rel = key.getRelease();
             if (rel <= startRelease) {
-                Mapping prev = startNodes.get(gid);
+                var prev = startNodes.get(gid);
                 if (prev == null || prev.getRelease() < rel) {
                     startNodes.put(gid, key);
                 }
             }
         }
 
-        Map<String, List<String>> result = new HashMap<>();
+        var result = new HashMap<String, List<String>>();
 
+        // for every start node do DFS
         for (var entry : startNodes.entrySet()) {
-            String oldId = entry.getKey();
+            var oldId = entry.getKey();
             Mapping start = entry.getValue();
 
-            Set<Mapping> visited = new HashSet<>();
-            Deque<Mapping> stack = new ArrayDeque<>();
+            var visited = new HashSet<Mapping>();
+            var stack = new ArrayDeque<Mapping>();
             stack.push(start);
             visited.add(start);
             while (!stack.isEmpty()) {
                 Mapping cur = stack.pop();
                 for (Mapping succ : adjacency.getOrDefault(cur, List.of())) {
+                    // if succ is <= endrelease, and was not seen yet --> add to stack
                     if (succ.getRelease() <= endRelease && visited.add(succ)) {
                         stack.push(succ);
                     }
                 }
             }
 
-            Map<String, Mapping> bestById = new HashMap<>();
-            for (Mapping m : visited) {
-                float rel = m.getRelease();
+            // for every id --> get the one with the highest release
+            var bestById = new HashMap<String, Mapping>();
+            for (var m : visited) {
+                var rel = m.getRelease();
                 if (rel > endRelease) continue;
-                String gid = m.getGeneId();
-                Mapping prev = bestById.get(gid);
+                var gid = m.getGeneId();
+                var prev = bestById.get(gid);
                 if (prev == null || rel > prev.getRelease()) {
                     bestById.put(gid, m);
                 }
             }
 
-            List<String> allIds = bestById.values().stream().map(Mapping::getGeneId).distinct().collect(Collectors.toList());
+            var allIds = bestById.values().stream().map(Mapping::getGeneId).distinct().collect(Collectors.toList());
 
-            List<String> withoutOld = allIds.stream().filter(gid -> !gid.equals(oldId)).collect(Collectors.toList());
-
-            List<String> finals = withoutOld.isEmpty() ? allIds : withoutOld;
-
-            result.put(oldId, finals);
+            result.put(oldId, allIds);
         }
 
         return result;

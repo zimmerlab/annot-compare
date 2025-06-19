@@ -22,7 +22,6 @@ import org.springframework.util.StopWatch;
 
 import java.io.File;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Profile("analysis")
 @Service
@@ -158,7 +157,7 @@ public class AnalysisRunner implements CommandLineRunner {
         var endRelease = 114;
 
 
-        Map<Mapping, List<Mapping>> adjacency = GeneMappingParser.loadChainMap(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
+        Map<Mapping, List<Mapping>> adjacency = GeneMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
         var geneMap = GeneMappingParser.makeFinalMap(adjacency, startRelease, endRelease);
         //var geneMap =  GeneMappingParser.buildFinalMap(adjacency, 114);
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
