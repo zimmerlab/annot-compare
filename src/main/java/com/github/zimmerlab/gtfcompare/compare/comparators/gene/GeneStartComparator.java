@@ -15,15 +15,15 @@ public class GeneStartComparator implements GeneComparisonFeature {
     public boolean compare(ComparisonContext ctx) {
         var targets = ctx.getTargetTranscriptFeatures();
         var queries = ctx.getQueryTranscriptFeatures();
-
+/*
         if(targets.isEmpty() && queries.isEmpty()) {
             return false;
         }
 
         if(targets.isEmpty() || queries.isEmpty())
-            return true;
+            return true;*/
 
-        var minTargetStart = targets.get().stream()
+       /* var minTargetStart = targets.get().stream()
                 .mapToLong(target -> target.getBaseData().getStart())
                 .min()
                 .orElse(Long.MAX_VALUE);
@@ -31,7 +31,10 @@ public class GeneStartComparator implements GeneComparisonFeature {
         var minQueryStart = queries.get().stream()
                 .mapToLong(query -> query.getBaseData().getStart())
                 .min()
-                .orElse(Long.MAX_VALUE);
+                .orElse(Long.MAX_VALUE);*/
+
+        var minTargetStart = ctx.getTargetFeature().getBaseData().getStart();
+        var minQueryStart = ctx.getQueryFeature().getBaseData().getStart();
         return Math.abs(minTargetStart - minQueryStart) > ctx.getConfig().getThreshold(getName());
     }
 }

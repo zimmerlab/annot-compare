@@ -6,11 +6,10 @@ import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class GeneMappingParser {
+public class EnsemblMappingParser {
 
 
     private final static HashSet<String> removed = new HashSet<>();
-    ;
 
     public static Map<Mapping, List<Mapping>> adjacencyMapping(String mappingTsv, float oldRelease, float newRelease) throws IOException {
         var map = new HashMap<Mapping, List<Mapping>>();
@@ -19,6 +18,7 @@ public class GeneMappingParser {
             while ((line = br.readLine()) != null) {
                 var f = line.split("\t");
                 if (f.length != 9) continue;
+                var mappingSession = Integer.parseInt(f[0]);
                 var oldIdEntry = f[1];
                 var newIdEntry = f[2];
                 var oldVersion = Integer.parseInt(f[3]);
@@ -29,11 +29,11 @@ public class GeneMappingParser {
                 // if old and new entry is newer than newRelease, skip entry
                 if (oldRelEntry > newRelease && newRelEntry > newRelease) continue;
 
-                var newMapping = new Mapping(newIdEntry, newRelEntry, newVersion);
+                var newMapping = new Mapping(newIdEntry, oldIdEntry.isEmpty() ? null : oldIdEntry, newRelEntry, newVersion, mappingSession);
 
-                /*if ((oldIdEntry.equals("ENSG00000229852") || newIdEntry.equals("ENSG00000229852"))) {
+                if ((oldIdEntry.equals("ENSG00000242836") || newIdEntry.equals("ENSG00000242836"))) {
                     var a = 2;
-                }*/
+                }
 
                 // only add new entry if its release is older than newRelease, then go to next entry
                 if (oldIdEntry.isEmpty()) {
@@ -44,7 +44,7 @@ public class GeneMappingParser {
                 }
 
                 // make new list if old entry does not exist yet
-                var oldKey = new Mapping(oldIdEntry, oldRelEntry, oldVersion);
+                var oldKey = new Mapping(oldIdEntry, null, oldRelEntry, oldVersion, mappingSession);
                 map.computeIfAbsent(oldKey, k -> new ArrayList<>());
 
                 // if old entry does not exist anymore within the range oldRelease-newRelease, remove it
@@ -56,9 +56,10 @@ public class GeneMappingParser {
 
                 // if entry is in range than make new mapping from old entry to new entry
                 if (newRelEntry >= oldRelEntry && newRelEntry <= newRelease) {
+
                     map.get(oldKey).add(newMapping);
 
-                    // TODO stimmt das wirklich?
+                    // TODO stimmt evtl. nicht --> ENSG00000242836
                     // remove entries if they are not relevant
                     // meaning that start id changed before our oldRelease
                     if (!oldIdEntry.equals(newIdEntry) && oldRelEntry < oldRelease) {
@@ -67,7 +68,6 @@ public class GeneMappingParser {
                 }
             }
         }
-
 
         return map;
     }
@@ -85,7 +85,6 @@ public class GeneMappingParser {
                 }
             }
         }
-
 
         var result = new HashMap<String, List<String>>();
 
@@ -108,9 +107,28 @@ public class GeneMappingParser {
                 }
             }
 
-            // for every id --> get the one with the highest release
-            var bestById = new HashMap<String, Mapping>();
+            var bestTrans = new HashMap<String, Mapping>();
             for (var m : visited) {
+                var oId = m.getOldGeneId();
+                var nId = m.getGeneId();
+
+                if (oId == null || oId.isEmpty() || oId.equals(nId)) {
+                    continue;
+                }
+
+                var key = m.getMappingSession()
+                        + "|" + oId
+                        + "→" + nId;
+                var prev = bestTrans.get(key);
+                if (prev == null || m.getRelease() > prev.getRelease()) {
+                    bestTrans.put(key, m);
+                }
+            }
+
+            var filtered = bestTrans.values();
+
+            var bestById = new HashMap<String, Mapping>();
+            for (var m : filtered) {
                 var rel = m.getRelease();
                 if (rel > endRelease) continue;
                 var gid = m.getGeneId();
@@ -122,6 +140,11 @@ public class GeneMappingParser {
 
             var allIds = bestById.values().stream().map(Mapping::getGeneId).distinct().collect(Collectors.toList());
 
+            // remove identity mapping if necessary
+            if (removed.contains(oldId)) {
+                allIds.remove(oldId);
+            }
+
             result.put(oldId, allIds);
         }
 
@@ -131,7 +154,6 @@ public class GeneMappingParser {
         }
 
         result.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
 
         return result;
     }

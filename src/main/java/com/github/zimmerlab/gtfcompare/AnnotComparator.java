@@ -19,10 +19,11 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.util.StopWatch;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class AnnotComparator {
     private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
-    private final static Logger logger = LogManager.getLogger(AnnotComparator.class);
+    private static final Logger logger = LogManager.getLogger(AnnotComparator.class);
     private static final ServiceLoader<ComparisonFeature> featureLoader = ServiceLoader.load(ComparisonFeature.class);
     private static final ServiceLoader<CDSComparisonFeature> cdsLoader = ServiceLoader.load(CDSComparisonFeature.class);
     private static final ServiceLoader<TranscriptComparisonFeature> transcriptLoader = ServiceLoader.load(TranscriptComparisonFeature.class);
@@ -34,31 +35,70 @@ public class AnnotComparator {
     private final ComparisonConfig config;
     private final String outputPath;
     private final List<ComparisonResult> comparisonResults = new ArrayList<>();
+    private final Map<String, List<String>> geneMap;
+    private final Map<String, List<String>> transcriptMap;
 
-    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config, String outputPath) {
+    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config, String outputPath, Map<String, List<String>> geneMap, Map<String, List<String>> transcriptMap) {
         this.targetGtf = targetGtf;
         this.queryGtf = queryGtf;
         this.targetSequenceExtractor = targetSequenceExtractor;
         this.querySequenceExtractor = querySequenceExtractor;
         this.config = config;
         this.outputPath = outputPath;
+        this.geneMap = geneMap;
+        this.transcriptMap = transcriptMap;
     }
 
     public void compare() {
-        var genePairs = getGenePairs();
+        //var genePairs = getGenePairs();
+        //logger.info("number of gene pairs with new mapping: {}", genePairs.size());
+        var oldGenePairs = getGenePairsByExactId();
 
-        for (var pair : genePairs) {
+        logger.info("number of gene pairs with old mapping: {}", oldGenePairs.size());
+        var oldGenePairsLength = oldGenePairs.size();
+
+        int idx = 0;
+        for (var pair : oldGenePairs) {
             var result = new ComparisonResult();
             result.setTargetGeneId(pair.getTargetGene() != null ? pair.getTargetGene().getGeneId() : "");
             result.setQueryGeneId(pair.getQueryGene() != null ? pair.getQueryGene().getGeneId() : "");
             compareGene(pair.getTargetGene(), pair.getQueryGene(), result);
             comparisonResults.add(result);
+
+            if(idx % 100 == 0){
+                logger.info(String.format("%d gene pairs of %d analyzed", idx, oldGenePairsLength));
+            }
+            idx++;
         }
 
         ResultWriter.writeComparisonResult(comparisonResults, outputPath);
     }
 
-    private List<GenePair> getGenePairs() {
+    // TODO filter biotype
+    private List<GenePair> getGenePairs(){
+        var genePairs = new ArrayList<GenePair>();
+        for(var genePair : geneMap.entrySet()){
+            var targetKey = genePair.getKey();
+            var queryKeys = genePair.getValue();
+            var targetGene = targetGtf.getGeneFeature(targetKey);
+            if(targetGene == null){
+                // TODO
+                continue;
+            }
+            for(var queryKey : queryKeys){
+                var queryGene = queryGtf.getGeneFeature(queryKey);
+                if(queryGene == null){
+                    // TODO
+                    continue;
+                }
+
+                genePairs.add(new GenePair(targetGene, queryGene));
+            }
+        }
+        return genePairs;
+    }
+
+    private List<GenePair> getGenePairsByExactId() {
         var targetGeneMap = new HashMap<String, GeneFeature>();
         var queryGeneMap = new HashMap<String, GeneFeature>();
 
@@ -135,6 +175,18 @@ public class AnnotComparator {
                     targetGene.getBaseData().getType(), comp.getName(), changed
             );
         }
+
+        var targetGeneBiotypeEmpty = targetGene.getBaseData().getAttributes("gene_biotype").isEmpty();
+        var queryGeneBiotypeEmpty = queryGene.getBaseData().getAttributes("gene_biotype").isEmpty();
+        var geneComparison = result.getGeneComparison();
+        if(!targetGeneBiotypeEmpty){
+            geneComparison.setTargetBiotype(targetGene.getBaseData().getAttributes("gene_biotype").getFirst());
+        }
+
+        if(!queryGeneBiotypeEmpty){
+            geneComparison.setQueryBiotype(queryGene.getBaseData().getAttributes("gene_biotype").getFirst());
+        }
+
     }
 
     private void handleMissingGene(boolean isTargetNull, ComparisonResult result) {

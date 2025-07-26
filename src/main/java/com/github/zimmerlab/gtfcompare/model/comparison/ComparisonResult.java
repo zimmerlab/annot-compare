@@ -47,4 +47,5 @@ public class ComparisonResult {
     public void setAreSameGene(boolean areSameGene) {
         this.areSameGene = areSameGene;
     }
+
 }

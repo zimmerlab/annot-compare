@@ -9,7 +9,7 @@ import com.github.zimmerlab.gtfcompare.model.Mapping;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
-import com.github.zimmerlab.gtfcompare.parser.GeneMappingParser;
+import com.github.zimmerlab.gtfcompare.parser.EnsemblMappingParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
@@ -20,7 +20,11 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 
 @Profile("analysis")
@@ -101,13 +105,13 @@ public class AnalysisRunner implements CommandLineRunner {
                 .type(File.class)
                 .build());
 
-        o.addOption(Option.builder()
+        /*o.addOption(Option.builder()
                 .longOpt("gene-mapping")
                 .numberOfArgs(1)
                 .required()
                 .desc("Path to mapping file")
                 .type(File.class)
-                .build());
+                .build());*/
 
         CommandLineParser parser = new DefaultParser();
 
@@ -148,18 +152,21 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
-        if (!cmd.hasOption("gene-mapping")) {
+        /*if (!cmd.hasOption("gene-mapping")) {
             LOG.error("No gene mapping path specified");
             System.exit(1);
-        }
+        }*/
 
-        var startRelease = 111;
+        var startRelease = 62;
         var endRelease = 114;
 
 
-        Map<Mapping, List<Mapping>> adjacency = GeneMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
-        var geneMap = GeneMappingParser.makeFinalMap(adjacency, startRelease, endRelease);
-        //var geneMap =  GeneMappingParser.buildFinalMap(adjacency, 114);
+        /*Map<Mapping, List<Mapping>> adjacencyGenes = EnsemblMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
+        var geneMap = EnsemblMappingParser.makeFinalMap(adjacencyGenes, startRelease, endRelease);
+
+        Map<Mapping, List<Mapping>> adjacencyTranscripts = EnsemblMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
+        var transcriptMap = EnsemblMappingParser.makeFinalMap(adjacencyTranscripts, startRelease, endRelease);*/
+        //var geneMap =  GeneMappingParser.buildFinalMap(adjacencyGenes, 114);
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
@@ -185,7 +192,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var config = getComparisonConfig(jsonConfig);
 
-        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"));
+        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), null, null);
         annotCompare.compare();
     }
 

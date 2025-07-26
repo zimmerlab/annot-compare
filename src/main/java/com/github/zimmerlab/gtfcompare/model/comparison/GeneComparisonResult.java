@@ -12,6 +12,8 @@ public class GeneComparisonResult {
     private boolean contigDifferent;
     private boolean missingInTargetFile;
     private boolean missingInQueryFile;
+    private String targetBiotype;
+    private String queryBiotype;
     private boolean areSameGene = true;
     private SequenceComparisonResult sequenceComparison;
 
@@ -106,5 +108,21 @@ public class GeneComparisonResult {
     }
     public void setContigDifferent(boolean contigDifferent) {
         this.contigDifferent = contigDifferent;
+    }
+
+    public String getQueryBiotype() {
+        return queryBiotype;
+    }
+
+    public void setTargetBiotype(String targetBiotype) {
+        this.targetBiotype = targetBiotype;
+    }
+
+    public String getTargetBiotype() {
+        return targetBiotype;
+    }
+
+    public void setQueryBiotype(String queryBiotype) {
+        this.queryBiotype = queryBiotype;
     }
 }

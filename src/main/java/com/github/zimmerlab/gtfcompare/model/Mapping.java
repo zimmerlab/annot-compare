@@ -4,13 +4,17 @@ import java.util.Objects;
 
 public class Mapping {
     private String geneId;
+    private String oldGeneId;
     private float release;
     private int version;
+    private int mappingSession;
 
-    public Mapping(String geneId, float release, int version) {
+    public Mapping(String geneId, String oldGeneId, float release, int version, int mappingSession) {
         this.geneId = geneId;
+        this.oldGeneId = oldGeneId;
         this.release = release;
         this.version = version;
+        this.mappingSession = mappingSession;
     }
 
     public float getRelease() {
@@ -19,6 +23,14 @@ public class Mapping {
 
     public String getGeneId() {
         return geneId;
+    }
+
+    public String getOldGeneId() {
+        return oldGeneId;
+    }
+
+    public int getMappingSession() {
+        return mappingSession;
     }
 
     public int getVersion() {

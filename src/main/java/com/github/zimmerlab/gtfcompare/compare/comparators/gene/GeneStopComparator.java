@@ -16,14 +16,14 @@ public class GeneStopComparator implements GeneComparisonFeature {
         var targets = ctx.getTargetTranscriptFeatures();
         var queries = ctx.getQueryTranscriptFeatures();
 
-        if (targets.isEmpty() && queries.isEmpty()) {
+      /*  if (targets.isEmpty() && queries.isEmpty()) {
             return false;
         }
 
         if (targets.isEmpty() || queries.isEmpty())
-            return true;
+            return true;*/
 
-        var maxTargetStop = targets.get().stream()
+    /*    var maxTargetStop = targets.get().stream()
                 .mapToLong(target -> target.getBaseData().getEnd())
                 .max()
                 .orElse(Long.MIN_VALUE);
@@ -32,7 +32,10 @@ public class GeneStopComparator implements GeneComparisonFeature {
                 .mapToLong(query -> query.getBaseData()
                 .getEnd())
                 .max()
-                .orElse(Long.MIN_VALUE);
+                .orElse(Long.MIN_VALUE);*/
+
+        var maxTargetStop = ctx.getTargetFeature().getBaseData().getEnd();
+        var maxQueryStop = ctx.getQueryFeature().getBaseData().getEnd();
 
         return Math.abs(maxTargetStop - maxQueryStop) > ctx.getConfig().getThreshold(getName());
     }
