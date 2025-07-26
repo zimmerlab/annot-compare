@@ -27,6 +27,8 @@ public class Application {
 
         modeDescriptions.put("test", "Test mode");
         modeDescriptions.put("analysis", "Analysis mode");
+        modeDescriptions.put("firstAnalysis", "First Analysis mode");
+        modeDescriptions.put("seqExtractor", "Sequence extractor mode");
 
         return modeDescriptions;
     }
@@ -52,6 +54,14 @@ public class Application {
                 break;
             case "analysis":
                 builder.profiles("analysis");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "firstAnalysis":
+                builder.profiles("firstAnalysis");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "seqExtractor":
+                builder.profiles("seqExtractor");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:

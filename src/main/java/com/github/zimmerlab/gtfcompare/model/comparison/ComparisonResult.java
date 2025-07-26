@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ComparisonResult {
-    private String geneId1;
-    private String geneId2;
+    private String targetGeneId;
+    private String queryGeneId;
     private boolean areSameGene = true;
     private GeneComparisonResult geneComparison = new GeneComparisonResult();
     private List<TranscriptComparisonResult> transcriptComparisons = new ArrayList<>();
@@ -24,20 +24,20 @@ public class ComparisonResult {
         this.transcriptComparisons.add(transcriptComparison);
     }
 
-    public String getGeneId1() {
-        return geneId1;
+    public String getTargetGeneId() {
+        return targetGeneId;
     }
 
-    public void setGeneId1(String geneId) {
-        this.geneId1 = geneId;
+    public void setTargetGeneId(String geneId) {
+        this.targetGeneId = geneId;
     }
 
-    public String getGeneId2() {
-        return geneId2;
+    public String getQueryGeneId() {
+        return queryGeneId;
     }
 
-    public void setGeneId2(String geneId2) {
-        this.geneId2 = geneId2;
+    public void setQueryGeneId(String queryGeneId) {
+        this.queryGeneId = queryGeneId;
     }
 
     public boolean areSameGene() {
@@ -47,4 +47,5 @@ public class ComparisonResult {
     public void setAreSameGene(boolean areSameGene) {
         this.areSameGene = areSameGene;
     }
+
 }

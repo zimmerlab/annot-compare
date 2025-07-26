@@ -1,0 +1,5 @@
+com.github.zimmerlab.gtfcompare.compare.comparators.gene.GeneLengthComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.gene.GeneStartComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.gene.GeneStopComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.gene.GeneStrandComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.gene.GeneContigComparator
