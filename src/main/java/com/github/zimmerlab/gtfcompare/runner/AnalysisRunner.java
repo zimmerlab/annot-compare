@@ -5,13 +5,12 @@ import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
-import com.github.zimmerlab.gtfcompare.model.Mapping;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
-import com.github.zimmerlab.gtfcompare.parser.EnsemblMappingParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
+import com.github.zimmerlab.gtfcompare.utils.OverlappingGenes;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,11 +19,11 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
-import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 @Profile("analysis")
@@ -36,74 +35,22 @@ public class AnalysisRunner implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         Options o = new Options();
-        o.addOption(Option.builder()
-                .option("h")
-                .longOpt("help")
-                .desc("Print the help message")
-                .build());
-        o.addOption(Option.builder()
-                .longOpt("gtf")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to gtf file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
+        o.addOption(Option.builder().longOpt("gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fasta")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fasta").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fidx")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta index file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fidx").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("gtf2")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to gtf file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("gtf2").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fasta2")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fasta2").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fidx2")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta index file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fidx2").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("o")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to output file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("config")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to config file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("config").numberOfArgs(1).required().desc("Path to config file").type(File.class).build());
 
         /*o.addOption(Option.builder()
                 .longOpt("gene-mapping")
@@ -179,6 +126,28 @@ public class AnalysisRunner implements CommandLineRunner {
         gtfFile.parseAllContigs();
         gtfFile2.parseAllContigs();
 
+        var loci = OverlappingGenes.map(gtfFile, gtfFile2);
+
+       /* try (BufferedWriter writer = Files.newBufferedWriter(Path.of("mapped_loci_new.tsv"))) {
+            writer.write("locus\ttarget_start\ttarget_end\tquery_start\tquery_end\n");
+            int i = 0;
+            for (var locus : loci) {
+                for (var entry : locus) {
+                    var queryBaseData = entry.getQueryGene().getBaseData();
+                    var targetBaseData = entry.getTargetGene().getBaseData();
+                    writer.write(i + "\t" + targetBaseData.getStart() + "\t" + targetBaseData.getEnd() + "\t" + queryBaseData.getStart() + "\t" + queryBaseData.getEnd() + "\n");
+                }
+                i++;
+            }
+        } catch (IOException e) {
+            // TODO logging
+            throw new RuntimeException(e);
+        }*/
+
+        /*var lociIntervals = new ArrayList<Interval>();
+        for(var l : loci) {
+            lociIntervals.add(OverlappingGenes.locusInterval(l));
+        }*/
         var configPath = cmd.getOptionValue("config");
 
         var objectMapper = new ObjectMapper();

@@ -34,3 +34,5 @@ build/
 /input/
 /.venv/
 /output/
+
+*.tsv
