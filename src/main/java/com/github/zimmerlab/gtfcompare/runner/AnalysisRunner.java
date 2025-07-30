@@ -11,6 +11,7 @@ import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.utils.OverlappingGenes;
+import com.github.zimmerlab.gtfcompare.utils.OverlappingTranscripts;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -126,7 +127,7 @@ public class AnalysisRunner implements CommandLineRunner {
         gtfFile.parseAllContigs();
         gtfFile2.parseAllContigs();
 
-        var loci = OverlappingGenes.map(gtfFile, gtfFile2);
+        var loci = OverlappingTranscripts.map(gtfFile, gtfFile2);
 
        /* try (BufferedWriter writer = Files.newBufferedWriter(Path.of("mapped_loci_new.tsv"))) {
             writer.write("locus\ttarget_start\ttarget_end\tquery_start\tquery_end\n");
