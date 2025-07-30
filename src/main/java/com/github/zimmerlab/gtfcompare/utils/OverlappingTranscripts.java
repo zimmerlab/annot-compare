@@ -133,7 +133,7 @@ public class OverlappingTranscripts {
         }
     }
 
-    public static Map<TranscriptFeature, BitSet> buildModelVectorsForClique(List<TranscriptFeature> clique) {
+    private static Map<TranscriptFeature, BitSet> buildModelVectorsForClique(List<TranscriptFeature> clique) {
         int locusStart = clique.stream().mapToInt(t -> t.getBaseData().getStart()).min().orElseThrow();
         int locusEnd = clique.stream().mapToInt(t -> t.getBaseData().getEnd()).max().orElseThrow();
         int length = locusEnd - locusStart + 1;
