@@ -20,11 +20,10 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 @Profile("analysis")
@@ -100,21 +99,45 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
-        /*if (!cmd.hasOption("gene-mapping")) {
-            LOG.error("No gene mapping path specified");
-            System.exit(1);
-        }*/
+        var useLiftoff = true;
 
-        var startRelease = 62;
-        var endRelease = 114;
+        if (useLiftoff) {
+            String userHome = System.getProperty("user.home");
+            String liftoffExec = Paths.get(userHome, "miniconda3", "bin", "liftoff")
+                    .toString();
 
+            ProcessBuilder pb = new ProcessBuilder(
+                    liftoffExec,
+                    "-g", cmd.getOptionValue("gtf"),
+                    cmd.getOptionValue("fasta"),
+                    cmd.getOptionValue("fasta2"),
+                    "-o", "output/lifted.gtf"
+            );
 
-        /*Map<Mapping, List<Mapping>> adjacencyGenes = EnsemblMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
-        var geneMap = EnsemblMappingParser.makeFinalMap(adjacencyGenes, startRelease, endRelease);
+            pb.redirectErrorStream(true);
 
-        Map<Mapping, List<Mapping>> adjacencyTranscripts = EnsemblMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
-        var transcriptMap = EnsemblMappingParser.makeFinalMap(adjacencyTranscripts, startRelease, endRelease);*/
-        //var geneMap =  GeneMappingParser.buildFinalMap(adjacencyGenes, 114);
+            try {
+                Process process = pb.start();
+
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println(line);
+                    }
+                }
+
+                int exitCode = process.waitFor();
+                if (exitCode == 0) {
+                    System.out.println("Liftoff successfully executed.");
+                } else {
+                    System.err.println("Liftoff failed with exit code " + exitCode + ".");
+                }
+
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
