@@ -19,7 +19,6 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.util.StopWatch;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class AnnotComparator {
     private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
@@ -35,18 +34,16 @@ public class AnnotComparator {
     private final ComparisonConfig config;
     private final String outputPath;
     private final List<ComparisonResult> comparisonResults = new ArrayList<>();
-    private final Map<String, List<String>> geneMap;
-    private final Map<String, List<String>> transcriptMap;
+    private final List<TranscriptPair> transcriptPairs;
 
-    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config, String outputPath, Map<String, List<String>> geneMap, Map<String, List<String>> transcriptMap) {
+    public AnnotComparator(GtfFile targetGtf, GtfFile queryGtf, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, ComparisonConfig config, String outputPath, List<TranscriptPair> transcriptPairs) {
         this.targetGtf = targetGtf;
         this.queryGtf = queryGtf;
         this.targetSequenceExtractor = targetSequenceExtractor;
         this.querySequenceExtractor = querySequenceExtractor;
         this.config = config;
         this.outputPath = outputPath;
-        this.geneMap = geneMap;
-        this.transcriptMap = transcriptMap;
+        this.transcriptPairs = transcriptPairs;
     }
 
     public void compare() {
@@ -55,47 +52,28 @@ public class AnnotComparator {
         var oldGenePairs = getGenePairsByExactId();
 
         logger.info("number of gene pairs with old mapping: {}", oldGenePairs.size());
-        var oldGenePairsLength = oldGenePairs.size();
+        var overallTranscriptPairs = transcriptPairs.size();
 
         int idx = 0;
-        for (var pair : oldGenePairs) {
+        for (var pair : transcriptPairs) {
             var result = new ComparisonResult();
-            result.setTargetGeneId(pair.getTargetGene() != null ? pair.getTargetGene().getGeneId() : "");
-            result.setQueryGeneId(pair.getQueryGene() != null ? pair.getQueryGene().getGeneId() : "");
-            compareGene(pair.getTargetGene(), pair.getQueryGene(), result);
+            result.addTranscriptComparison(pair.getTranscriptComparisonResult());
+            var queryGeneId = pair.getQueryTranscript().getBaseData().getAttributes("gene_id").get(0);
+            var targetGeneId = pair.getTargetTranscript().getBaseData().getAttributes("gene_id").get(0);
+            result.setQueryGeneId(queryGeneId != null ? queryGeneId : "");
+            result.setTargetGeneId(targetGeneId != null ? targetGeneId : "");
+            compareTranscript(pair, result);
+
+
             comparisonResults.add(result);
 
             if(idx % 100 == 0){
-                logger.info(String.format("%d gene pairs of %d analyzed", idx, oldGenePairsLength));
+                logger.info(String.format("%d gene pairs of %d analyzed", idx, overallTranscriptPairs));
             }
             idx++;
         }
 
         ResultWriter.writeComparisonResult(comparisonResults, outputPath);
-    }
-
-    // TODO filter biotype
-    private List<GenePair> getGenePairs(){
-        var genePairs = new ArrayList<GenePair>();
-        for(var genePair : geneMap.entrySet()){
-            var targetKey = genePair.getKey();
-            var queryKeys = genePair.getValue();
-            var targetGene = targetGtf.getGeneFeature(targetKey);
-            if(targetGene == null){
-                // TODO
-                continue;
-            }
-            for(var queryKey : queryKeys){
-                var queryGene = queryGtf.getGeneFeature(queryKey);
-                if(queryGene == null){
-                    // TODO
-                    continue;
-                }
-
-                genePairs.add(new GenePair(targetGene, queryGene));
-            }
-        }
-        return genePairs;
     }
 
     private List<GenePair> getGenePairsByExactId() {

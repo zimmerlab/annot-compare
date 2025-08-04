@@ -162,7 +162,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var config = getComparisonConfig(jsonConfig);
 
-        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), null, null);
+        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci);
         annotCompare.compare();
     }
 

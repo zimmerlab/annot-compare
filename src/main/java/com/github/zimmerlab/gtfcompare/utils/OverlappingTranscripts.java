@@ -4,6 +4,7 @@ import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
+import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
 import htsjdk.samtools.util.Interval;
 import htsjdk.samtools.util.IntervalTreeMap;
 
@@ -16,7 +17,7 @@ import java.util.stream.Stream;
 enum FeatureType {UTR5, CDS, UTR3, INTRON, START_CODON, STOP_CODON}
 
 public class OverlappingTranscripts {
-    public static Map<TranscriptFeature, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
+    public static List<TranscriptPair> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
 
         // interval trees
         Map<String, IntervalTreeMap<List<TranscriptFeature>>> targetTrees = buildIntervalTrees(targetGtfFile);
@@ -43,7 +44,7 @@ public class OverlappingTranscripts {
 
         //debug(allPairs, targetGtfFile, queryGtfFile, finalMapping);
 
-        return new LinkedHashMap<>(finalMapping);
+        return finalMapping.entrySet().stream().map(entry -> new TranscriptPair(entry.getKey(), entry.getValue(), new TranscriptComparisonResult())).toList();
     }
 
     private static void debug(List<TranscriptPair> allPairs, GtfFile targetGtfFile, GtfFile queryGtfFile, Map<TranscriptFeature, TranscriptFeature> finalMapping) {
