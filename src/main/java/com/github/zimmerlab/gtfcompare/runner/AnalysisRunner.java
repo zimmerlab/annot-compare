@@ -10,7 +10,6 @@ import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
-import com.github.zimmerlab.gtfcompare.utils.OverlappingGenes;
 import com.github.zimmerlab.gtfcompare.utils.OverlappingTranscripts;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -29,7 +28,7 @@ import java.util.*;
 @Profile("analysis")
 @Service
 public class AnalysisRunner implements CommandLineRunner {
-    private final static Logger LOG = LogManager.getLogger(AnalysisRunner.class);
+    private final static Logger logger = LogManager.getLogger(AnalysisRunner.class);
     private final static List<StopWatch> stopWatches = Constants.STOP_WATCHES;
 
     @Override
@@ -72,34 +71,34 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
-        LOG.info("Running test");
+        logger.info("Running test");
 
         if (!cmd.hasOption("gtf")) {
-            LOG.error("No gtf file specified");
+            logger.error("No gtf file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("fasta")) {
-            LOG.error("No fasta file specified");
+            logger.error("No fasta file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("fidx")) {
-            LOG.error("No fidx file specified");
+            logger.error("No fidx file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("config")) {
-            LOG.error("No config file specified");
+            logger.error("No config file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("o")) {
-            LOG.error("No output path specified");
+            logger.error("No output path specified");
             System.exit(1);
         }
 
-        var useLiftoff = true;
+        var useLiftoff = false;
 
         if (useLiftoff) {
             String userHome = System.getProperty("user.home");
@@ -172,6 +171,49 @@ public class AnalysisRunner implements CommandLineRunner {
         for(var l : loci) {
             lociIntervals.add(OverlappingGenes.locusInterval(l));
         }*/
+
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of("unmapped.tsv"))) {
+            writer.write("source\ttranscript_id\tfeature\tstart\tstop\n");
+
+            for(var unmapped : loci.getUnmappedQueries()){
+                var baseData = unmapped.getBaseData();
+
+                writer.write("query\t");
+                var transcriptId = baseData.getAttributes("transcript_id").get(0);
+                writer.write( transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
+
+                for(var feature : unmapped.getFeatures()){
+                    var featureBaseData = feature.getBaseData();
+                    writer.write("query\t");
+                    writer.write( transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
+                }
+            }
+
+            for(var unmapped : loci.getUnmappedTargets()){
+                var baseData = unmapped.getBaseData();
+
+                writer.write("target\t");
+                var transcriptId = baseData.getAttributes("transcript_id").get(0);
+                writer.write(transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
+
+                for(var feature : unmapped.getFeatures()){
+                    var featureBaseData = feature.getBaseData();
+                    writer.write("target\t");
+                    writer.write( transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
+                }
+            }
+
+        } catch (IOException e) {
+            // TODO logging
+            throw new RuntimeException(e);
+        }
+
+        /*var lociIntervals = new ArrayList<Interval>();
+        for(var l : loci) {
+            lociIntervals.add(OverlappingGenes.locusInterval(l));
+        }
+
+         */
         var configPath = cmd.getOptionValue("config");
 
         var objectMapper = new ObjectMapper();
@@ -179,13 +221,13 @@ public class AnalysisRunner implements CommandLineRunner {
         try {
             jsonConfig = objectMapper.readValue(new File(configPath), ConfigJSON.class);
         } catch (Exception e) {
-            LOG.error("Error reading config file: {}", e.getMessage());
+            logger.error("Error reading config file: {}", e.getMessage());
             System.exit(1);
         }
 
         var config = getComparisonConfig(jsonConfig);
 
-        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci);
+        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci.getMapping());
         annotCompare.compare();
     }
 

@@ -3,10 +3,13 @@ package com.github.zimmerlab.gtfcompare.utils;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
+import com.github.zimmerlab.gtfcompare.model.MappingResult;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
 import htsjdk.samtools.util.Interval;
 import htsjdk.samtools.util.IntervalTreeMap;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,22 +17,49 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-enum FeatureType {UTR5, CDS, UTR3, INTRON, START_CODON, STOP_CODON}
 
 public class OverlappingTranscripts {
-    public static List<TranscriptPair> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
+    private final static Logger logger = LogManager.getLogger(OverlappingTranscripts.class);
+
+    private enum FeatureType {UTR5, CDS, UTR3, INTRON, START_CODON, STOP_CODON}
+
+    private static final double MIN_OVERLAP_FRACTION = 0.0;
+
+    private static double overlapFraction(TranscriptFeature t, TranscriptFeature q) {
+        var tStart = t.getBaseData().getStart();
+        var tEnd = t.getBaseData().getEnd();
+        var qStart = q.getBaseData().getStart();
+        var qEnd = q.getBaseData().getEnd();
+
+        var overlapStart = Math.max(tStart, qStart);
+        var overlapEnd = Math.min(tEnd, qEnd);
+        if (overlapEnd < overlapStart) {
+            return 0.0;
+        }
+        var overlapLen = overlapEnd - overlapStart + 1;
+        var tLen = tEnd - tStart + 1;
+        var qLen = qEnd - qStart + 1;
+        var maxLen = Math.max(tLen, qLen);
+        return (double) overlapLen / maxLen;
+    }
+
+    public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
 
         // interval trees
+        logger.info("Building Interval Trees");
         Map<String, IntervalTreeMap<List<TranscriptFeature>>> targetTrees = buildIntervalTrees(targetGtfFile);
         Map<String, IntervalTreeMap<List<TranscriptFeature>>> queryTrees = buildIntervalTrees(queryGtfFile);
 
         // find overlaps
+        logger.info("Finding Overlaps");
         List<TranscriptPair> allPairs = findOverlaps(targetTrees, queryTrees).toList();
 
         // cluster loci
+        logger.info("Cluster Loci");
         Map<TranscriptFeature, List<TranscriptPair>> clusters = clusterOverlappingPairs(allPairs);
 
         // best hit per loci
+        logger.info("Get Best Hit For Loci");
         var finalMapping = new ConcurrentHashMap<TranscriptFeature, TranscriptFeature>();
         clusters.values().parallelStream().forEach(locusPairs -> {
             Set<TranscriptFeature> targets = locusPairs.stream().map(TranscriptPair::getTargetTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
@@ -43,94 +73,102 @@ public class OverlappingTranscripts {
         });
 
         //debug(allPairs, targetGtfFile, queryGtfFile, finalMapping);
+        var mapping = finalMapping.entrySet().stream().map(entry -> new TranscriptPair(entry.getKey(), entry.getValue(), new TranscriptComparisonResult())).toList();
 
-        return finalMapping.entrySet().stream().map(entry -> new TranscriptPair(entry.getKey(), entry.getValue(), new TranscriptComparisonResult())).toList();
-    }
+        var allTargets = getAllTranscripts(targetGtfFile);
+        var allQueries = getAllTranscripts(queryGtfFile);
 
-    private static void debug(List<TranscriptPair> allPairs, GtfFile targetGtfFile, GtfFile queryGtfFile, Map<TranscriptFeature, TranscriptFeature> finalMapping) {
-        Map<TranscriptFeature, List<TranscriptPair>> overlapsByTarget =
-                allPairs.stream()
-                        .collect(Collectors.groupingBy(
-                                TranscriptPair::getTargetTranscript,
-                                Collectors.toList()
-                        ));
+        var mappedTargets = finalMapping.keySet();
+        var mappedQueries = new HashSet<>(finalMapping.values());
 
-        Map<TranscriptFeature, List<TranscriptPair>> overlapsByQuery =
-                allPairs.stream()
-                        .collect(Collectors.groupingBy(
-                                TranscriptPair::getQueryTranscript,
-                                Collectors.toList()
-                        ));
-        Set<TranscriptFeature> allTargets = getAllTranscripts(targetGtfFile);
-        Set<TranscriptFeature> allQueries = getAllTranscripts(queryGtfFile);
+        var unmappedTargets = allTargets.stream().filter(t -> !mappedTargets.contains(t)).toList();
 
-        Set<TranscriptFeature> unmappedTargets = new LinkedHashSet<>(allTargets);
-        unmappedTargets.removeAll(finalMapping.keySet());
+        var unmappedQueries = allQueries.stream().filter(q -> !mappedQueries.contains(q)).toList();
 
-        Set<TranscriptFeature> noOverlapTargets = unmappedTargets.stream()
-                .filter(t -> !overlapsByTarget.containsKey(t))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        Set<TranscriptFeature> noRecipBestHitTargets = unmappedTargets.stream()
-                .filter(t -> overlapsByTarget.containsKey(t))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        Set<TranscriptFeature> unmappedQueries = new LinkedHashSet<>(allQueries);
-        unmappedQueries.removeAll(new HashSet<>(finalMapping.values()));
-
-        Set<TranscriptFeature> noOverlapQueries = unmappedQueries.stream()
-                .filter(q -> !overlapsByQuery.containsKey(q))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        Set<TranscriptFeature> noRecipBestHitQueries = unmappedQueries.stream()
-                .filter(q -> overlapsByQuery.containsKey(q))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        System.out.println("=== Targets ohne jegliches Overlap ===");
-        noOverlapTargets.forEach(System.out::println);
-
-        System.out.println("=== Targets mit Overlap, aber ohne reziproken Best-Hit ===");
-        noRecipBestHitTargets.forEach(System.out::println);
-
-        System.out.println("=== Queries ohne jegliches Overlap ===");
-        noOverlapQueries.forEach(System.out::println);
-
-        System.out.println("=== Queries mit Overlap, aber ohne reziproken Best-Hit ===");
-        noRecipBestHitQueries.forEach(System.out::println);
+        return new MappingResult<>(mapping, unmappedTargets, unmappedQueries);
     }
 
     private static Set<TranscriptFeature> getAllTranscripts(GtfFile gtfFile) {
-        return gtfFile.getAllGeneFeatureIds().stream()
-                .flatMap(geneId ->
-                        gtfFile.getGeneFeature(geneId)
-                                .getTranscripts().stream()
-                )
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return gtfFile.getAllGeneFeatureIds().stream().flatMap(geneId -> gtfFile.getGeneFeature(geneId).getTranscripts().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
 
     private static Map<String, IntervalTreeMap<List<TranscriptFeature>>> buildIntervalTrees(GtfFile gtfFile) {
         var trees = new HashMap<String, IntervalTreeMap<List<TranscriptFeature>>>();
-        Function<TranscriptFeature, String> keyOf = t -> t.getBaseData().getContig();
+        Function<TranscriptFeature, String> keyOf = t -> t.getBaseData().getContig() + "_" + (t.getBaseData().isForwardStrand() ? "p" : "n");
         extractTranscripts(gtfFile, trees, keyOf);
         return trees;
     }
 
     private static Map<TranscriptFeature, List<TranscriptPair>> clusterOverlappingPairs(List<TranscriptPair> allPairs) {
-        OverlappingTranscripts.DisjointSet<TranscriptFeature> ds = new OverlappingTranscripts.DisjointSet<>();
+        var ds = new OverlappingTranscripts.DisjointSet<TranscriptFeature>();
         allPairs.forEach(p -> ds.union(p.getTargetTranscript(), p.getQueryTranscript()));
 
         return allPairs.stream().collect(Collectors.groupingBy(p -> ds.find(p.getTargetTranscript()), LinkedHashMap::new, Collectors.toList()));
     }
 
-    private static Map<TranscriptFeature, TranscriptFeature> mapReciprocalBestHits(Set<TranscriptFeature> targets, Set<TranscriptFeature> queries, Map<TranscriptFeature, EnumMap<FeatureType, BitSet>> vectors) {
+    private static List<Integer> getExonLengthChain(TranscriptFeature tf) {
+        var exons = tf.getFeatures().stream().filter(seg -> "exon".equals(seg.getBaseData().getType())).sorted(Comparator.comparingInt(s -> s.getBaseData().getStart())).toList();
+
+        var lengths = new ArrayList<Integer>(exons.size());
+        for (GtfFeature exon : exons) {
+            int len = exon.getBaseData().getEnd() - exon.getBaseData().getStart() + 1;
+            lengths.add(len);
+        }
+        return lengths;
+    }
+
+    // 2) Levenshtein-Edit-Distance zwischen zwei Integer-Listen
+    private static int editDistance(List<Integer> a, List<Integer> b) {
+        int n = a.size(), m = b.size();
+        int[][] dp = new int[n + 1][m + 1];
+        for (int i = 0; i <= n; i++) dp[i][0] = i;
+        for (int j = 0; j <= m; j++) dp[0][j] = j;
+
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= m; j++) {
+                int cost = a.get(i - 1).equals(b.get(j - 1)) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1,      // deletion
+                                dp[i][j - 1] + 1),     // insertion
+                        dp[i - 1][j - 1] + cost           // substitution
+                );
+            }
+        }
+        return dp[n][m];
+    }
+
+    private static double chainSimilarity(TranscriptFeature t, TranscriptFeature q) {
+        List<Integer> chainT = getExonLengthChain(t);
+        List<Integer> chainQ = getExonLengthChain(q);
+        if (chainT.isEmpty() && chainQ.isEmpty()) {
+            return 1.0;
+        }
+        int dist = editDistance(chainT, chainQ);
+        int maxLen = Math.max(chainT.size(), chainQ.size());
+        return maxLen > 0 ? 1.0 - (double) dist / maxLen : 0.0;
+    }
+
+    private static final double ENSEMBLE_ALPHA = 0;
+
+    // jac 15920
+    // edit dist 16499
+    // both 16515
+    private static Map<TranscriptFeature, TranscriptFeature> mapReciprocalBestHits(Set<TranscriptFeature> targets, Set<TranscriptFeature> queries, Map<TranscriptFeature, EnumMap<OverlappingTranscripts.FeatureType, BitSet>> vectors) {
         var bestQPerT = new HashMap<TranscriptFeature, TranscriptFeature>();
         var bestScoreQ = new HashMap<TranscriptFeature, Double>();
+
         for (TranscriptFeature t : targets) {
             bestScoreQ.put(t, -1.0);
-            var vecT = vectors.get(t);
             for (TranscriptFeature q : queries) {
-                double score = jaccardSimilarity(vecT, vectors.get(q));
+                if (overlapFraction(t, q) < MIN_OVERLAP_FRACTION) continue;
+
+                // compute both metrics
+                double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
+                double chn = chainSimilarity(t, q);
+
+                // ensemble
+                double score = ENSEMBLE_ALPHA * jac + (1 - ENSEMBLE_ALPHA) * chn;
+
                 if (score > bestScoreQ.get(t)) {
                     bestScoreQ.put(t, score);
                     bestQPerT.put(t, q);
@@ -143,9 +181,13 @@ public class OverlappingTranscripts {
         var bestScoreT = new HashMap<TranscriptFeature, Double>();
         for (TranscriptFeature q : queries) {
             bestScoreT.put(q, -1.0);
-            var vecQ = vectors.get(q);
             for (TranscriptFeature t : targets) {
-                double score = jaccardSimilarity(vectors.get(t), vecQ);
+                if (overlapFraction(t, q) < MIN_OVERLAP_FRACTION) continue;
+
+                double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
+                double chn = chainSimilarity(t, q);
+                double score = ENSEMBLE_ALPHA * jac + (1 - ENSEMBLE_ALPHA) * chn;
+
                 if (score > bestScoreT.get(q)) {
                     bestScoreT.put(q, score);
                     bestTPerQ.put(q, t);
@@ -153,6 +195,7 @@ public class OverlappingTranscripts {
             }
         }
 
+        // 3) reziproke Hits
         var mapping = new LinkedHashMap<TranscriptFeature, TranscriptFeature>();
         for (var e : bestQPerT.entrySet()) {
             TranscriptFeature t = e.getKey();
@@ -163,6 +206,7 @@ public class OverlappingTranscripts {
         }
         return mapping;
     }
+
 
     private static Stream<TranscriptPair> findOverlaps(Map<String, IntervalTreeMap<List<TranscriptFeature>>> targetTrees, Map<String, IntervalTreeMap<List<TranscriptFeature>>> queryTrees) {
 
@@ -184,11 +228,14 @@ public class OverlappingTranscripts {
     private static double jaccardSimilarity(EnumMap<FeatureType, BitSet> a, EnumMap<FeatureType, BitSet> b) {
         int inter = 0, uni = 0;
         for (FeatureType ft : FeatureType.values()) {
+            // intersection
             BitSet ai = (BitSet) a.get(ft).clone();
             ai.and(b.get(ft));
+            inter += ai.cardinality();
+
+            // union
             BitSet au = (BitSet) a.get(ft).clone();
             au.or(b.get(ft));
-            inter += ai.cardinality();
             uni += au.cardinality();
         }
         return uni > 0 ? (double) inter / uni : 0.0;
@@ -229,52 +276,80 @@ public class OverlappingTranscripts {
         }
     }
 
+    private static record FeatureInterval(int start, int end) {
+    }
+
     private static Map<TranscriptFeature, EnumMap<FeatureType, BitSet>> buildModelVectorsForClique(List<TranscriptFeature> clique) {
-        int locusStart = clique.stream().mapToInt(t -> t.getBaseData().getStart()).min().orElseThrow();
-        int locusEnd = clique.stream().mapToInt(t -> t.getBaseData().getEnd()).max().orElseThrow();
-        int length = locusEnd - locusStart + 1;
-
-        Map<TranscriptFeature, EnumMap<FeatureType, BitSet>> all = new LinkedHashMap<>();
-
-        for (var tf : clique) {
-            EnumMap<FeatureType, BitSet> map = new EnumMap<>(FeatureType.class);
-            for (FeatureType ft : FeatureType.values()) {
-                map.put(ft, new BitSet(length));
+        // 1. Collect all boundaries (start and end+1) of all segments in the clique
+        Set<Integer> coords = new TreeSet<>();
+        for (TranscriptFeature tf : clique) {
+            for (GtfFeature seg : tf.getFeatures()) {
+                coords.add(seg.getBaseData().getStart());
+                coords.add(seg.getBaseData().getEnd() + 1);
             }
-
-            for (var seg : tf.getFeatures()) {
-                FeatureType ft = getFeatureType(seg);
-
-                if (ft == null) continue;
-
-                int s = seg.getBaseData().getStart() - locusStart;
-                int e = seg.getBaseData().getEnd() - locusStart;
-                map.get(ft).set(s, e + 1);
-            }
-
-            all.put(tf, map);
         }
 
-        return all;
+        // 2. Build sorted list of boundaries and derive disjoint intervals
+        var sorted = new ArrayList<>(coords);
+        Collections.sort(sorted);
+        List<FeatureInterval> subIntervals = new ArrayList<>();
+        for (int i = 0; i < sorted.size() - 1; i++) {
+            int s = sorted.get(i);
+            int e = sorted.get(i + 1) - 1;
+            subIntervals.add(new FeatureInterval(s, e));
+        }
+
+        // 3. Prepare result map
+        Map<TranscriptFeature, EnumMap<FeatureType, BitSet>> vectors = new LinkedHashMap<>();
+
+        // 4. For each transcript, assign each subinterval to its covering segment
+        for (TranscriptFeature tf : clique) {
+            // initialize an empty BitSet for each FeatureType
+            EnumMap<FeatureType, BitSet> map = new EnumMap<>(FeatureType.class);
+            for (FeatureType ft : FeatureType.values()) {
+                map.put(ft, new BitSet(subIntervals.size()));
+            }
+
+            // for each subinterval, determine which segment covers it (if any)
+            for (int idx = 0; idx < subIntervals.size(); idx++) {
+                FeatureInterval iv = subIntervals.get(idx);
+                // find the first segment in tf that spans this entire interval
+                for (GtfFeature seg : tf.getFeatures()) {
+                    int segS = seg.getBaseData().getStart();
+                    int segE = seg.getBaseData().getEnd();
+                    if (segS <= iv.start() && segE >= iv.end()) {
+                        FeatureType ft = getFeatureType(seg);
+                        if (ft != null) {
+                            map.get(ft).set(idx);
+                        }
+                        break; // only one segment can cover
+                    }
+                }
+            }
+
+            vectors.put(tf, map);
+        }
+
+        return vectors;
     }
 
     private static FeatureType getFeatureType(GtfFeature seg) {
         String type = seg.getBaseData().getType();
-        FeatureType ft = null;
 
         if (Constants.UTR5.equals(type)) {
-            ft = FeatureType.UTR5;
+            return FeatureType.UTR5;
         } else if (Constants.CDS.equals(type)) {
-            ft = FeatureType.CDS;
+            return FeatureType.CDS;
         } else if (Constants.UTR3.equals(type)) {
-            ft = FeatureType.UTR3;
+            return FeatureType.UTR3;
         } else if (Constants.INTRON.equals(type)) {
-            ft = FeatureType.INTRON;
+            return FeatureType.INTRON;
         } else if (Constants.START_CODON.equals(type)) {
-            ft = FeatureType.START_CODON;
+            return FeatureType.START_CODON;
         } else if (Constants.STOP_CODON.equals(type)) {
-            ft = FeatureType.STOP_CODON;
+            return FeatureType.STOP_CODON;
+        } else {
+            return null;
         }
-        return ft;
     }
 }
