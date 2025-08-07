@@ -31,4 +31,5 @@ public class TranscriptPair {
     public TranscriptComparisonResult getTranscriptComparisonResult() {
         return transcriptComparisonResult;
     }
+
 }

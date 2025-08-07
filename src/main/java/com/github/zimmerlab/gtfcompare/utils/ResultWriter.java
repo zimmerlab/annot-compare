@@ -50,6 +50,9 @@ public class ResultWriter {
         var queryBiotype = geneComparisonResult.getQueryBiotype();
         var targetBiotype = geneComparisonResult.getTargetBiotype();
 
+        if(result.getTranscriptComparisons().size() > 1){
+            var a = 2;
+        }
         if (geneComparisonResult.isMissingInQueryFile()) {
             lines.add(new OutputLine(10, targetGeneId, queryTargetId,"","", "gene", "missingInQueryFile"));
             return;
@@ -61,7 +64,13 @@ public class ResultWriter {
         }
 
         if (result.areSameGene()) {
-            lines.add(new OutputLine(20, targetGeneId, queryTargetId, queryBiotype, targetBiotype));
+            var tc = result.getTranscriptComparisons().get(0);
+            String targetTranscriptId = "", queryTranscriptId = "";
+            if(tc != null){
+                targetTranscriptId = tc.getTargetTranscriptId();
+                queryTranscriptId = tc.getQueryTranscriptId();
+            }
+            lines.add(new OutputLine(20, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "null", targetTranscriptId, queryTranscriptId));
         } else {
 
             if (geneComparisonResult.isStartDifferent())

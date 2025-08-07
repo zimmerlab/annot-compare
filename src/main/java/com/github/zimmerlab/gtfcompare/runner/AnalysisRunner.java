@@ -5,13 +5,10 @@ import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
-import com.github.zimmerlab.gtfcompare.model.Mapping;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
-import com.github.zimmerlab.gtfcompare.parser.EnsemblMappingParser;
-import com.github.zimmerlab.gtfcompare.utils.Constants;
-import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
+import com.github.zimmerlab.gtfcompare.utils.*;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,90 +17,37 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 @Profile("analysis")
 @Service
 public class AnalysisRunner implements CommandLineRunner {
-    private final static Logger LOG = LogManager.getLogger(AnalysisRunner.class);
+    private final static Logger logger = LogManager.getLogger(AnalysisRunner.class);
     private final static List<StopWatch> stopWatches = Constants.STOP_WATCHES;
 
     @Override
     public void run(String... args) throws Exception {
         Options o = new Options();
-        o.addOption(Option.builder()
-                .option("h")
-                .longOpt("help")
-                .desc("Print the help message")
-                .build());
-        o.addOption(Option.builder()
-                .longOpt("gtf")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to gtf file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
+        o.addOption(Option.builder().longOpt("gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fasta")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fasta").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fidx")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta index file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fidx").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("gtf2")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to gtf file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("gtf2").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fasta2")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fasta2").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("fidx2")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to fasta index file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("fidx2").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("o")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to output file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
-        o.addOption(Option.builder()
-                .longOpt("config")
-                .numberOfArgs(1)
-                .required()
-                .desc("Path to config file")
-                .type(File.class)
-                .build());
+        o.addOption(Option.builder().longOpt("config").numberOfArgs(1).required().desc("Path to config file").type(File.class).build());
 
         /*o.addOption(Option.builder()
                 .longOpt("gene-mapping")
@@ -125,48 +69,72 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
-        LOG.info("Running test");
+        logger.info("Running test");
 
         if (!cmd.hasOption("gtf")) {
-            LOG.error("No gtf file specified");
+            logger.error("No gtf file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("fasta")) {
-            LOG.error("No fasta file specified");
+            logger.error("No fasta file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("fidx")) {
-            LOG.error("No fidx file specified");
+            logger.error("No fidx file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("config")) {
-            LOG.error("No config file specified");
+            logger.error("No config file specified");
             System.exit(1);
         }
 
         if (!cmd.hasOption("o")) {
-            LOG.error("No output path specified");
+            logger.error("No output path specified");
             System.exit(1);
         }
 
-        /*if (!cmd.hasOption("gene-mapping")) {
-            LOG.error("No gene mapping path specified");
-            System.exit(1);
-        }*/
+        var useLiftoff = false;
 
-        var startRelease = 62;
-        var endRelease = 114;
+        if (useLiftoff) {
+            String userHome = System.getProperty("user.home");
+            String liftoffExec = Paths.get(userHome, "miniconda3", "bin", "liftoff")
+                    .toString();
 
+            ProcessBuilder pb = new ProcessBuilder(
+                    liftoffExec,
+                    "-g", cmd.getOptionValue("gtf"),
+                    cmd.getOptionValue("fasta"),
+                    cmd.getOptionValue("fasta2"),
+                    "-o", "output/lifted.gtf"
+            );
 
-        /*Map<Mapping, List<Mapping>> adjacencyGenes = EnsemblMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
-        var geneMap = EnsemblMappingParser.makeFinalMap(adjacencyGenes, startRelease, endRelease);
+            pb.redirectErrorStream(true);
 
-        Map<Mapping, List<Mapping>> adjacencyTranscripts = EnsemblMappingParser.adjacencyMapping(cmd.getOptionValue("gene-mapping"), startRelease, endRelease);
-        var transcriptMap = EnsemblMappingParser.makeFinalMap(adjacencyTranscripts, startRelease, endRelease);*/
-        //var geneMap =  GeneMappingParser.buildFinalMap(adjacencyGenes, 114);
+            try {
+                Process process = pb.start();
+
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println(line);
+                    }
+                }
+
+                int exitCode = process.waitFor();
+                if (exitCode == 0) {
+                    System.out.println("Liftoff successfully executed.");
+                } else {
+                    System.err.println("Liftoff failed with exit code " + exitCode + ".");
+                }
+
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
@@ -179,6 +147,49 @@ public class AnalysisRunner implements CommandLineRunner {
         gtfFile.parseAllContigs();
         gtfFile2.parseAllContigs();
 
+        var loci = OverlappingTranscripts.map(gtfFile, gtfFile2);
+
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of("unmapped.tsv"))) {
+            writer.write("source\ttranscript_id\tfeature\tstart\tstop\n");
+
+            for(var unmapped : loci.getUnmappedQueries()){
+                var baseData = unmapped.getBaseData();
+
+                writer.write("query\t");
+                var transcriptId = baseData.getAttributes("transcript_id").get(0);
+                writer.write( transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
+
+                for(var feature : unmapped.getFeatures()){
+                    var featureBaseData = feature.getBaseData();
+                    writer.write("query\t");
+                    writer.write( transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
+                }
+            }
+
+            for(var unmapped : loci.getUnmappedTargets()){
+                var baseData = unmapped.getBaseData();
+
+                writer.write("target\t");
+                var transcriptId = baseData.getAttributes("transcript_id").get(0);
+                writer.write(transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
+
+                for(var feature : unmapped.getFeatures()){
+                    var featureBaseData = feature.getBaseData();
+                    writer.write("target\t");
+                    writer.write( transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
+                }
+            }
+
+        } catch (IOException e) {
+            // TODO logging
+            throw new RuntimeException(e);
+        }
+
+        var workDir = Files.createTempDirectory("mm2-");
+        workDir.toFile().deleteOnExit();
+
+        var minimapPath = Minimap2Bundler.extractMinimap2();
+        var minimap2Result = Minimap2Validator.validateWithMinimap2(loci.getUnmappedQueries(), loci.getUnmappedTargets(), targetSequenceExtractor, querySequenceExtractor, workDir, minimapPath, 8);
         var configPath = cmd.getOptionValue("config");
 
         var objectMapper = new ObjectMapper();
@@ -186,14 +197,17 @@ public class AnalysisRunner implements CommandLineRunner {
         try {
             jsonConfig = objectMapper.readValue(new File(configPath), ConfigJSON.class);
         } catch (Exception e) {
-            LOG.error("Error reading config file: {}", e.getMessage());
+            logger.error("Error reading config file: {}", e.getMessage());
             System.exit(1);
         }
 
         var config = getComparisonConfig(jsonConfig);
 
-        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), null, null);
-        annotCompare.compare();
+        var annotCompareSafe = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci.getMapping());
+        annotCompareSafe.compare();
+
+        var annotCompareMm2 = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o") + ".minimap2", minimap2Result);
+        annotCompareMm2.compare();
     }
 
     private static ComparisonConfig getComparisonConfig(ConfigJSON jsonConfig) {
