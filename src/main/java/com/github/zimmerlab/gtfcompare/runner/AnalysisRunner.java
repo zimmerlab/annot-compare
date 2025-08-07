@@ -206,7 +206,7 @@ public class AnalysisRunner implements CommandLineRunner {
         var annotCompareSafe = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci.getMapping());
         annotCompareSafe.compare();
 
-        var annotCompareMm2 = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o") + ".minimap2", minimap2Result);
+        var annotCompareMm2 = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o") + ".minimap2", minimap2Result.getMapping());
         annotCompareMm2.compare();
     }
 

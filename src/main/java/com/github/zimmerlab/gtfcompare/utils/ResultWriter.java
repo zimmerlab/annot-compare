@@ -70,7 +70,7 @@ public class ResultWriter {
                 targetTranscriptId = tc.getTargetTranscriptId();
                 queryTranscriptId = tc.getQueryTranscriptId();
             }
-            lines.add(new OutputLine(20, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "null", targetTranscriptId, queryTranscriptId));
+            lines.add(new OutputLine(20, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "", "", targetTranscriptId, queryTranscriptId));
         } else {
 
             if (geneComparisonResult.isStartDifferent())
