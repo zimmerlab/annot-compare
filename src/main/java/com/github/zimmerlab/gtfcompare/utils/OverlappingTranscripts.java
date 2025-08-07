@@ -28,14 +28,7 @@ public class OverlappingTranscripts {
 
     private static final double MIN_OVERLAP_FRACTION = 0.00;
     private static final double ENSEMBLE_ALPHA = 0.5;
-    private static final double MIN_ENSEMBLE_SCORE = 0.80;
-    private static final double W_SPLICE = 0.65;
-    private static final double W_TERM = 0.20;   // bevorzugt gleiche 5'/3'-Ränder
-    private static final double W_JACC = 0.10;   // Dein bisheriger Feature-Jaccard
-    private static final double W_LEN = 0.05;   // Längenähnlichkeit
-
-    private static final int TERM_SLACK_BP = 64; // Toleranz an 5'/3' (z.B. 16–64bp testen)
-
+    private static final double MIN_ENSEMBLE_SCORE = 0.0;
 
     public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
 
@@ -72,18 +65,15 @@ public class OverlappingTranscripts {
 
             for (TranscriptFeature t : targets) {
                 for (TranscriptFeature q : queries) {
-                    double sj = spliceF1(t, q);
-                    if (sj < 0.5) continue;             // Gate: völlig andere Splice-Struktur raus
-
-                    double term = terminalAffinity(t, q, TERM_SLACK_BP);
+                    if (overlapFraction(t, q) < MIN_OVERLAP_FRACTION) continue;
                     double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
-                    double len = lengthSim(t, q);
-
-                    double score = W_SPLICE * sj + W_TERM * term + W_JACC * jac + W_LEN * len;
+                    double chn = chainSimilarity(t, q);
+                    double score = ENSEMBLE_ALPHA * jac + (1 - ENSEMBLE_ALPHA) * chn;
                     if (score < MIN_ENSEMBLE_SCORE) continue;
-
-                    DefaultWeightedEdge e = graph.addEdge(t, q);
-                    if (e != null) graph.setEdgeWeight(e, score);
+                    DefaultWeightedEdge edge = graph.addEdge(t, q);
+                    if (edge != null) {
+                        graph.setEdgeWeight(edge, score);
+                    }
                 }
             }
 
@@ -413,74 +403,5 @@ public class OverlappingTranscripts {
         } else {
             return null;
         }
-    }
-
-    private static List<GtfFeature> exons5to3(TranscriptFeature tf) {
-        List<GtfFeature> xs = tf.getFeatures().stream()
-                .filter(f -> "exon".equals(f.getBaseData().getType()))
-                .sorted(Comparator.comparingInt(f -> f.getBaseData().getStart()))
-                .collect(Collectors.toList());
-        if (!tf.getBaseData().isForwardStrand()) Collections.reverse(xs);
-        return xs;
-    }
-
-    // Intron-Junctions als Set von Paaren (end(prevExon), start(nextExon)) in Genomkoordinaten
-    private static Set<Long> junctionSet(TranscriptFeature tf) {
-        List<GtfFeature> xs = exons5to3(tf);
-        Set<Long> js = new LinkedHashSet<>();
-        for (int i = 0; i < xs.size() - 1; i++) {
-            int donor = xs.get(i).getBaseData().getEnd();
-            int accept = xs.get(i + 1).getBaseData().getStart();
-            // packe zwei ints in ein long-Schlüssel (ohne Allocation)
-            long key = (((long) donor) << 32) ^ (accept & 0xffffffffL);
-            js.add(key);
-        }
-        return js;
-    }
-
-    // F1 der Junction-Sets (robust bei gleicher Spleißstruktur)
-    private static double spliceF1(TranscriptFeature a, TranscriptFeature b) {
-        Set<Long> A = junctionSet(a), B = junctionSet(b);
-        if (A.isEmpty() && B.isEmpty()) return 1.0;
-        int inter = 0;
-        for (Long k : A) if (B.contains(k)) inter++;
-        if (inter == 0) return 0.0;
-        double prec = inter / (double) A.size();
-        double rec = inter / (double) B.size();
-        return 2.0 * prec * rec / (prec + rec);
-    }
-
-    // Terminale Randnähe (5' und 3') mit weicher Toleranz (slack bp)
-    private static double terminalAffinity(TranscriptFeature a, TranscriptFeature b, int slackBp) {
-        List<GtfFeature> ax = exons5to3(a), bx = exons5to3(b);
-        if (ax.isEmpty() || bx.isEmpty()) return 0.0;
-
-        boolean fwd = a.getBaseData().isForwardStrand(); // gleiche Strangseite in einer Clique
-        int a5 = fwd ? ax.get(0).getBaseData().getStart() : ax.get(0).getBaseData().getEnd();
-        int b5 = fwd ? bx.get(0).getBaseData().getStart() : bx.get(0).getBaseData().getEnd();
-        int a3 = fwd ? ax.get(ax.size() - 1).getBaseData().getEnd() : ax.get(ax.size() - 1).getBaseData().getStart();
-        int b3 = fwd ? bx.get(bx.size() - 1).getBaseData().getEnd() : bx.get(bx.size() - 1).getBaseData().getStart();
-
-        double d5 = Math.abs(a5 - b5);
-        double d3 = Math.abs(a3 - b3);
-
-        // in [0,1], 1 bei identisch; fällt ~exp(-d/slack)
-        double s5 = Math.exp(-d5 / (double) Math.max(1, slackBp));
-        double s3 = Math.exp(-d3 / (double) Math.max(1, slackBp));
-        return 0.5 * (s5 + s3);
-    }
-
-    // cDNA-Längenähnlichkeit (nur Exons; optional CDS-Variante analog)
-    private static int exonCdnalen(TranscriptFeature tf) {
-        return exons5to3(tf).stream()
-                .mapToInt(e -> e.getBaseData().getEnd() - e.getBaseData().getStart() + 1)
-                .sum();
-    }
-
-    private static double lengthSim(TranscriptFeature a, TranscriptFeature b) {
-        int la = exonCdnalen(a), lb = exonCdnalen(b);
-        int max = Math.max(la, lb);
-        if (max == 0) return 1.0;
-        return 1.0 - (Math.abs(la - lb) / (double) max);
     }
 }
