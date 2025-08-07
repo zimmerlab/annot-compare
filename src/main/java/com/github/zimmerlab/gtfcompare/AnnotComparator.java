@@ -49,13 +49,14 @@ public class AnnotComparator {
     public void compare() {
         //var genePairs = getGenePairs();
         //logger.info("number of gene pairs with new mapping: {}", genePairs.size());
-        var oldGenePairs = getGenePairsByExactId();
 
-        logger.info("number of gene pairs with old mapping: {}", oldGenePairs.size());
         var overallTranscriptPairs = transcriptPairs.size();
 
         int idx = 0;
         for (var pair : transcriptPairs) {
+            if(pair.getTargetTranscript().getTranscriptId().equals("ENST00000384885")){
+                var a = 2;
+            }
             var result = new ComparisonResult();
             result.addTranscriptComparison(pair.getTranscriptComparisonResult());
             var queryGeneId = pair.getQueryTranscript().getBaseData().getAttributes("gene_id").get(0);

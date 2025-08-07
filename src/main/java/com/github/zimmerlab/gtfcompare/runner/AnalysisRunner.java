@@ -8,9 +8,7 @@ import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
-import com.github.zimmerlab.gtfcompare.utils.Constants;
-import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
-import com.github.zimmerlab.gtfcompare.utils.OverlappingTranscripts;
+import com.github.zimmerlab.gtfcompare.utils.*;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -151,27 +149,6 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var loci = OverlappingTranscripts.map(gtfFile, gtfFile2);
 
-       /* try (BufferedWriter writer = Files.newBufferedWriter(Path.of("mapped_loci_new.tsv"))) {
-            writer.write("locus\ttarget_start\ttarget_end\tquery_start\tquery_end\n");
-            int i = 0;
-            for (var locus : loci) {
-                for (var entry : locus) {
-                    var queryBaseData = entry.getQueryGene().getBaseData();
-                    var targetBaseData = entry.getTargetGene().getBaseData();
-                    writer.write(i + "\t" + targetBaseData.getStart() + "\t" + targetBaseData.getEnd() + "\t" + queryBaseData.getStart() + "\t" + queryBaseData.getEnd() + "\n");
-                }
-                i++;
-            }
-        } catch (IOException e) {
-            // TODO logging
-            throw new RuntimeException(e);
-        }*/
-
-        /*var lociIntervals = new ArrayList<Interval>();
-        for(var l : loci) {
-            lociIntervals.add(OverlappingGenes.locusInterval(l));
-        }*/
-
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of("unmapped.tsv"))) {
             writer.write("source\ttranscript_id\tfeature\tstart\tstop\n");
 
@@ -208,12 +185,11 @@ public class AnalysisRunner implements CommandLineRunner {
             throw new RuntimeException(e);
         }
 
-        /*var lociIntervals = new ArrayList<Interval>();
-        for(var l : loci) {
-            lociIntervals.add(OverlappingGenes.locusInterval(l));
-        }
+        var workDir = Files.createTempDirectory("mm2-");
+        workDir.toFile().deleteOnExit();
 
-         */
+        var minimapPath = Minimap2Bundler.extractMinimap2();
+        var minimap2Result = Minimap2Validator.validateWithMinimap2(loci.getUnmappedQueries(), loci.getUnmappedTargets(), targetSequenceExtractor, querySequenceExtractor, workDir, minimapPath, 8);
         var configPath = cmd.getOptionValue("config");
 
         var objectMapper = new ObjectMapper();
@@ -227,8 +203,11 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var config = getComparisonConfig(jsonConfig);
 
-        var annotCompare = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci.getMapping());
-        annotCompare.compare();
+        var annotCompareSafe = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci.getMapping());
+        annotCompareSafe.compare();
+
+        var annotCompareMm2 = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o") + ".minimap2", minimap2Result);
+        annotCompareMm2.compare();
     }
 
     private static ComparisonConfig getComparisonConfig(ConfigJSON jsonConfig) {
