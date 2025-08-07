@@ -2,6 +2,7 @@ package com.github.zimmerlab.gtfcompare.utils;
 
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
+import com.github.zimmerlab.gtfcompare.model.MappingResult;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
 
@@ -23,30 +24,30 @@ public class Minimap2Validator {
 
     private static String buildCdna(TranscriptFeature tf,
                                     GenomeSequenceExtractor ex) throws IOException {
-        List<GtfFeature> exons = tf.getFeatures().stream()
+        var exons = tf.getFeatures().stream()
                 .filter(f -> "exon".equals(f.getBaseData().getType()))
                 .collect(Collectors.toList());
-        List<GtfFeature> cdss  = tf.getFeatures().stream()
+        var cdss  = tf.getFeatures().stream()
                 .filter(f -> Constants.CDS.equals(f.getBaseData().getType()))
                 .collect(Collectors.toList());
 
         if(exons.isEmpty()){
             var a = 2;
         }
-        List<GtfFeature> toUse = cdss.isEmpty() ? exons : cdss;
+        var toUse = cdss.isEmpty() ? exons : cdss;
 
         toUse.sort(Comparator.comparingInt(f -> f.getBaseData().getStart()));
-        boolean forward = tf.getBaseData().isForwardStrand();
+        var forward = tf.getBaseData().isForwardStrand();
         if (!forward) {
             Collections.reverse(toUse);
         }
 
-        StringBuilder sb = new StringBuilder();
+        var sb = new StringBuilder();
         for (GtfFeature seg : toUse) {
             var bd = seg.getBaseData();
             sb.append(ex.getSequence(bd.getContig(), bd.getStart(), bd.getEnd()));
         }
-        String seq = sb.toString();
+        var seq = sb.toString();
 
         return forward ? seq : reverseComplement(seq);
     }
@@ -169,7 +170,7 @@ public class Minimap2Validator {
      * - Cleans up FIFOs even on error
      * - Parses SAM and returns mapping
      */
-    public static List<TranscriptPair> validateWithMinimap2(List<TranscriptFeature> unmappedQueries, List<TranscriptFeature> unmappedTargets, GenomeSequenceExtractor targetSeqExtractor, GenomeSequenceExtractor querySeqExtractor, Path workDir, Path minimap2Exe, int threads) throws IOException, InterruptedException {
+    public static MappingResult<TranscriptPair, TranscriptFeature> validateWithMinimap2(List<TranscriptFeature> unmappedQueries, List<TranscriptFeature> unmappedTargets, GenomeSequenceExtractor targetSeqExtractor, GenomeSequenceExtractor querySeqExtractor, Path workDir, Path minimap2Exe, int threads) throws IOException, InterruptedException {
         var refFifo = workDir.resolve("targets.fifo.fa");
         var queryFifo = workDir.resolve("queries.fifo.fa");
         var samOut = workDir.resolve("minimap2.sam");
@@ -212,7 +213,24 @@ public class Minimap2Validator {
                     result.add(tPair);
                 }
             }
-            return result;
+
+            var mappedQueries = result.stream()
+                    .map(TranscriptPair::getQueryTranscript)
+                    .collect(Collectors.toSet());
+
+            var mappedTargets = result.stream()
+                    .map(TranscriptPair::getTargetTranscript)
+                    .collect(Collectors.toSet());
+
+            var stillUnmappedQueries = unmappedQueries.stream()
+                    .filter(q -> !mappedQueries.contains(q))
+                    .toList();
+
+            var stillUnmappedTargets = unmappedTargets.stream()
+                    .filter(t -> !mappedTargets.contains(t))
+                    .toList();
+
+            return new MappingResult<>(result, stillUnmappedTargets, stillUnmappedQueries);
         } finally {
             // shutdown writers and remove FIFOs
             executor.shutdown();
