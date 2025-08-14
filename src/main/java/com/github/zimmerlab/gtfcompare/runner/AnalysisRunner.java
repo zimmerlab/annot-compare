@@ -154,7 +154,7 @@ public class AnalysisRunner implements CommandLineRunner {
             writer.write("");
         }
 
-        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId");
+        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype");
 
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o")),
                 StandardOpenOption.CREATE,
@@ -176,14 +176,14 @@ public class AnalysisRunner implements CommandLineRunner {
                 gtfFile.parseNextContig();
                 gtfFile2.parseNextContig();
                 if (!gtfFile.getParsedContig().equals(gtfFile2.getParsedContig())) {
-                    System.out.println("test");
-                    throw new ParseException("Contigs do not match");
+                    throw new Exception("Contigs do not match");
                 }
                 runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath);
             }
         } catch (java.text.ParseException e) {
-            System.out.println("test2");
-            logger.error("Parse error: ", e);
+            logger.info("Program finished");
+        } catch (Exception e) {
+            logger.error("Program failed", e);
         }
 
     }

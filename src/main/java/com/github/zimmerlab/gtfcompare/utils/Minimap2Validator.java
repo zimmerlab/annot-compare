@@ -149,8 +149,7 @@ public class Minimap2Validator {
 
     private static void runMinimap2Streaming(Path minimap2Exe, Path refFaOrMmi, List<TranscriptFeature> queries, GenomeSequenceExtractor querySeqExtractor, Path outSam, Path errLog, int threads) throws IOException, InterruptedException {
         // Use "-" to read queries from stdin.
-        var cmd = List.of(minimap2Exe.toString(), "-ax", "map-pb", "--secondary=no", "-t", Integer.toString(threads), refFaOrMmi.toString(), "-"  // queries from stdin
-        );
+        var cmd = List.of(minimap2Exe.toString(), "-ax", "map-pb", "--secondary=no", "-t", Integer.toString(threads), refFaOrMmi.toString(), "-" );
 
         // Do NOT merge stderr into stdout. Keep SAM clean.
         var pb = new ProcessBuilder(cmd).redirectOutput(outSam.toFile()).redirectError(errLog != null ? errLog.toFile() : ProcessBuilder.Redirect.INHERIT.file());

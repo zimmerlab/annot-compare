@@ -53,28 +53,64 @@ public class AnnotComparator {
         var overallTranscriptPairs = transcriptPairs.size();
 
         int idx = 0;
+        var everyBiotypeAllowed = config.getAllowedGeneBiotypes().isEmpty();
         for (var pair : transcriptPairs) {
-            if(pair.getTargetTranscript().getTranscriptId().equals("ENST00000384885")){
-                var a = 2;
-            }
+            var isTranscriptBiotypeAllowed = isBiotypeAllowed(pair);
+            idx++;
+            if (!everyBiotypeAllowed && !isTranscriptBiotypeAllowed.isAllowed)
+                continue;
+
+            var geneBiotypeResponse = getGeneBiotype(pair);
             var result = new ComparisonResult();
-            result.addTranscriptComparison(pair.getTranscriptComparisonResult());
+            result.getGeneComparison().setQueryBiotype(geneBiotypeResponse.queryBiotype);
+            result.getGeneComparison().setTargetBiotype(geneBiotypeResponse.targetBiotype);
+            var transcriptComparisonResult = pair.getTranscriptComparisonResult();
+            transcriptComparisonResult.setQueryBiotype(isTranscriptBiotypeAllowed.queryBiotype);
+            transcriptComparisonResult.setTargetBiotype(isTranscriptBiotypeAllowed.targetBiotype);
+            result.addTranscriptComparison(transcriptComparisonResult);
             var queryGeneId = pair.getQueryTranscript().getBaseData().getAttributes("gene_id").get(0);
             var targetGeneId = pair.getTargetTranscript().getBaseData().getAttributes("gene_id").get(0);
             result.setQueryGeneId(queryGeneId != null ? queryGeneId : "");
             result.setTargetGeneId(targetGeneId != null ? targetGeneId : "");
             compareTranscript(pair, result);
 
-
             comparisonResults.add(result);
 
-            if(idx % 100 == 0){
+            if (idx % 100 == 0) {
                 logger.info(String.format("%d gene pairs of %d analyzed", idx, overallTranscriptPairs));
             }
-            idx++;
         }
 
         ResultWriter.writeComparisonResult(comparisonResults, outputPath);
+    }
+
+    private record BiotypeAllowedResponse(boolean isAllowed, String targetBiotype, String queryBiotype) {}
+    private BiotypeAllowedResponse isBiotypeAllowed(TranscriptPair pair) {
+        var allowedBiotypes = config.getAllowedGeneBiotypes();
+        var targetBaseData = pair.getTargetTranscript().getBaseData();
+        var queryBaseData = pair.getQueryTranscript().getBaseData();
+
+        var hasTargetBiotypeAttribute = targetBaseData.getAttributes("transcript_biotype").get(0) != null;
+        var hasQueryBiotypeAttribute = queryBaseData.getAttributes("transcript_biotype").get(0) != null;
+
+        var targetBiotype = hasTargetBiotypeAttribute ? targetBaseData.getAttributes("transcript_biotype").getFirst() : targetBaseData.getSource();
+        var queryBiotype = hasQueryBiotypeAttribute ? queryBaseData.getAttributes("transcript_biotype").getFirst() : targetBaseData.getSource();
+
+        return new BiotypeAllowedResponse(allowedBiotypes.contains(queryBiotype) || allowedBiotypes.contains(targetBiotype), targetBiotype, queryBiotype);
+    }
+
+    private record GetGeneBiotypeResponse(String targetBiotype, String queryBiotype) {}
+    private GetGeneBiotypeResponse getGeneBiotype(TranscriptPair pair) {
+        var targetBaseData = pair.getTargetTranscript().getBaseData();
+        var queryBaseData = pair.getQueryTranscript().getBaseData();
+
+        var hasTargetBiotypeAttribute = targetBaseData.getAttributes("gene_biotype").get(0) != null;
+        var hasQueryBiotypeAttribute = queryBaseData.getAttributes("gene_biotype").get(0) != null;
+
+        var targetBiotype = hasTargetBiotypeAttribute ? targetBaseData.getAttributes("gene_biotype").getFirst() : targetBaseData.getSource();
+        var queryBiotype = hasQueryBiotypeAttribute ? queryBaseData.getAttributes("gene_biotype").getFirst() : targetBaseData.getSource();
+
+        return new GetGeneBiotypeResponse(targetBiotype, queryBiotype);
     }
 
     private List<GenePair> getGenePairsByExactId() {
@@ -85,7 +121,7 @@ public class AnnotComparator {
         for (var geneId : targetGtf.getAllGeneFeatureIds()) {
             var gene = targetGtf.getGeneFeature(geneId);
 
-            if(everyBiotypeAllowed) {
+            if (everyBiotypeAllowed) {
                 targetGeneMap.put(geneId, gene);
                 continue;
             }
@@ -94,12 +130,12 @@ public class AnnotComparator {
 
 
             String geneBiotype = geneBiotypeEmpty ? baseData.getSource() : baseData.getAttributes("gene_biotype").getFirst();
-            if(config.getAllowedGeneBiotypes().contains(geneBiotype)) targetGeneMap.put(geneId, gene);
+            if (config.getAllowedGeneBiotypes().contains(geneBiotype)) targetGeneMap.put(geneId, gene);
         }
 
         for (var geneId : queryGtf.getAllGeneFeatureIds()) {
             var gene = queryGtf.getGeneFeature(geneId);
-            if(everyBiotypeAllowed) {
+            if (everyBiotypeAllowed) {
                 queryGeneMap.put(geneId, gene);
                 continue;
             }
@@ -107,7 +143,7 @@ public class AnnotComparator {
             var geneBiotypeEmpty = baseData.getAttributes("gene_biotype").isEmpty();
 
             String geneBiotype = geneBiotypeEmpty ? baseData.getSource() : baseData.getAttributes("gene_biotype").getFirst();
-            if(config.getAllowedGeneBiotypes().contains(geneBiotype)) queryGeneMap.put(geneId, gene);
+            if (config.getAllowedGeneBiotypes().contains(geneBiotype)) queryGeneMap.put(geneId, gene);
         }
 
         var allGeneIds = new HashSet<String>();
@@ -124,7 +160,7 @@ public class AnnotComparator {
     }
 
     private void compareGene(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult result) {
-        if(targetGene == null || queryGene == null) {
+        if (targetGene == null || queryGene == null) {
             handleMissingGene(targetGene == null, result);
             return;
         }
@@ -139,7 +175,7 @@ public class AnnotComparator {
 
         var ctx = new ComparisonContext(targetGene, queryGene, config, targetSequenceExtractor, querySequenceExtractor, targetTranscripts, queryTranscripts);
 
-        for(var comp : geneLoader) {
+        for (var comp : geneLoader) {
             if (!config.isEnabled(comp.getName()))
                 continue;
 
@@ -158,11 +194,11 @@ public class AnnotComparator {
         var targetGeneBiotypeEmpty = targetGene.getBaseData().getAttributes("gene_biotype").isEmpty();
         var queryGeneBiotypeEmpty = queryGene.getBaseData().getAttributes("gene_biotype").isEmpty();
         var geneComparison = result.getGeneComparison();
-        if(!targetGeneBiotypeEmpty){
+        if (!targetGeneBiotypeEmpty) {
             geneComparison.setTargetBiotype(targetGene.getBaseData().getAttributes("gene_biotype").getFirst());
         }
 
-        if(!queryGeneBiotypeEmpty){
+        if (!queryGeneBiotypeEmpty) {
             geneComparison.setQueryBiotype(queryGene.getBaseData().getAttributes("gene_biotype").getFirst());
         }
 
@@ -242,7 +278,7 @@ public class AnnotComparator {
         var map = new HashMap<String, List<GtfFeature>>();
         for (var f : transcriptFeature.getFeatures()) {
             var type = GtfConfig.getDefault(f.getBaseData().getType());
-            if(!config.isEnabled(type))
+            if (!config.isEnabled(type))
                 continue;
             map.computeIfAbsent(type, k -> new ArrayList<>()).add(f);
         }
@@ -305,7 +341,7 @@ public class AnnotComparator {
         var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor, null, null);
         var currentFeatureType = targetBaseData.getType();
         ServiceLoader<? extends ComparisonFeature> currentLoader = featureLoader;
-        if(Constants.CDS.equals(GtfConfig.getDefault(currentFeatureType))){
+        if (Constants.CDS.equals(GtfConfig.getDefault(currentFeatureType))) {
             currentLoader = cdsLoader;
         }
         for (var comp : currentLoader) {
@@ -330,7 +366,7 @@ public class AnnotComparator {
         }
     }
 
-    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult, FeatureComparisonResult featureComparisonResult ,TranscriptComparisonResult transcriptComparisonResult, ComparisonResult result) {
+    private void addToRegionComparison(String name, RegionComparisonResult regionComparisonResult, FeatureComparisonResult featureComparisonResult, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult result) {
         var geneComparisonResult = result.getGeneComparison();
         switch (name) {
             case Constants.LENGTH_COMPARATOR_NAME:

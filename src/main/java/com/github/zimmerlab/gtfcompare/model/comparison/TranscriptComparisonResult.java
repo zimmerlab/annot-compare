@@ -6,6 +6,8 @@ import java.util.List;
 public class TranscriptComparisonResult {
     private String queryTranscriptId;
     private String targetTranscriptId;
+    private String targetBiotype;
+    private String queryBiotype;
     private boolean areSameTranscript = true;
     private boolean transcriptMissingInTargetGene;
     private boolean transcriptMissingInQueryGene;
@@ -90,5 +92,21 @@ public class TranscriptComparisonResult {
 
     public void setAreSameTranscript(boolean areSameTranscript) {
         this.areSameTranscript = areSameTranscript;
+    }
+
+    public void setTargetBiotype(String targetBiotype) {
+        this.targetBiotype = targetBiotype;
+    }
+
+    public void setQueryBiotype(String queryBiotype) {
+        this.queryBiotype = queryBiotype;
+    }
+
+    public String getQueryBiotype() {
+        return queryBiotype;
+    }
+
+    public String getTargetBiotype() {
+        return targetBiotype;
     }
 }
