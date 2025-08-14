@@ -9,6 +9,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -26,7 +27,7 @@ public class ResultWriter {
 
         var cmp = Comparator.comparingInt(OutputLine::getOrderKey).thenComparing(line -> String.join("\t", line.getColumns()));
 
-        try (BufferedWriter writer = Files.newBufferedWriter(Path.of(outputPath))) {
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of(outputPath), StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
             writer.write(HEADER);
             writer.newLine();
 

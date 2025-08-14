@@ -29,6 +29,7 @@ public class OverlappingTranscripts {
     private static final double MIN_OVERLAP_FRACTION = 0.00;
     private static final double ENSEMBLE_ALPHA = 0.5;
     private static final double MIN_ENSEMBLE_SCORE = 0.0;
+    private static final double IDENTITY_EDGE_WEIGHT = 2.0;
 
     public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
 
@@ -53,7 +54,6 @@ public class OverlappingTranscripts {
             // Collect targets and queries
             Set<TranscriptFeature> targets = locusPairs.stream().map(TranscriptPair::getTargetTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
             Set<TranscriptFeature> queries = locusPairs.stream().map(TranscriptPair::getQueryTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
-
             // Build unified clique for vector construction
             List<TranscriptFeature> clique = Stream.concat(targets.stream(), queries.stream()).collect(Collectors.toList());
             var vectors = buildModelVectorsForClique(clique);
@@ -62,6 +62,7 @@ public class OverlappingTranscripts {
             var graph = new SimpleWeightedGraph<TranscriptFeature, DefaultWeightedEdge>(DefaultWeightedEdge.class);
             targets.forEach(graph::addVertex);
             queries.forEach(graph::addVertex);
+            //addIdentityMatchEdges(graph, targets, queries);
 
             for (TranscriptFeature t : targets) {
                 for (TranscriptFeature q : queries) {
@@ -72,28 +73,28 @@ public class OverlappingTranscripts {
                     if (score < MIN_ENSEMBLE_SCORE) continue;
                     DefaultWeightedEdge edge = graph.addEdge(t, q);
                     if (edge != null) {
-                        graph.setEdgeWeight(edge, score);
+                        graph.setEdgeWeight(edge, 1);
                     }
                 }
             }
 
-            // Compute maximum-weight bipartite matching
+            //  maximum-weight bipartite matching
             var mwbm = new MaximumWeightBipartiteMatching<>(graph, targets, queries);
             var matching = mwbm.getMatching().getEdges();
 
-            // Integrate matches into final mapping
-            Map<TranscriptFeature, TranscriptFeature> cliqueMapping = new LinkedHashMap<>();
+            // integrate matches into final mapping
+            var cliqueMapping = new LinkedHashMap<TranscriptFeature, TranscriptFeature>();
             for (DefaultWeightedEdge e : matching) {
                 TranscriptFeature src = graph.getEdgeSource(e);
                 TranscriptFeature tgt = graph.getEdgeTarget(e);
                 cliqueMapping.put(src, tgt);
             }
 
-            Set<TranscriptFeature> matchedTargets = cliqueMapping.keySet();
-            Set<TranscriptFeature> matchedQueries = new HashSet<>(cliqueMapping.values());
+            var matchedTargets = cliqueMapping.keySet();
+            var matchedQueries = new HashSet<>(cliqueMapping.values());
 
-            List<TranscriptFeature> unmatchedTargets = targets.stream().filter(t -> !matchedTargets.contains(t)).toList();
-            List<TranscriptFeature> unmatchedQueries = queries.stream().filter(q -> !matchedQueries.contains(q)).toList();
+            var unmatchedTargets = targets.stream().filter(t -> !matchedTargets.contains(t)).toList();
+            var unmatchedQueries = queries.stream().filter(q -> !matchedQueries.contains(q)).toList();
 
             if (unmatchedTargets.size() == 1 && unmatchedQueries.size() == 1) {
                 TranscriptFeature t0 = unmatchedTargets.get(0);
@@ -120,6 +121,20 @@ public class OverlappingTranscripts {
 
     private static Set<TranscriptFeature> getAllTranscripts(GtfFile gtfFile) {
         return gtfFile.getAllGeneFeatureIds().stream().flatMap(geneId -> gtfFile.getGeneFeature(geneId).getTranscripts().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static void addIdentityMatchEdges(SimpleWeightedGraph<TranscriptFeature, DefaultWeightedEdge> graph, Set<TranscriptFeature> targets, Set<TranscriptFeature> queries) {
+
+        for (TranscriptFeature t : targets) {
+            for (TranscriptFeature q : queries) {
+                if (t.getTranscriptId().equals(q.getTranscriptId())) {
+                    var e = graph.addEdge(t, q);
+                    if (e != null) {
+                        graph.setEdgeWeight(e, IDENTITY_EDGE_WEIGHT);
+                    }
+                }
+            }
+        }
     }
 
 
