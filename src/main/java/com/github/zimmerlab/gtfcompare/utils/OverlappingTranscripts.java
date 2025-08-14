@@ -51,7 +51,9 @@ public class OverlappingTranscripts {
         var finalMapping = new ConcurrentHashMap<TranscriptFeature, TranscriptFeature>();
 
         clusters.values().parallelStream().forEach(locusPairs -> {
+
             // Collect targets and queries
+
             Set<TranscriptFeature> targets = locusPairs.stream().map(TranscriptPair::getTargetTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
             Set<TranscriptFeature> queries = locusPairs.stream().map(TranscriptPair::getQueryTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
             // Build unified clique for vector construction
@@ -73,7 +75,7 @@ public class OverlappingTranscripts {
                     if (score < MIN_ENSEMBLE_SCORE) continue;
                     DefaultWeightedEdge edge = graph.addEdge(t, q);
                     if (edge != null) {
-                        graph.setEdgeWeight(edge, 1);
+                        graph.setEdgeWeight(edge, score);
                     }
                 }
             }
@@ -102,6 +104,8 @@ public class OverlappingTranscripts {
                 cliqueMapping.put(t0, q0);
             }
 
+            logger.debug("Cluster: |T|={} |Q|={} edges={}", targets.size(), queries.size(), graph.edgeSet().size());
+
             finalMapping.putAll(cliqueMapping);
         });
 
@@ -115,7 +119,7 @@ public class OverlappingTranscripts {
 
         var unmappedTargets = allTargets.stream().filter(t -> !mappedTargets.contains(t)).toList();
         var unmappedQueries = allQueries.stream().filter(q -> !mappedQueries.contains(q)).toList();
-
+        logger.info("Finished Mapping");
         return new MappingResult<>(mapping, unmappedTargets, unmappedQueries);
     }
 
@@ -348,7 +352,7 @@ public class OverlappingTranscripts {
 
     private static Map<TranscriptFeature, EnumMap<FeatureType, BitSet>> buildModelVectorsForClique(List<TranscriptFeature> clique) {
         // 1. Collect all boundaries (start and end+1) of all segments in the clique
-        Set<Integer> coords = new TreeSet<>();
+        var coords = new TreeSet<Integer>();
         for (TranscriptFeature tf : clique) {
             for (GtfFeature seg : tf.getFeatures()) {
                 coords.add(seg.getBaseData().getStart());

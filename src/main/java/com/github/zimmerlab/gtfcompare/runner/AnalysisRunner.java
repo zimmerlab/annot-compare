@@ -6,6 +6,8 @@ import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
+import com.github.zimmerlab.gtfcompare.model.MappingResult;
+import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.model.config.FeatureConfig;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
@@ -152,10 +154,20 @@ public class AnalysisRunner implements CommandLineRunner {
             writer.write("");
         }
 
+        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId");
+
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o")),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING)) {
-            writer.write("");
+            writer.write(HEADER);
+            writer.newLine();
+        }
+
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o") + ".minimap2"),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write(HEADER);
+            writer.newLine();
         }
 
 
@@ -164,11 +176,13 @@ public class AnalysisRunner implements CommandLineRunner {
                 gtfFile.parseNextContig();
                 gtfFile2.parseNextContig();
                 if (!gtfFile.getParsedContig().equals(gtfFile2.getParsedContig())) {
+                    System.out.println("test");
                     throw new ParseException("Contigs do not match");
                 }
                 runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath);
             }
         } catch (java.text.ParseException e) {
+            System.out.println("test2");
             logger.error("Parse error: ", e);
         }
 
@@ -176,48 +190,16 @@ public class AnalysisRunner implements CommandLineRunner {
 
     private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath) throws IOException, InterruptedException {
         var currentContig = gtfFile.getParsedContig();
+        logger.info("Current contig: " + currentContig);
         var loci = OverlappingTranscripts.map(gtfFile, gtfFile2);
 
-        try (BufferedWriter writer = Files.newBufferedWriter(Path.of("unmapped_ " + currentContig + ".tsv"))) {
-            writer.write("source\ttranscript_id\tfeature\tstart\tstop\n");
 
-            for (var unmapped : loci.getUnmappedQueries()) {
-                var baseData = unmapped.getBaseData();
-
-                writer.write("query\t");
-                var transcriptId = baseData.getAttributes("transcript_id").get(0);
-                writer.write(transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
-
-                for (var feature : unmapped.getFeatures()) {
-                    var featureBaseData = feature.getBaseData();
-                    writer.write("query\t");
-                    writer.write(transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
-                }
-            }
-
-            for (var unmapped : loci.getUnmappedTargets()) {
-                var baseData = unmapped.getBaseData();
-
-                writer.write("target\t");
-                var transcriptId = baseData.getAttributes("transcript_id").get(0);
-                writer.write(transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
-
-                for (var feature : unmapped.getFeatures()) {
-                    var featureBaseData = feature.getBaseData();
-                    writer.write("target\t");
-                    writer.write(transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
-                }
-            }
-
-        } catch (IOException e) {
-            // TODO logging
-            throw new RuntimeException(e);
-        }
 
         var workDir = Files.createTempDirectory("mm2-");
         workDir.toFile().deleteOnExit();
 
         var minimapPath = Minimap2Bundler.extractMinimap2();
+        logger.debug("Starting Minimap");
         var minimap2Result = Minimap2Validator.validateWithMinimap2(loci.getUnmappedQueries(), loci.getUnmappedTargets(), targetSequenceExtractor, querySequenceExtractor, workDir, minimapPath, 8);
         try (BufferedWriter writer = Files.newBufferedWriter(queryUnmappedPath, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
             for (TranscriptFeature tf : minimap2Result.getUnmappedQueries()) {
@@ -246,9 +228,11 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var config = getComparisonConfig(jsonConfig);
 
+        logger.debug("Starting with normal comparison");
         var annotCompareSafe = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o"), loci.getMapping());
         annotCompareSafe.compare();
 
+        logger.debug("Starting with minimap comparison");
         var annotCompareMm2 = new AnnotComparator(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, config, cmd.getOptionValue("o") + ".minimap2", minimap2Result.getMapping());
         annotCompareMm2.compare();
     }
@@ -314,6 +298,43 @@ public class AnalysisRunner implements CommandLineRunner {
             if (th != null) {
                 configBuilder.setThreshold(featureName, th);
             }
+        }
+    }
+    private static void WriteUnmappedAfterOverlaps(MappingResult<TranscriptPair, TranscriptFeature> loci) {
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of("unmapped.tsv"))) {
+            writer.write("source\ttranscript_id\tfeature\tstart\tstop\n");
+
+            for (var unmapped : loci.getUnmappedQueries()) {
+                var baseData = unmapped.getBaseData();
+
+                writer.write("query\t");
+                var transcriptId = baseData.getAttributes("transcript_id").get(0);
+                writer.write(transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
+
+                for (var feature : unmapped.getFeatures()) {
+                    var featureBaseData = feature.getBaseData();
+                    writer.write("query\t");
+                    writer.write(transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
+                }
+            }
+
+            for (var unmapped : loci.getUnmappedTargets()) {
+                var baseData = unmapped.getBaseData();
+
+                writer.write("target\t");
+                var transcriptId = baseData.getAttributes("transcript_id").get(0);
+                writer.write(transcriptId + "\t" + baseData.getType() + "\t" + baseData.getStart() + "\t" + baseData.getEnd() + "\n");
+
+                for (var feature : unmapped.getFeatures()) {
+                    var featureBaseData = feature.getBaseData();
+                    writer.write("target\t");
+                    writer.write(transcriptId + "\t" + featureBaseData.getType() + "\t" + featureBaseData.getStart() + "\t" + featureBaseData.getEnd() + "\n");
+                }
+            }
+
+        } catch (IOException e) {
+            // TODO logging
+            throw new RuntimeException(e);
         }
     }
 

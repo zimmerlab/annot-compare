@@ -16,7 +16,6 @@ import java.util.List;
 
 public class ResultWriter {
 
-    private static final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId");
 
     public static void writeComparisonResult(List<ComparisonResult> comparisonResults, String outputPath) {
         var lines = new ArrayList<OutputLine>();
@@ -28,9 +27,6 @@ public class ResultWriter {
         var cmp = Comparator.comparingInt(OutputLine::getOrderKey).thenComparing(line -> String.join("\t", line.getColumns()));
 
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(outputPath), StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-            writer.write(HEADER);
-            writer.newLine();
-
             lines.stream().sorted(cmp).forEach(line -> {
                 try {
                     writeLine(writer, line.getColumns());

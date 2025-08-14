@@ -22,16 +22,11 @@ public class Minimap2Validator {
     private static final double MIN_IDENTITY = 95.0;      // percent
     private static final double MIN_COVERAGE = 80.0;      // percent
 
-    private static String buildCdna(TranscriptFeature tf,
-                                    GenomeSequenceExtractor ex) throws IOException {
-        var exons = tf.getFeatures().stream()
-                .filter(f -> "exon".equals(f.getBaseData().getType()))
-                .collect(Collectors.toList());
-        var cdss  = tf.getFeatures().stream()
-                .filter(f -> Constants.CDS.equals(f.getBaseData().getType()))
-                .collect(Collectors.toList());
+    private static String buildCdna(TranscriptFeature tf, GenomeSequenceExtractor ex) throws IOException {
+        var exons = tf.getFeatures().stream().filter(f -> "exon".equals(f.getBaseData().getType())).collect(Collectors.toList());
+        var cdss = tf.getFeatures().stream().filter(f -> Constants.CDS.equals(f.getBaseData().getType())).collect(Collectors.toList());
 
-        if(exons.isEmpty()){
+        if (exons.isEmpty()) {
             var a = 2;
         }
         var toUse = cdss.isEmpty() ? exons : cdss;
@@ -56,77 +51,45 @@ public class Minimap2Validator {
         var rc = new StringBuilder(seq.length());
         for (int i = seq.length() - 1; i >= 0; i--) {
             switch (seq.charAt(i)) {
-                case 'A': rc.append('T'); break;
-                case 'T': rc.append('A'); break;
-                case 'C': rc.append('G'); break;
-                case 'G': rc.append('C'); break;
-                default:  rc.append('N'); break;
+                case 'A':
+                    rc.append('T');
+                    break;
+                case 'T':
+                    rc.append('A');
+                    break;
+                case 'C':
+                    rc.append('G');
+                    break;
+                case 'G':
+                    rc.append('C');
+                    break;
+                default:
+                    rc.append('N');
+                    break;
             }
         }
         return rc.toString();
     }
 
 
-    private static void createFifo(Path fifo) throws IOException, InterruptedException {
-        Files.deleteIfExists(fifo);
-        var p = new ProcessBuilder("mkfifo", fifo.toString()).start();
-        if (p.waitFor() != 0) {
-            throw new IOException("Failed to create FIFO: " + fifo);
-        }
-    }
-
-    private static void writeFifoBlocking(Path fifo, List<TranscriptFeature> transcripts, GenomeSequenceExtractor seqExtractor) throws IOException {
-        try (BufferedWriter w = Files.newBufferedWriter(fifo, StandardOpenOption.WRITE)) {
-            for (TranscriptFeature tf : transcripts) {
-                String seq = buildCdna(tf, seqExtractor);
-                System.err.printf("DEBUG-FULL: %s len=%d (expected ~%d) strand=%s%n",
-                        tf.getTranscriptId(), seq.length(),
-                        tf.getFeatures().stream().filter(f->"exon".equals(f.getBaseData().getType()))
-                                .mapToInt(f->f.getBaseData().getEnd() - f.getBaseData().getStart() +1).sum(),
-                        tf.getBaseData().isForwardStrand() ? "+" : "-"
-                );
-                w.write(">" + tf.getTranscriptId());
-                w.newLine();
-                w.write(seq);
-                w.newLine();
-            }
-        }
-    }
-
-    private static void runMinimap2OnFifos(Path minimap2Exe, Path refFifo, Path queryFifo, Path outSam, int threads) throws IOException, InterruptedException {
-        var cmd = List.of(minimap2Exe.toString(), "-ax", "map-pb", "--secondary=no", "-t", Integer.toString(threads), refFifo.toString(), queryFifo.toString());
-        var pb = new ProcessBuilder(cmd).redirectErrorStream(true).redirectOutput(outSam.toFile());
-        var proc = pb.start();
-        int exit = proc.waitFor();
-        if (exit != 0) {
-            throw new IOException("minimap2 exited with code " + exit);
-        }
-    }
-
     public static Map<String, String> parseAndFilterSam(Path samFile) throws IOException {
         var cigarOp = Pattern.compile("(\\d+)([MIDNSHP=X])");
         var validated = new HashMap<String, String>();
-
         try (var in = Files.newBufferedReader(samFile)) {
             String line;
             while ((line = in.readLine()) != null) {
                 if (line.isEmpty() || line.charAt(0) == '@') continue;
-
-                // split and guard: we need at least QNAME,RNAME,CIGAR,SEQLEN, plus optional tags
                 String[] f = line.split("\t");
-                if (f.length < 6) {
-                    // malformed or unexpected line, skip it
-                    continue;
-                }
+                if (f.length < 11) continue; // need at least up to optional tags
 
                 String qname = f[0];
                 String rname = f[2];
-                if ("*".equals(rname)) continue;  // unmapped
+                if ("*".equals(rname)) continue;
 
                 String cigar = f[5];
-                int seqLen = f[9].length();
+                String seq = f[9];
+                int seqLen = seq.length();
 
-                // parse NM:i tag
                 int nm = 0;
                 for (int i = 11; i < f.length; i++) {
                     if (f[i].startsWith("NM:i:")) {
@@ -135,32 +98,82 @@ public class Minimap2Validator {
                     }
                 }
 
-                // compute aligned length on query
                 var m = cigarOp.matcher(cigar);
-                int alignedLen = 0, ins = 0;
+                int M = 0, I = 0, D = 0;
                 while (m.find()) {
                     int len = Integer.parseInt(m.group(1));
-                    char op  = m.group(2).charAt(0);
-                    switch (op) {
-                        case 'M': case '=': case 'X':
-                            alignedLen += len; break;
+                    switch (m.group(2).charAt(0)) {
+                        case 'M':
+                        case '=':
+                        case 'X':
+                            M += len;
+                            break;
                         case 'I':
-                            ins += len;        break;
-                        // D/N können für Reference‐Coverage mitgezählt werden, wenn nötig
+                            I += len;
+                            break;
+                        case 'D':
+                            D += len;
+                            break;
+                        default:
+                            break; // ignore S,H,N,P for identity here
                     }
                 }
-                int queryCover = alignedLen + ins;
-                double coverage = queryCover * 100.0 / seqLen;
-                double identity = alignedLen * 100.0 / seqLen;  // da
+
+                double queryAligned = M + I;
+                double coverage = (seqLen == 0) ? 0.0 : (queryAligned * 100.0 / seqLen);
+
+                double denom = M + I + D;
+                double identity = (denom == 0) ? 0.0 : (100.0 * (1.0 - ((double) nm / denom)));
 
                 if (coverage >= MIN_COVERAGE && identity >= MIN_IDENTITY) {
                     validated.put(qname, rname);
                 }
             }
         }
-
         return validated;
     }
+
+    private static Path writeFastaFile(List<TranscriptFeature> transcripts, GenomeSequenceExtractor seqExtractor, Path outFa) throws IOException {
+        try (var w = Files.newBufferedWriter(outFa)) {
+            for (TranscriptFeature tf : transcripts) {
+                String seq = buildCdna(tf, seqExtractor);
+                w.write(">");
+                w.write(tf.getTranscriptId());
+                w.newLine();
+                w.write(seq); // one line is fine for minimap2
+                w.newLine();
+            }
+        }
+        return outFa;
+    }
+
+    private static void runMinimap2Streaming(Path minimap2Exe, Path refFaOrMmi, List<TranscriptFeature> queries, GenomeSequenceExtractor querySeqExtractor, Path outSam, Path errLog, int threads) throws IOException, InterruptedException {
+        // Use "-" to read queries from stdin.
+        var cmd = List.of(minimap2Exe.toString(), "-ax", "map-pb", "--secondary=no", "-t", Integer.toString(threads), refFaOrMmi.toString(), "-"  // queries from stdin
+        );
+
+        // Do NOT merge stderr into stdout. Keep SAM clean.
+        var pb = new ProcessBuilder(cmd).redirectOutput(outSam.toFile()).redirectError(errLog != null ? errLog.toFile() : ProcessBuilder.Redirect.INHERIT.file());
+        var proc = pb.start();
+
+        // Stream queries to minimap2 stdin and then close to signal EOF.
+        try (var os = proc.getOutputStream(); var w = new java.io.BufferedWriter(new java.io.OutputStreamWriter(os))) {
+            for (TranscriptFeature tf : queries) {
+                String seq = buildCdna(tf, querySeqExtractor);
+                w.write(">");
+                w.write(tf.getTranscriptId());
+                w.newLine();
+                w.write(seq);
+                w.newLine();
+            }
+        }
+
+        int exit = proc.waitFor();
+        if (exit != 0) {
+            throw new IOException("minimap2 exited with code " + exit + (errLog != null ? " (see " + errLog.toString() + ")" : ""));
+        }
+    }
+
 
     /**
      * High-level driver:
@@ -171,72 +184,59 @@ public class Minimap2Validator {
      * - Parses SAM and returns mapping
      */
     public static MappingResult<TranscriptPair, TranscriptFeature> validateWithMinimap2(List<TranscriptFeature> unmappedQueries, List<TranscriptFeature> unmappedTargets, GenomeSequenceExtractor targetSeqExtractor, GenomeSequenceExtractor querySeqExtractor, Path workDir, Path minimap2Exe, int threads) throws IOException, InterruptedException {
-        var refFifo = workDir.resolve("targets.fifo.fa");
-        var queryFifo = workDir.resolve("queries.fifo.fa");
-        var samOut = workDir.resolve("minimap2.sam");
 
-        var executor = Executors.newFixedThreadPool(2);
-        try {
-            // 1) create FIFOs
-            createFifo(refFifo);
-            createFifo(queryFifo);
+        // Short-circuit when there is nothing to do.
+        if (unmappedQueries.isEmpty() || unmappedTargets.isEmpty()) {
+            return new MappingResult<>(List.of(), unmappedTargets, unmappedQueries);
+        }
 
-            // 2) launch writers (they block until minimap2 opens the pipes)
-            executor.submit(() -> {
-                try {
-                    writeFifoBlocking(refFifo, unmappedTargets, targetSeqExtractor);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-            executor.submit(() -> {
-                try {
-                    writeFifoBlocking(queryFifo, unmappedQueries, querySeqExtractor);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
+        Path refFa = workDir.resolve("targets.tmp.fa");
+        Path samOut = workDir.resolve("minimap2.sam");
+        Path errLog = workDir.resolve("minimap2.stderr.log");
 
-            // 3) run minimap2 reading from FIFOs
-            runMinimap2OnFifos(minimap2Exe, refFifo, queryFifo, samOut, threads);
+        // 1) Write targets to a regular FASTA (or prebuild an .mmi once and reuse).
+        writeFastaFile(unmappedTargets, targetSeqExtractor, refFa);
 
-            // 4) parse SAM and filter
-            var qToT = parseAndFilterSam(samOut);
+        // 2) Run minimap2: stream queries via stdin; keep stderr separate from SAM.
+        runMinimap2Streaming(minimap2Exe, refFa, unmappedQueries, querySeqExtractor, samOut, errLog, threads);
 
-            // 5) build final mapping
-            var id2Target = unmappedTargets.stream().collect(Collectors.toMap(TranscriptFeature::getTranscriptId, tf -> tf));
-            var result = new ArrayList<TranscriptPair>();
-            for (TranscriptFeature qf : unmappedQueries) {
-                var mappedId = qToT.get(qf.getTranscriptId());
-                if (mappedId != null && id2Target.containsKey(mappedId)) {
-                    var tPair = new TranscriptPair(id2Target.get(mappedId), qf, new TranscriptComparisonResult());
-                    result.add(tPair);
+        // 3) Parse SAM and build mapping.
+        var qToT = parseAndFilterSam(samOut);
+
+        var id2Target = unmappedTargets.stream().collect(Collectors.toMap(TranscriptFeature::getTranscriptId, tf -> tf));
+
+        var result = new ArrayList<TranscriptPair>();
+        for (TranscriptFeature qf : unmappedQueries) {
+            var mappedId = qToT.get(qf.getTranscriptId());
+            if (mappedId != null) {
+                var target = id2Target.get(mappedId);
+                if (target != null) {
+                    result.add(new TranscriptPair(target, qf, new TranscriptComparisonResult()));
                 }
             }
+        }
 
-            var mappedQueries = result.stream()
-                    .map(TranscriptPair::getQueryTranscript)
-                    .collect(Collectors.toSet());
+        var mappedQueries = result.stream().map(TranscriptPair::getQueryTranscript).collect(Collectors.toSet());
 
-            var mappedTargets = result.stream()
-                    .map(TranscriptPair::getTargetTranscript)
-                    .collect(Collectors.toSet());
+        var mappedTargets = result.stream().map(TranscriptPair::getTargetTranscript).collect(Collectors.toSet());
 
-            var stillUnmappedQueries = unmappedQueries.stream()
-                    .filter(q -> !mappedQueries.contains(q))
-                    .toList();
+        var stillUnmappedQueries = unmappedQueries.stream().filter(q -> !mappedQueries.contains(q)).toList();
 
-            var stillUnmappedTargets = unmappedTargets.stream()
-                    .filter(t -> !mappedTargets.contains(t))
-                    .toList();
+        var stillUnmappedTargets = unmappedTargets.stream().filter(t -> !mappedTargets.contains(t)).toList();
 
-            return new MappingResult<>(result, stillUnmappedTargets, stillUnmappedQueries);
-        } finally {
-            // shutdown writers and remove FIFOs
-            executor.shutdown();
-            executor.awaitTermination(5, TimeUnit.SECONDS);
-            Files.deleteIfExists(refFifo);
-            Files.deleteIfExists(queryFifo);
+        deleteQuietly(refFa, samOut, errLog);
+        return new MappingResult<>(result, stillUnmappedTargets, stillUnmappedQueries);
+    }
+
+
+    private static void deleteQuietly(Path... paths) {
+        for (Path p : paths) {
+            if (p == null) continue;
+            try {
+                Files.deleteIfExists(p);
+            } catch (IOException e) {
+                System.err.println("WARN: failed to delete " + p + ": " + e.getMessage());
+            }
         }
     }
 }
