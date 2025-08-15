@@ -9,6 +9,7 @@ import java.util.Map;
 
 public class SameProteinComparator implements CDSComparisonFeature {
     private static final Map<String, Character> CODON_TABLE = Constants.CODON_TABLE;
+
     @Override
     public String getName() {
         return Constants.SAME_PROTEIN_COMPARATOR_NAME;
@@ -25,16 +26,16 @@ public class SameProteinComparator implements CDSComparisonFeature {
         var queryStart = queryBaseData.getStart();
         var queryStop = queryBaseData.getEnd();
 
-        if((targetStop - targetStart) != (queryStop - queryStart)) {
+        if ((targetStop - targetStart) != (queryStop - queryStart)) {
             return true; // Different lengths, hence different proteins
         }
 
         var targetExtractor = ctx.getTargetExtractor().isPresent() ? ctx.getTargetExtractor().get() : null;
-        if(targetExtractor == null) {
+        if (targetExtractor == null) {
             throw new Exception("Target extractor is not available for protein sequence extraction.");
         }
         var queryExtractor = ctx.getQueryExtractor().isPresent() ? ctx.getQueryExtractor().get() : null;
-        if(queryExtractor == null) {
+        if (queryExtractor == null) {
             throw new Exception("Query extractor is not available for protein sequence extraction.");
         }
         var querySequence = queryExtractor.getSequence(queryBaseData.getContig(), queryStart, queryStop);
@@ -50,14 +51,13 @@ public class SameProteinComparator implements CDSComparisonFeature {
 
     private boolean isSameProtein(String targetProtein, String queryProtein) {
         for (int i = 0; i + 3 < targetProtein.length(); i += 3) {
-            String targetCodon = targetProtein.substring(i, i + 3);
-            String queryCodon = queryProtein.substring(i, i + 3);
+            var targetCodon = targetProtein.substring(i, i + 3);
+            var queryCodon = queryProtein.substring(i, i + 3);
 
-            Character targetAA = CODON_TABLE.get(targetCodon);
-            Character queryAA = CODON_TABLE.get(queryCodon);
+            var targetAA = CODON_TABLE.get(targetCodon);
+            var queryAA = CODON_TABLE.get(queryCodon);
             if (targetAA == null || queryAA == null) {
-                throw new IllegalArgumentException("Invalid Codon: "
-                        + (targetAA ==null ? targetCodon : queryCodon));
+                throw new IllegalArgumentException("Invalid Codon: " + (targetAA == null ? targetCodon : queryCodon));
             }
 
             if (!targetAA.equals(queryAA)) {

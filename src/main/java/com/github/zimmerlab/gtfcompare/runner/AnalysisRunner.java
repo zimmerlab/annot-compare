@@ -154,7 +154,7 @@ public class AnalysisRunner implements CommandLineRunner {
             writer.write("");
         }
 
-        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype");
+        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype", "targetFeatureStart", "queryFeatureStart", "targetFeatureStop", "queryFeatureStop");
 
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o")),
                 StandardOpenOption.CREATE,

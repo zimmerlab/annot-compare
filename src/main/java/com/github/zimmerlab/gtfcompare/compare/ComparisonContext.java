@@ -3,6 +3,7 @@ package com.github.zimmerlab.gtfcompare.compare;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +16,10 @@ public class ComparisonContext {
     private final List<? extends GtfFeature> targetTranscriptFeatures;
     private final List<? extends GtfFeature> queryTranscriptFeatures;
 
+    private Long targetTranscriptFeaturesMin;
+    private Long targetTranscriptFeaturesMax;
+    private Long queryTranscriptFeaturesMin;
+    private Long queryTranscriptFeaturesMax;
     private Boolean lengthChanged = null;
 
     public ComparisonContext(GtfFeature targetFeature,
@@ -67,5 +72,37 @@ public class ComparisonContext {
 
     public Boolean hasLengthChanged() {
         return lengthChanged;
+    }
+
+    public Long getTargetTranscriptFeaturesMax() {
+        return targetTranscriptFeaturesMax;
+    }
+
+    public Long getQueryTranscriptFeaturesMax() {
+        return queryTranscriptFeaturesMax;
+    }
+
+    public Long getQueryTranscriptFeaturesMin() {
+        return queryTranscriptFeaturesMin;
+    }
+
+    public Long getTargetTranscriptFeaturesMin() {
+        return targetTranscriptFeaturesMin;
+    }
+
+    public void setQueryTranscriptFeaturesMax(Long queryTranscriptFeaturesMax) {
+        this.queryTranscriptFeaturesMax = queryTranscriptFeaturesMax;
+    }
+
+    public void setQueryTranscriptFeaturesMin(Long queryTranscriptFeaturesMin) {
+        this.queryTranscriptFeaturesMin = queryTranscriptFeaturesMin;
+    }
+
+    public void setTargetTranscriptFeaturesMax(Long targetTranscriptFeaturesMax) {
+        this.targetTranscriptFeaturesMax = targetTranscriptFeaturesMax;
+    }
+
+    public void setTargetTranscriptFeaturesMin(Long targetTranscriptFeaturesMin) {
+        this.targetTranscriptFeaturesMin = targetTranscriptFeaturesMin;
     }
 }

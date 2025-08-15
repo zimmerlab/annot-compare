@@ -17,6 +17,10 @@ public class TranscriptComparisonResult {
     private boolean isSequenceDifferent;
     private List<FeatureComparisonResult> featureComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
+    private Long queryStart;
+    private Long queryStop;
+    private Long targetStart;
+    private Long targetStop;
 
     public String getQueryTranscriptId() {
         return queryTranscriptId;
@@ -108,5 +112,37 @@ public class TranscriptComparisonResult {
 
     public String getTargetBiotype() {
         return targetBiotype;
+    }
+
+    public Long getQueryStart() {
+        return queryStart;
+    }
+
+    public void setQueryStart(Long queryStart) {
+        this.queryStart = queryStart;
+    }
+
+    public Long getQueryStop() {
+        return queryStop;
+    }
+
+    public void setQueryStop(Long queryStop) {
+        this.queryStop = queryStop;
+    }
+
+    public Long getTargetStart() {
+        return targetStart;
+    }
+
+    public void setTargetStart(Long targetStart) {
+        this.targetStart = targetStart;
+    }
+
+    public Long getTargetStop() {
+        return targetStop;
+    }
+
+    public void setTargetStop(Long targetStop) {
+        this.targetStop = targetStop;
     }
 }

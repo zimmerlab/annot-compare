@@ -258,6 +258,12 @@ public class AnnotComparator {
                     targetTranscript.getBaseData().getType(), comp.getName(), changed
             );
         }
+
+        transcriptComparisonResult.setQueryStart(ctx.getQueryTranscriptFeaturesMin());
+        transcriptComparisonResult.setQueryStop(ctx.getQueryTranscriptFeaturesMax());
+
+        transcriptComparisonResult.setTargetStart(ctx.getTargetTranscriptFeaturesMin());
+        transcriptComparisonResult.setTargetStop(ctx.getTargetTranscriptFeaturesMax());
     }
 
     private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
