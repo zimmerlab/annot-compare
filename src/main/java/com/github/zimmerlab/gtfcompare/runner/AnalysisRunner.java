@@ -154,7 +154,7 @@ public class AnalysisRunner implements CommandLineRunner {
             writer.write("");
         }
 
-        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype");
+        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype", "targetFeatureStart", "queryFeatureStart", "targetFeatureStop", "queryFeatureStop", "targetStrand", "queryStrand");
 
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o")),
                 StandardOpenOption.CREATE,
@@ -256,6 +256,8 @@ public class AnalysisRunner implements CommandLineRunner {
         enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_LENGTH_COMPARATOR_NAME, configFeatures);
         enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_START_COMPARATOR_NAME, configFeatures);
         enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_STOP_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_STRAND_COMPARATOR_NAME, configFeatures);
+        enableFeatureWithThreshold(configBuilder, Constants.TRANSCRIPT_BIOTYPE_COMPARATOR_NAME, configFeatures);
 
 
         // GENE COMPARATORS

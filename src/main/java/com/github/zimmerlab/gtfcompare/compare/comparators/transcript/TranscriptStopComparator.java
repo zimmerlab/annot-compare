@@ -22,16 +22,27 @@ public class TranscriptStopComparator implements TranscriptComparisonFeature {
         if (targets.isEmpty() || queries.isEmpty())
             return true;
 
-        var maxTargetStop = targets.get().stream()
-                .mapToLong(target -> target.getBaseData().getEnd())
-                .max()
-                .orElse(Long.MIN_VALUE);
+        var maxTargetStop = ctx.getTargetTranscriptFeaturesMax();
+        var maxQueryStop = ctx.getQueryTranscriptFeaturesMax();
 
-        var maxQueryStop = queries.get().stream()
-                .mapToLong(query -> query.getBaseData()
-                .getEnd())
-                .max()
-                .orElse(Long.MIN_VALUE);
+        if (maxTargetStop == null) {
+            maxTargetStop = targets.get().stream()
+                    .mapToLong(target -> target.getBaseData().getEnd())
+                    .max()
+                    .orElse(Long.MIN_VALUE);
+
+            ctx.setTargetTranscriptFeaturesMax(maxTargetStop);
+        }
+
+        if (maxQueryStop == null) {
+            maxQueryStop = queries.get().stream()
+                    .mapToLong(query -> query.getBaseData()
+                            .getEnd())
+                    .max()
+                    .orElse(Long.MIN_VALUE);
+
+            ctx.setQueryTranscriptFeaturesMax(maxQueryStop);
+        }
 
         return Math.abs(maxTargetStop - maxQueryStop) > ctx.getConfig().getThreshold(getName());
     }
