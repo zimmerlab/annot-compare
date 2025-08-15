@@ -77,7 +77,7 @@ public class AnnotComparator {
             comparisonResults.add(result);
 
             if (idx % 100 == 0) {
-                logger.info(String.format("%d gene pairs of %d analyzed", idx, overallTranscriptPairs));
+                logger.info(String.format("%d transcript pairs of %d analyzed", idx, overallTranscriptPairs));
             }
         }
 

@@ -71,7 +71,8 @@ public class OverlappingTranscripts {
                     if (overlapFraction(t, q) < MIN_OVERLAP_FRACTION) continue;
                     double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
                     double chn = chainSimilarity(t, q);
-                    double score = ENSEMBLE_ALPHA * jac + (1 - ENSEMBLE_ALPHA) * chn;
+                    double sDist  = distanceScore(t, q, 10_000);
+                    double score = 0.26 * jac + 0.26 * chn + 0.48 * sDist;
                     if (score < MIN_ENSEMBLE_SCORE) continue;
                     DefaultWeightedEdge edge = graph.addEdge(t, q);
                     if (edge != null) {
@@ -92,7 +93,7 @@ public class OverlappingTranscripts {
                 cliqueMapping.put(src, tgt);
             }
 
-            var matchedTargets = cliqueMapping.keySet();
+            /*var matchedTargets = cliqueMapping.keySet();
             var matchedQueries = new HashSet<>(cliqueMapping.values());
 
             var unmatchedTargets = targets.stream().filter(t -> !matchedTargets.contains(t)).toList();
@@ -102,7 +103,7 @@ public class OverlappingTranscripts {
                 TranscriptFeature t0 = unmatchedTargets.get(0);
                 TranscriptFeature q0 = unmatchedQueries.get(0);
                 cliqueMapping.put(t0, q0);
-            }
+            }*/
 
             logger.debug("Cluster: |T|={} |Q|={} edges={}", targets.size(), queries.size(), graph.edgeSet().size());
 
@@ -254,8 +255,7 @@ public class OverlappingTranscripts {
 
                 double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
                 double chn = chainSimilarity(t, q);
-                double score = ENSEMBLE_ALPHA * jac + (1 - ENSEMBLE_ALPHA) * chn;
-
+                double score = ENSEMBLE_ALPHA * jac + (1-ENSEMBLE_ALPHA) * chn;
                 if (score > bestScoreT.get(q)) {
                     bestScoreT.put(q, score);
                     bestTPerQ.put(q, t);
@@ -422,5 +422,17 @@ public class OverlappingTranscripts {
         } else {
             return null;
         }
+    }
+
+
+    private static double distanceScore(TranscriptFeature t, TranscriptFeature q, double lambdaBp) {
+        var bt = t.getBaseData();
+        var bq = q.getBaseData();
+        if (!bt.getContig().equals(bq.getContig())) return 0.0;          // hard gate if desired
+        if (bt.isForwardStrand() != bq.isForwardStrand()) return 0.0;     // optional
+        var mt = ((long) bt.getStart() + bt.getEnd()) / 2;
+        var mq = ((long) bq.getStart() + bq.getEnd()) / 2;
+        var d  = Math.abs(mt - mq);
+        return Math.exp(- (double) d / lambdaBp); // lambda ~ 5e3..5e4 for genes, kleiner für snRNAs
     }
 }
