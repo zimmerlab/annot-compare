@@ -1,0 +1,49 @@
+A) Overlapping Transcripts
+
+Interval Trees aufbauen
+    Für jedes Transkript aus Target‐ und Query‐GTF werden Intervallbäume nach Contig + Strang aufgebaut.
+    Ermöglicht effiziente Suche nach sich überlappenden Transkripten.
+
+Overlaps finden
+    Alle Query‐ und Target‐Transkripte, die sich auf derselben Contig/Strang‐Kombination räumlich überschneiden, werden als TranscriptPairs gesammelt.
+
+Loci clustern
+    Mit einer Union‐Find‐Struktur (DisjointSet) werden alle überlappenden Transkripte zu Loci‐Clustern zusammengefasst.
+
+Feature‐Vektoren aufbauen
+    Für jedes Transkript im Cluster werden Feature‐Vektoren erstellt:
+        BitSets für Feature‐Typen (UTR5, CDS, UTR3, …) basierend auf fein unterteilten Genomintervallen.
+
+Ähnlichkeit berechnen & Graph aufbauen
+    Für jedes Target–Query‐Paar im Cluster:
+        Jaccard‐Similarity der Feature‐Vektoren
+        Chain‐Similarity (Exonlängen‐Edit‐Distance)
+        Kombination beider Werte über ENSEMBLE_ALPHA.
+    Paare mit Score ≥ MIN_ENSEMBLE_SCORE werden als Kanten in einen gewichteten bipartiten Graphen eingefügt.
+
+Maximum‐Weight‐Bipartite‐Matching
+    Mit MaximumWeightBipartiteMatching wird die Menge der Zuordnungen gefunden, bei der die Summe der Kantengewichte maximal ist.
+
+    MWBM sucht in einem zweigeteilten Graphen (linke und rechte Knotenmenge, nur Kanten dazwischen) die beste Menge an 1‐zu‐1‐Zuordnungen, sodass
+    jeder Knoten höchstens einmal benutzt wird die Summe der Kantengewichte der gewählten Kanten maximal ist.
+    Wenn du mehrere mögliche Paarungen mit unterschiedlichen „Scores“ hast, wählt MWBM genau die Kombination, die in Summe den höchsten Gesamtscore liefert –
+    auch wenn das bedeutet, dass eine einzelne sehr gute Kante zugunsten einer besseren Gesamtkombination nicht genommen wird.
+
+Feinjustierung
+    Falls in einem Cluster genau ein Target und ein Query ungematcht bleiben, werden sie direkt gepaart.
+
+Ergebnis zusammenbauen
+    Liefert ein MappingResult mit:
+        Liste der gemappten TranscriptPairs
+        Liste der ungemappten Targets
+        Liste der ungemappten Queries
+
+
+B) Minimap2Validator
+
+cDNA‐Sequenzen bauen aus Exons oder CDS.
+FIFO‐Dateien für Target und Query erstellen.
+Sequenzen in die FIFOs schreiben (parallel).
+minimap2 direkt aus den FIFOs starten.
+SAM‐Ausgabe parsen, Coverage/Identity filtern.
+MappingResult mit neuen Matches + verbleibend ungemappten Transkripten zurückgeben.
