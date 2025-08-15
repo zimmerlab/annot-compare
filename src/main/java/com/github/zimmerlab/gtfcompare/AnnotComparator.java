@@ -173,7 +173,7 @@ public class AnnotComparator {
         var targetTranscripts = targetGene.getTranscripts();
         var queryTranscripts = queryGene.getTranscripts();
 
-        var ctx = new ComparisonContext(targetGene, queryGene, config, targetSequenceExtractor, querySequenceExtractor, targetTranscripts, queryTranscripts);
+        var ctx = new ComparisonContext(targetGene, queryGene,"", "", config, targetSequenceExtractor, querySequenceExtractor, targetTranscripts, queryTranscripts);
 
         for (var comp : geneLoader) {
             if (!config.isEnabled(comp.getName()))
@@ -242,7 +242,10 @@ public class AnnotComparator {
         var targetFeatures = targetTranscript.getFeatures();
         var queryFeatures = queryTranscript.getFeatures();
 
-        var ctx = new ComparisonContext(targetTranscript, queryTranscript, config, targetSequenceExtractor, querySequenceExtractor, targetFeatures, queryFeatures);
+        var targetBiotype = transcriptComparisonResult.getTargetBiotype();
+        var queryBiotype = transcriptComparisonResult.getQueryBiotype();
+
+        var ctx = new ComparisonContext(targetTranscript, queryTranscript,targetBiotype, queryBiotype, config, targetSequenceExtractor, querySequenceExtractor, targetFeatures, queryFeatures);
         for (var comp : transcriptLoader) {
             if (!config.isEnabled(comp.getName()))
                 continue;
@@ -264,6 +267,11 @@ public class AnnotComparator {
 
         transcriptComparisonResult.setTargetStart(ctx.getTargetTranscriptFeaturesMin());
         transcriptComparisonResult.setTargetStop(ctx.getTargetTranscriptFeaturesMax());
+
+        transcriptComparisonResult.setContig(targetTranscript.getBaseData().getContig());
+
+        transcriptComparisonResult.setQueryForwardStrand(ctx.getQueryForwardStrand());
+        transcriptComparisonResult.setTargetForwardStrand(ctx.getTargetForwardStrand());
     }
 
     private void handleMissingTranscript(TranscriptFeature a, TranscriptFeature b, TranscriptComparisonResult txResult, ComparisonResult geneResult) {
@@ -344,7 +352,11 @@ public class AnnotComparator {
 
         var regionComparisonResult = new RegionComparisonResult(targetBaseData.getStart(), targetBaseData.getEnd(), queryBaseData.getStart(), queryBaseData.getEnd());
         featureComparisonResult.addRegionComparison(regionComparisonResult);
-        var ctx = new ComparisonContext(targetFeature, queryFeature, config, targetSequenceExtractor, querySequenceExtractor, null, null);
+
+        var targetTranscriptBiotype = transcriptComparisonResult.getTargetBiotype();
+        var queryTranscriptBiotype = transcriptComparisonResult.getQueryBiotype();
+
+        var ctx = new ComparisonContext(targetFeature, queryFeature, targetTranscriptBiotype, queryTranscriptBiotype, config, targetSequenceExtractor, querySequenceExtractor, null, null);
         var currentFeatureType = targetBaseData.getType();
         ServiceLoader<? extends ComparisonFeature> currentLoader = featureLoader;
         if (Constants.CDS.equals(GtfConfig.getDefault(currentFeatureType))) {
@@ -448,6 +460,21 @@ public class AnnotComparator {
                 result.setAreSameGene(false);
 
                 transcriptComparisonResult.setStopDifferent(true);
+                break;
+            case Constants.TRANSCRIPT_SEQUENCE_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                transcriptComparisonResult.setStrandDifferent(true);
+                break;
+
+            case Constants.TRANSCRIPT_BIOTYPE_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                transcriptComparisonResult.setBiotypeDifferent(true);
                 break;
             default:
                 logger.warn("Unknown transcript comparison feature: {}", name);

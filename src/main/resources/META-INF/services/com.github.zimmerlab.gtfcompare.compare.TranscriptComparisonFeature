@@ -1,3 +1,5 @@
 com.github.zimmerlab.gtfcompare.compare.comparators.transcript.TranscriptLengthComparator
 com.github.zimmerlab.gtfcompare.compare.comparators.transcript.TranscriptStartComparator
 com.github.zimmerlab.gtfcompare.compare.comparators.transcript.TranscriptStopComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.transcript.TranscriptStrandComparator
+com.github.zimmerlab.gtfcompare.compare.comparators.transcript.TranscriptBiotypeChanged

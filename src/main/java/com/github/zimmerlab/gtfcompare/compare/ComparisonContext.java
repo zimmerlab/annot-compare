@@ -13,6 +13,8 @@ public class ComparisonContext {
     private final ComparisonConfig config;
     private final GenomeSequenceExtractor targetExtractor;
     private final GenomeSequenceExtractor queryExtractor;
+    private final String targetTranscriptBiotype;
+    private final String queryTranscriptBiotype;
     private final List<? extends GtfFeature> targetTranscriptFeatures;
     private final List<? extends GtfFeature> queryTranscriptFeatures;
 
@@ -21,9 +23,13 @@ public class ComparisonContext {
     private Long queryTranscriptFeaturesMin;
     private Long queryTranscriptFeaturesMax;
     private Boolean lengthChanged = null;
+    private Boolean isTargetForwardStrand;
+    private Boolean isQueryForwardStrand;
 
     public ComparisonContext(GtfFeature targetFeature,
                              GtfFeature queryFeature,
+                             String targetTranscriptBiotype,
+                             String queryTranscriptBiotype,
                              ComparisonConfig config,
                              GenomeSequenceExtractor targetExtractor,
                              GenomeSequenceExtractor queryExtractor,
@@ -31,6 +37,8 @@ public class ComparisonContext {
                              List<? extends GtfFeature> queryChildFeatures) {
         this.targetFeature = targetFeature;
         this.queryFeature = queryFeature;
+        this.targetTranscriptBiotype = targetTranscriptBiotype;
+        this.queryTranscriptBiotype = queryTranscriptBiotype;
         this.config = config;
         this.targetExtractor = targetExtractor;
         this.queryExtractor = queryExtractor;
@@ -104,5 +112,29 @@ public class ComparisonContext {
 
     public void setTargetTranscriptFeaturesMin(Long targetTranscriptFeaturesMin) {
         this.targetTranscriptFeaturesMin = targetTranscriptFeaturesMin;
+    }
+
+    public Boolean getQueryForwardStrand() {
+        return isQueryForwardStrand;
+    }
+
+    public Boolean getTargetForwardStrand() {
+        return isTargetForwardStrand;
+    }
+
+    public void setQueryForwardStrand(Boolean queryForwardStrand) {
+        isQueryForwardStrand = queryForwardStrand;
+    }
+
+    public void setTargetForwardStrand(Boolean targetForwardStrand) {
+        isTargetForwardStrand = targetForwardStrand;
+    }
+
+    public String getQueryTranscriptBiotype() {
+        return queryTranscriptBiotype;
+    }
+
+    public String getTargetTranscriptBiotype() {
+        return targetTranscriptBiotype;
     }
 }

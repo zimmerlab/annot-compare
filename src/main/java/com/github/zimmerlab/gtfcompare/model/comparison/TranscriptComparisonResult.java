@@ -8,6 +8,8 @@ public class TranscriptComparisonResult {
     private String targetTranscriptId;
     private String targetBiotype;
     private String queryBiotype;
+    private String contig;
+    private boolean biotypeDifferent;
     private boolean areSameTranscript = true;
     private boolean transcriptMissingInTargetGene;
     private boolean transcriptMissingInQueryGene;
@@ -15,6 +17,9 @@ public class TranscriptComparisonResult {
     private boolean stopDifferent;
     private boolean lengthDifferent;
     private boolean isSequenceDifferent;
+    private boolean isStrandDifferent;
+    private Boolean isTargetForwardStrand;
+    private Boolean isQueryForwardStrand;
     private List<FeatureComparisonResult> featureComparisons = new ArrayList<>();
     private List<String> messages = new ArrayList<>();
     private Long queryStart;
@@ -144,5 +149,45 @@ public class TranscriptComparisonResult {
 
     public void setTargetStop(Long targetStop) {
         this.targetStop = targetStop;
+    }
+
+    public String getContig() {
+        return contig;
+    }
+
+    public void setContig(String contig) {
+        this.contig = contig;
+    }
+
+    public Boolean isTargetForwardStrand() {
+        return isTargetForwardStrand;
+    }
+
+    public void setTargetForwardStrand(Boolean isForwardStrand) {
+        this.isTargetForwardStrand = isForwardStrand;
+    }
+
+    public Boolean isQueryForwardStrand() {
+        return isQueryForwardStrand;
+    }
+
+    public void setQueryForwardStrand(Boolean isForwardStrand) {
+        this.isQueryForwardStrand = isForwardStrand;
+    }
+
+    public void setStrandDifferent(boolean strandDifferent) {
+        isStrandDifferent = strandDifferent;
+    }
+
+    public boolean isStrandDifferent() {
+        return isStrandDifferent;
+    }
+
+    public void setBiotypeDifferent(boolean biotypeDifferent) {
+        this.biotypeDifferent = biotypeDifferent;
+    }
+
+    public boolean isBiotypeDifferent() {
+        return biotypeDifferent;
     }
 }

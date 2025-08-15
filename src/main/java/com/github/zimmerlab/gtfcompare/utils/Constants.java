@@ -32,6 +32,8 @@ public class Constants {
     public final static String TRANSCRIPT_SEQUENCE_COMPARATOR_NAME = "transcript_sequence";
     public final static String TRANSCRIPT_START_COMPARATOR_NAME = "transcript_start";
     public final static String TRANSCRIPT_STOP_COMPARATOR_NAME = "transcript_stop";
+    public final static String TRANSCRIPT_STRAND_COMPARATOR_NAME = "transcript_strand";
+    public final static String TRANSCRIPT_BIOTYPE_COMPARATOR_NAME = "transcript_biotype";
 
     // Feature Types
     public final static String GENE = GtfConfig.TYPE_GENE_DEFAULT;
