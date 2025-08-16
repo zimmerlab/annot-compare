@@ -28,7 +28,7 @@ public class OverlappingTranscripts {
 
     private static final double MIN_OVERLAP_FRACTION = 0.00;
     private static final double ENSEMBLE_ALPHA = 0.5;
-    private static final double MIN_ENSEMBLE_SCORE = 0.0;
+    private static final double MIN_ENSEMBLE_SCORE = 0.95;
     private static final double IDENTITY_EDGE_WEIGHT = 2.0;
 
     public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
@@ -50,7 +50,7 @@ public class OverlappingTranscripts {
         logger.info("Compute Global Best Hits via Bipartite Matching");
         var finalMapping = new ConcurrentHashMap<TranscriptFeature, TranscriptFeature>();
 
-        clusters.values().parallelStream().forEach(locusPairs -> {
+        clusters.values().stream().forEach(locusPairs -> {
 
             // Collect targets and queries
 
@@ -67,12 +67,16 @@ public class OverlappingTranscripts {
             //addIdentityMatchEdges(graph, targets, queries);
 
             for (TranscriptFeature t : targets) {
+                if(t.getTranscriptId().equals("ENST00000334318")){
+                    var a = 2;
+                }
                 for (TranscriptFeature q : queries) {
                     if (overlapFraction(t, q) < MIN_OVERLAP_FRACTION) continue;
                     double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
                     double chn = chainSimilarity(t, q);
                     double sDist  = distanceScore(t, q, 10_000);
-                    double score = 0.26 * jac + 0.26 * chn + 0.48 * sDist;
+                    double sEnd = tssTesScore(t,q, 150.0, 250.0);
+                    double score = 0.2 * jac + 0.2 * chn + 0.55 * sEnd + 0.5 * sDist;
                     if (score < MIN_ENSEMBLE_SCORE) continue;
                     DefaultWeightedEdge edge = graph.addEdge(t, q);
                     if (edge != null) {
@@ -434,5 +438,26 @@ public class OverlappingTranscripts {
         var mq = ((long) bq.getStart() + bq.getEnd()) / 2;
         var d  = Math.abs(mt - mq);
         return Math.exp(- (double) d / lambdaBp); // lambda ~ 5e3..5e4 for genes, kleiner für snRNAs
+    }
+
+    private static int tss(TranscriptFeature tf) {
+        var b = tf.getBaseData();
+        return b.isForwardStrand() ? b.getStart() : b.getEnd();
+    }
+    private static int tes(TranscriptFeature tf) {
+        var b = tf.getBaseData();
+        return b.isForwardStrand() ? b.getEnd() : b.getStart();
+    }
+
+    // Exponential decay by distance; tau in bp
+    private static double endpointProximity(int a, int b, double tau) {
+        return Math.exp(-Math.abs(a - b) / tau);
+    }
+
+    // Separate weights for 5′ vs 3′ (TES stärker gewichten für protein_coding)
+    private static double tssTesScore(TranscriptFeature t, TranscriptFeature q, double tau5, double tau3) {
+        double s5  = endpointProximity(tss(t), tss(q), tau5);
+        double s3  = endpointProximity(tes(t), tes(q), tau3);
+        return 0.4 * s5 + 0.6 * s3; // TES dominates
     }
 }

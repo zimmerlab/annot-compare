@@ -68,10 +68,10 @@ public class AnnotComparator {
             transcriptComparisonResult.setQueryBiotype(isTranscriptBiotypeAllowed.queryBiotype);
             transcriptComparisonResult.setTargetBiotype(isTranscriptBiotypeAllowed.targetBiotype);
             result.addTranscriptComparison(transcriptComparisonResult);
-            var queryGeneId = pair.getQueryTranscript().getBaseData().getAttributes("gene_id").get(0);
-            var targetGeneId = pair.getTargetTranscript().getBaseData().getAttributes("gene_id").get(0);
-            result.setQueryGeneId(queryGeneId != null ? queryGeneId : "");
-            result.setTargetGeneId(targetGeneId != null ? targetGeneId : "");
+            var queryGeneId = pair.getQueryTranscript().getBaseData().getAttributes("gene_id");
+            var targetGeneId = pair.getTargetTranscript().getBaseData().getAttributes("gene_id");
+            result.setQueryGeneId(queryGeneId != null ? queryGeneId.getFirst() : "");
+            result.setTargetGeneId(targetGeneId != null ? targetGeneId.getFirst() : "");
             compareTranscript(pair, result);
 
             comparisonResults.add(result);
@@ -90,8 +90,8 @@ public class AnnotComparator {
         var targetBaseData = pair.getTargetTranscript().getBaseData();
         var queryBaseData = pair.getQueryTranscript().getBaseData();
 
-        var hasTargetBiotypeAttribute = targetBaseData.getAttributes("transcript_biotype").get(0) != null;
-        var hasQueryBiotypeAttribute = queryBaseData.getAttributes("transcript_biotype").get(0) != null;
+        var hasTargetBiotypeAttribute = targetBaseData.getAttributes("transcript_biotype") != null;
+        var hasQueryBiotypeAttribute = queryBaseData.getAttributes("transcript_biotype") != null;
 
         var targetBiotype = hasTargetBiotypeAttribute ? targetBaseData.getAttributes("transcript_biotype").getFirst() : targetBaseData.getSource();
         var queryBiotype = hasQueryBiotypeAttribute ? queryBaseData.getAttributes("transcript_biotype").getFirst() : targetBaseData.getSource();
@@ -104,8 +104,8 @@ public class AnnotComparator {
         var targetBaseData = pair.getTargetTranscript().getBaseData();
         var queryBaseData = pair.getQueryTranscript().getBaseData();
 
-        var hasTargetBiotypeAttribute = targetBaseData.getAttributes("gene_biotype").get(0) != null;
-        var hasQueryBiotypeAttribute = queryBaseData.getAttributes("gene_biotype").get(0) != null;
+        var hasTargetBiotypeAttribute = targetBaseData.getAttributes("gene_biotype") != null;
+        var hasQueryBiotypeAttribute = queryBaseData.getAttributes("gene_biotype") != null;
 
         var targetBiotype = hasTargetBiotypeAttribute ? targetBaseData.getAttributes("gene_biotype").getFirst() : targetBaseData.getSource();
         var queryBiotype = hasQueryBiotypeAttribute ? queryBaseData.getAttributes("gene_biotype").getFirst() : targetBaseData.getSource();
