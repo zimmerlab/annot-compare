@@ -105,9 +105,9 @@ public class ResultWriter {
         if (transcriptComparisonResult.isSequenceDifferent())
             lines.add(new OutputLine(120, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "seq", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         if (transcriptComparisonResult.isTranscriptMissingInTargetGene())
-            lines.add(new OutputLine(130, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "missingInFile1", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+            lines.add(new OutputLine(130, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "missingInTarget", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         if (transcriptComparisonResult.isTranscriptMissingInQueryGene())
-            lines.add(new OutputLine(140, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "missingInFile2", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+            lines.add(new OutputLine(140, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "missingInFileQuery", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         if (transcriptComparisonResult.isLengthDifferent())
             lines.add(new OutputLine(150, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "length", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         if (transcriptComparisonResult.isStrandDifferent()) {
@@ -126,9 +126,9 @@ public class ResultWriter {
         var ft = featureComparisonResult.getFeatureType();
 
         if (featureComparisonResult.isMissingInTargetTranscript())
-            lines.add(new OutputLine(200, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingInTranscript1", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype));
+            lines.add(new OutputLine(200, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "featureTypeMissingInTargetTranscript", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype));
         if (featureComparisonResult.isMissingInQueryTranscript())
-            lines.add(new OutputLine(210, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingInTranscript2", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype));
+            lines.add(new OutputLine(210, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "featureTypeMissingInQueryTranscript", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype));
 
         for (RegionComparisonResult rc : featureComparisonResult.getRegionComparisons()) {
             var queryStart = String.valueOf(rc.getQueryStart());
@@ -148,9 +148,9 @@ public class ResultWriter {
                 lines.add(new OutputLine(340, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "protein", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
             }
             if (rc.isMissingInTargetFile())
-                lines.add(new OutputLine(350, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFile1", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+                lines.add(new OutputLine(350, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInTarget", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
             if (rc.isMissingInQueryFile())
-                lines.add(new OutputLine(360, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFile2", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+                lines.add(new OutputLine(360, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInQuery", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         }
     }
 

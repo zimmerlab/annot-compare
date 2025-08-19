@@ -231,7 +231,7 @@ public class AnnotComparator {
         transcriptComparisonResult.setTargetTranscriptId(targetTranscript.getTranscriptId());
         transcriptComparisonResult.setQueryTranscriptId(queryTranscript.getTranscriptId());
 
-        var pairedExons = pairExonsByGapAlignment(targetTranscript, queryTranscript, 3, 100, 20, 40);
+        var pairedExons = pairExonsByGapAlignment(targetTranscript, queryTranscript, 2, 200, 50, 0.1);
 
         var targetMap = mapFeaturesByType(targetTranscript);
         var queryMap = mapFeaturesByType(queryTranscript);
@@ -725,10 +725,14 @@ public class AnnotComparator {
         return Math.abs(a.getBaseData().getStart() - b.getBaseData().getStart()) + Math.abs(a.getBaseData().getEnd() - b.getBaseData().getEnd());
     }
 
-    public static List<FeaturePair> pairExonsByGapAlignment(TranscriptFeature t, TranscriptFeature q, int gapPenalty, int capDelta, int deltaStartBp, int deltaEndBp) {
+    public static List<FeaturePair> pairExonsByGapAlignment(
+            TranscriptFeature t, TranscriptFeature q,
+            int gapPenalty, int capDelta,
+            int lenCapBp, double lenCapFrac // NEU: Längen-Toleranzen
+    ) {
         var pairs = new ArrayList<FeaturePair>();
         var targetExons = sortedExons(t);
-        var queryExons = sortedExons(q);
+        var queryExons  = sortedExons(q);
 
         if (targetExons.isEmpty() && queryExons.isEmpty()) return pairs;
         if (targetExons.size() == 1 && queryExons.size() == 1) {
@@ -736,99 +740,185 @@ public class AnnotComparator {
             return pairs;
         }
 
+        // Gap-Profile (positionsinvariant):
         var A = gapProfile(targetExons).stream().mapToInt(x -> x).toArray();
         var B = gapProfile(queryExons).stream().mapToInt(x -> x).toArray();
 
+        // Hilfsfunktionen:
+        java.util.function.ToIntFunction<GtfFeature> len = f ->
+                f.getBaseData().getEnd() - f.getBaseData().getStart() + 1;
+
+        java.util.function.BiPredicate<GtfFeature,GtfFeature> passLen =
+                (te, qe) -> {
+                    int lt = len.applyAsInt(te), lq = len.applyAsInt(qe);
+                    int abs = Math.abs(lt - lq);
+                    double rel = (double) abs / Math.max(lt, lq);
+                    return abs <= lenCapBp || rel <= lenCapFrac;
+                };
+
+        // Falls mind. eine Seite nur 1 Exonlücke hat (oder 0 Gaps):
         if (A.length == 0 || B.length == 0) {
             var usedQ = new HashSet<GtfFeature>();
             for (var te : targetExons) {
                 GtfFeature best = null;
-                int bestOverlap = -1, bestD = Integer.MAX_VALUE;
+                int bestLenDiff = Integer.MAX_VALUE;
+                int bestD = Integer.MAX_VALUE; // weicher Tiebreaker
                 for (var qe : queryExons) {
                     if (usedQ.contains(qe)) continue;
-                    int ov = overlapLen(te, qe);
-                    int d = endpointManhattan(te, qe);
-                    boolean withinTol = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart()) <= deltaStartBp && Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd()) <= deltaEndBp;
-                    if (!withinTol) continue;
-                    if (ov > bestOverlap || (ov == bestOverlap && d < bestD)) {
-                        best = qe;
-                        bestOverlap = ov;
-                        bestD = d;
+                    if (!passLen.test(te, qe)) continue;
+                    int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
+                    int d = endpointManhattan(te, qe); // nur Ranking, kein Filter!
+                    if (lenDiff < bestLenDiff || (lenDiff == bestLenDiff && d < bestD)) {
+                        bestLenDiff = lenDiff; bestD = d; best = qe;
                     }
                 }
                 pairs.add(new FeaturePair(te, best));
                 if (best != null) usedQ.add(best);
             }
             for (var qe : queryExons)
-                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery()))) pairs.add(new FeaturePair(null, qe));
+                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery())))
+                    pairs.add(new FeaturePair(null, qe));
             return pairs;
         }
 
+        // Normalfall: NW auf Gap-Profilen
         var bt = nwBacktrace(A, B, gapPenalty, capDelta);
         var gapMatches = recoverGapMatches(bt, A.length, B.length);
 
         var usedT = new boolean[targetExons.size()];
         var usedQ = new boolean[queryExons.size()];
 
+        // Optionaler globaler Offset (nur Ranking):
+        var deltas = new ArrayList<Integer>();
+        java.util.function.IntSupplier deltaHat = () -> {
+            if (deltas.size() < 2) return 0;
+            var copy = new ArrayList<>(deltas);
+            copy.sort(Integer::compare);
+            int mid = copy.size()/2;
+            return (copy.size()%2==1) ? copy.get(mid) : (copy.get(mid-1)+copy.get(mid))/2;
+        };
+
         for (var g : gapMatches) {
             int k = g[0], l = g[1];
             int[] candT = {k, k + 1};
             int[] candQ = {l, l + 1};
 
-            // Kandidatenpaare sammeln und bestes wählen
-            record Cand(int ct, int cq, int ov, int d) {
-            }
+            record Cand(int ct, int cq, int lenDiff, int rank) {}
             var cands = new ArrayList<Cand>();
+
+            int Δ = deltaHat.getAsInt();
+
             for (int ct : candT)
                 for (int cq : candQ) {
                     if (ct < 0 || cq < 0 || ct >= targetExons.size() || cq >= queryExons.size()) continue;
                     if (usedT[ct] || usedQ[cq]) continue;
                     var te = targetExons.get(ct);
                     var qe = queryExons.get(cq);
-                    boolean withinTol = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart()) <= deltaStartBp && Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd()) <= deltaEndBp;
-                    if (!withinTol) continue;
-                    int ov = overlapLen(te, qe);
-                    int d = endpointManhattan(te, qe);
-                    cands.add(new Cand(ct, cq, ov, d));
+                    if (!passLen.test(te, qe)) continue;
+
+                    int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
+
+                    // weiches Ranking: kleiner ist besser
+                    int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ)
+                            + Math.abs((te.getBaseData().getEnd()   - qe.getBaseData().getEnd())   - Δ);
+
+                    cands.add(new Cand(ct, cq, lenDiff, rank));
                 }
-            cands.sort((x, y) -> {
-                if (x.ov != y.ov) return Integer.compare(y.ov, x.ov); // max overlap
-                return Integer.compare(x.d, y.d);                      // then min distance
+
+            cands.sort((x,y) -> {
+                if (x.lenDiff != y.lenDiff) return Integer.compare(x.lenDiff, y.lenDiff); // 1) min lenDiff
+                return Integer.compare(x.rank, y.rank);                                    // 2) min rank
             });
+
             if (!cands.isEmpty()) {
                 var best = cands.get(0);
                 var te = targetExons.get(best.ct);
                 var qe = queryExons.get(best.cq);
                 pairs.add(new FeaturePair(te, qe));
                 usedT[best.ct] = usedQ[best.cq] = true;
+
+                // Δ aktualisieren (nur fürs Ranking)
+                deltas.add(te.getBaseData().getStart() - qe.getBaseData().getStart());
             }
         }
 
-        int tFirst = 0, qFirst = 0;
-        while (tFirst < targetExons.size() && usedT[tFirst]) tFirst++;
-        while (qFirst < queryExons.size() && usedQ[qFirst]) qFirst++;
-        if (tFirst < targetExons.size() && qFirst < queryExons.size()) {
-            var te = targetExons.get(tFirst);
-            var qe = queryExons.get(qFirst);
-            int d = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart())
-                    + Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd());
-            if (d <= 2 * deltaEndBp) {
+        // ----- PASS 2a: linker Anker -----
+        int iL = 0, jL = 0;
+        while (iL < targetExons.size() && usedT[iL]) iL++;
+        while (jL < queryExons.size()  && usedQ[jL]) jL++;
+        if (iL < targetExons.size() && jL < queryExons.size()) {
+            var te = targetExons.get(iL);
+            var qe = queryExons.get(jL);
+            int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
+            int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
+            int lenDiff = Math.abs(lt - lq);
+            double rel = (double) lenDiff / Math.max(lt, lq);
+            if (lenDiff <= lenCapBp || rel <= lenCapFrac) {
                 pairs.add(new FeaturePair(te, qe));
-                usedT[tFirst] = usedQ[qFirst] = true;
+                usedT[iL] = usedQ[jL] = true;
             }
         }
 
-        int tLast = targetExons.size() - 1, qLast = queryExons.size() - 1;
-        while (tLast >= 0 && usedT[tLast]) tLast--;
-        while (qLast >= 0 && usedQ[qLast]) qLast--;
-        if (tLast >= 0 && qLast >= 0) {
-            var te = targetExons.get(tLast);
-            var qe = queryExons.get(qLast);
-            int d = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart())
-                    + Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd());
-            if (d <= 2 * deltaEndBp) {
+// ----- PASS 2b: rechter Anker -----
+        int iR = targetExons.size() - 1, jR = queryExons.size() - 1;
+        while (iR >= 0 && usedT[iR]) iR--;
+        while (jR >= 0 && usedQ[jR]) jR--;
+        if (iR >= 0 && jR >= 0) {
+            var te = targetExons.get(iR);
+            var qe = queryExons.get(jR);
+            int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
+            int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
+            int lenDiff = Math.abs(lt - lq);
+            double rel = (double) lenDiff / Math.max(lt, lq);
+            if (lenDiff <= lenCapBp || rel <= lenCapFrac) {
                 pairs.add(new FeaturePair(te, qe));
-                usedT[tLast] = usedQ[qLast] = true;
+                usedT[iR] = usedQ[jR] = true;
+            }
+        }
+
+// ----- PASS 3: greedy für alle restlichen Ungepaarten (längenbasiert, Δ nur fürs Ranking) -----
+        int Δ = 0;
+        if (!pairs.isEmpty()) {
+            // grober Δ-Schätzer aus bereits gepaarten Starts
+            var ds = new ArrayList<Integer>();
+            for (var p : pairs) {
+                if (p.getTarget()!=null && p.getQuery()!=null) {
+                    ds.add(p.getTarget().getBaseData().getStart() - p.getQuery().getBaseData().getStart());
+                }
+            }
+            if (ds.size() >= 2) {
+                ds.sort(Integer::compare);
+                int mid = ds.size()/2;
+                Δ = (ds.size()%2==1) ? ds.get(mid) : (ds.get(mid-1)+ds.get(mid))/2;
+            }
+        }
+        for (int it = 0; it < targetExons.size(); it++) {
+            if (usedT[it]) continue;
+            var te = targetExons.get(it);
+            GtfFeature best = null;
+            int bestLenDiff = Integer.MAX_VALUE;
+            int bestRank   = Integer.MAX_VALUE;
+            for (int iq = 0; iq < queryExons.size(); iq++) {
+                if (usedQ[iq]) continue;
+                var qe = queryExons.get(iq);
+                int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
+                int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
+                int lenDiff = Math.abs(lt - lq);
+                double rel  = (double) lenDiff / Math.max(lt, lq);
+                if (!(lenDiff <= lenCapBp || rel <= lenCapFrac)) continue;
+
+                // weiches Ranking (keine Filterwirkung!)
+                int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ)
+                        + Math.abs((te.getBaseData().getEnd()   - qe.getBaseData().getEnd())   - Δ);
+
+                if (lenDiff < bestLenDiff || (lenDiff == bestLenDiff && rank < bestRank)) {
+                    bestLenDiff = lenDiff; bestRank = rank; best = qe;
+                }
+            }
+            pairs.add(new FeaturePair(te, best));
+            if (best != null) {
+                int idx = queryExons.indexOf(best);
+                usedT[it] = true; usedQ[idx] = true;
             }
         }
 
@@ -839,6 +929,7 @@ public class AnnotComparator {
 
         return pairs;
     }
+
 
     private static boolean within(int s, int e, int xs, int xe, int pad) {
         return s >= xs - pad && e <= xe + pad;
