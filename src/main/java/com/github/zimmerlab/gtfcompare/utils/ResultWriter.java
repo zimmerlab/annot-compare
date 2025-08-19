@@ -46,8 +46,7 @@ public class ResultWriter {
         var geneComparisonResult = result.getGeneComparison();
         var queryBiotype = geneComparisonResult.getQueryBiotype();
         var targetBiotype = geneComparisonResult.getTargetBiotype();
-
-        if (result.getTranscriptComparisons().size() > 1) {
+            if (result.getTranscriptComparisons().size() > 1) {
             var a = 2;
         }
         if (geneComparisonResult.isMissingInQueryFile()) {
@@ -60,16 +59,7 @@ public class ResultWriter {
             return;
         }
 
-        if (result.areSameGene()) {
-            var tc = result.getTranscriptComparisons().get(0);
-            String targetTranscriptId = "", queryTranscriptId = "";
-            if (tc != null) {
-                targetTranscriptId = tc.getTargetTranscriptId();
-                queryTranscriptId = tc.getQueryTranscriptId();
-            }
-            lines.add(new OutputLine(20, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "", "", targetTranscriptId, queryTranscriptId));
-        } else {
-
+        if (!result.areSameGene()) {
             if (geneComparisonResult.isStartDifferent())
                 lines.add(new OutputLine(30, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "gene", "start"));
             if (geneComparisonResult.isStopDifferent())
@@ -82,10 +72,10 @@ public class ResultWriter {
                 lines.add(new OutputLine(70, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "gene", "length"));
             if (geneComparisonResult.isContigDifferent())
                 lines.add(new OutputLine(80, targetGeneId, queryTargetId, queryBiotype, targetBiotype, "gene", "contig"));
+        }
 
-            for (var transcriptComparisonResult : result.getTranscriptComparisons()) {
-                collectTranscriptLines(lines, targetGeneId, queryTargetId, transcriptComparisonResult, targetBiotype, queryBiotype);
-            }
+        for (var transcriptComparisonResult : result.getTranscriptComparisons()) {
+            collectTranscriptLines(lines, targetGeneId, queryTargetId, transcriptComparisonResult, targetBiotype, queryBiotype);
         }
     }
 
@@ -105,6 +95,9 @@ public class ResultWriter {
         var targetIsForwardStrand = transcriptComparisonResult.isTargetForwardStrand() != null ? (transcriptComparisonResult.isTargetForwardStrand() ? "+" : "-") : "";
 
         var contig = transcriptComparisonResult.getContig();
+        if (transcriptComparisonResult.areSameTranscript()) {
+            lines.add(new OutputLine(20, contig, targetGeneId, queryGeneId, queryBiotype, targetBiotype, "transcript", "none", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype,  targetStart, queryStart, targetStop, queryStop, queryIsForwardStrand));
+        }
         if (transcriptComparisonResult.isStartDifferent())
             lines.add(new OutputLine(100, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, "transcript", "start", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         if (transcriptComparisonResult.isStopDifferent())
@@ -151,10 +144,13 @@ public class ResultWriter {
                 lines.add(new OutputLine(320, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "stop", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
             if (rc.isSequenceDifferenceFound())
                 lines.add(new OutputLine(330, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "seq", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+            if(rc.isProteinDifferent()){
+                lines.add(new OutputLine(340, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "protein", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+            }
             if (rc.isMissingInTargetFile())
-                lines.add(new OutputLine(340, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFile1", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+                lines.add(new OutputLine(350, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFile1", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
             if (rc.isMissingInQueryFile())
-                lines.add(new OutputLine(350, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFile2", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+                lines.add(new OutputLine(360, contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFile2", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
         }
     }
 

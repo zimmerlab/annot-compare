@@ -24,11 +24,11 @@ import java.util.stream.Stream;
 public class OverlappingTranscripts {
     private final static Logger logger = LogManager.getLogger(OverlappingTranscripts.class);
 
-    private enum FeatureType {UTR5, CDS, UTR3, INTRON, START_CODON, STOP_CODON}
+    private enum FeatureType {UTR5, CDS, UTR3, INTRON, START_CODON, STOP_CODON, EXON}
 
     private static final double MIN_OVERLAP_FRACTION = 0.00;
     private static final double ENSEMBLE_ALPHA = 0.5;
-    private static final double MIN_ENSEMBLE_SCORE = 0.95;
+    private static final double MIN_ENSEMBLE_SCORE = 0.1;
     private static final double IDENTITY_EDGE_WEIGHT = 2.0;
 
     public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
@@ -40,17 +40,17 @@ public class OverlappingTranscripts {
 
         // Find overlaps
         logger.info("Finding Overlaps");
-        List<TranscriptPair> allPairs = findOverlaps(targetTrees, queryTrees).toList();
+        var allPairs = findOverlaps(targetTrees, queryTrees).toList();
 
         // Cluster loci
         logger.info("Cluster Loci");
-        Map<TranscriptFeature, List<TranscriptPair>> clusters = clusterOverlappingPairs(allPairs);
+        var clusters = clusterOverlappingPairs(allPairs);
 
         // Prepare final mapping
         logger.info("Compute Global Best Hits via Bipartite Matching");
         var finalMapping = new ConcurrentHashMap<TranscriptFeature, TranscriptFeature>();
 
-        clusters.values().stream().forEach(locusPairs -> {
+        clusters.parallelStream().forEach(locusPairs -> {
 
             // Collect targets and queries
 
@@ -67,16 +67,16 @@ public class OverlappingTranscripts {
             //addIdentityMatchEdges(graph, targets, queries);
 
             for (TranscriptFeature t : targets) {
-                if(t.getTranscriptId().equals("ENST00000334318")){
+                if (t.getTranscriptId().equals("ENST00000334318")) {
                     var a = 2;
                 }
                 for (TranscriptFeature q : queries) {
                     if (overlapFraction(t, q) < MIN_OVERLAP_FRACTION) continue;
                     double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
                     double chn = chainSimilarity(t, q);
-                    double sDist  = distanceScore(t, q, 10_000);
-                    double sEnd = tssTesScore(t,q, 150.0, 250.0);
-                    double score = 0.2 * jac + 0.2 * chn + 0.55 * sEnd + 0.5 * sDist;
+                    double sDist = distanceScore(t, q, 10_000);
+                    double sEnd = tssTesScore(t, q, 150.0, 250.0);
+                    double score = 0.2 * jac + 0.2 * chn + 0.55 * sEnd + 0.05 * sDist;
                     if (score < MIN_ENSEMBLE_SCORE) continue;
                     DefaultWeightedEdge edge = graph.addEdge(t, q);
                     if (edge != null) {
@@ -154,11 +154,17 @@ public class OverlappingTranscripts {
         return trees;
     }
 
-    private static Map<TranscriptFeature, List<TranscriptPair>> clusterOverlappingPairs(List<TranscriptPair> allPairs) {
+    private static List<List<TranscriptPair>> clusterOverlappingPairs(List<TranscriptPair> allPairs) {
         var ds = new OverlappingTranscripts.DisjointSet<TranscriptFeature>();
         allPairs.forEach(p -> ds.union(p.getTargetTranscript(), p.getQueryTranscript()));
 
-        return allPairs.stream().collect(Collectors.groupingBy(p -> ds.find(p.getTargetTranscript()), LinkedHashMap::new, Collectors.toList()));
+        var tmp = new HashMap<TranscriptFeature, List<TranscriptPair>>();
+        for (TranscriptPair p : allPairs) {
+            var representative = ds.find(p.getTargetTranscript());
+            tmp.computeIfAbsent(representative, k -> new ArrayList<>()).add(p);
+        }
+        return new ArrayList<>(tmp.values());
+
     }
 
     private static List<Integer> getExonLengthChain(TranscriptFeature tf) {
@@ -259,7 +265,7 @@ public class OverlappingTranscripts {
 
                 double jac = jaccardSimilarity(vectors.get(t), vectors.get(q));
                 double chn = chainSimilarity(t, q);
-                double score = ENSEMBLE_ALPHA * jac + (1-ENSEMBLE_ALPHA) * chn;
+                double score = ENSEMBLE_ALPHA * jac + (1 - ENSEMBLE_ALPHA) * chn;
                 if (score > bestScoreT.get(q)) {
                     bestScoreT.put(q, score);
                     bestTPerQ.put(q, t);
@@ -433,17 +439,18 @@ public class OverlappingTranscripts {
         var bt = t.getBaseData();
         var bq = q.getBaseData();
         if (!bt.getContig().equals(bq.getContig())) return 0.0;          // hard gate if desired
-        if (bt.isForwardStrand() != bq.isForwardStrand()) return 0.0;     // optional
+        if (bt.isForwardStrand() != bq.isForwardStrand()) return 0.0;
         var mt = ((long) bt.getStart() + bt.getEnd()) / 2;
         var mq = ((long) bq.getStart() + bq.getEnd()) / 2;
-        var d  = Math.abs(mt - mq);
-        return Math.exp(- (double) d / lambdaBp); // lambda ~ 5e3..5e4 for genes, kleiner für snRNAs
+        var d = Math.abs(mt - mq);
+        return Math.exp(-(double) d / lambdaBp);
     }
 
     private static int tss(TranscriptFeature tf) {
         var b = tf.getBaseData();
         return b.isForwardStrand() ? b.getStart() : b.getEnd();
     }
+
     private static int tes(TranscriptFeature tf) {
         var b = tf.getBaseData();
         return b.isForwardStrand() ? b.getEnd() : b.getStart();
@@ -456,8 +463,8 @@ public class OverlappingTranscripts {
 
     // Separate weights for 5′ vs 3′ (TES stärker gewichten für protein_coding)
     private static double tssTesScore(TranscriptFeature t, TranscriptFeature q, double tau5, double tau3) {
-        double s5  = endpointProximity(tss(t), tss(q), tau5);
-        double s3  = endpointProximity(tes(t), tes(q), tau3);
+        double s5 = endpointProximity(tss(t), tss(q), tau5);
+        double s3 = endpointProximity(tes(t), tes(q), tau3);
         return 0.4 * s5 + 0.6 * s3; // TES dominates
     }
 }

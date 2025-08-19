@@ -57,8 +57,7 @@ public class AnnotComparator {
         for (var pair : transcriptPairs) {
             var isTranscriptBiotypeAllowed = isBiotypeAllowed(pair);
             idx++;
-            if (!everyBiotypeAllowed && !isTranscriptBiotypeAllowed.isAllowed)
-                continue;
+            if (!everyBiotypeAllowed && !isTranscriptBiotypeAllowed.isAllowed) continue;
 
             var geneBiotypeResponse = getGeneBiotype(pair);
             var result = new ComparisonResult();
@@ -84,7 +83,9 @@ public class AnnotComparator {
         ResultWriter.writeComparisonResult(comparisonResults, outputPath);
     }
 
-    private record BiotypeAllowedResponse(boolean isAllowed, String targetBiotype, String queryBiotype) {}
+    private record BiotypeAllowedResponse(boolean isAllowed, String targetBiotype, String queryBiotype) {
+    }
+
     private BiotypeAllowedResponse isBiotypeAllowed(TranscriptPair pair) {
         var allowedBiotypes = config.getAllowedGeneBiotypes();
         var targetBaseData = pair.getTargetTranscript().getBaseData();
@@ -99,7 +100,9 @@ public class AnnotComparator {
         return new BiotypeAllowedResponse(allowedBiotypes.contains(queryBiotype) || allowedBiotypes.contains(targetBiotype), targetBiotype, queryBiotype);
     }
 
-    private record GetGeneBiotypeResponse(String targetBiotype, String queryBiotype) {}
+    private record GetGeneBiotypeResponse(String targetBiotype, String queryBiotype) {
+    }
+
     private GetGeneBiotypeResponse getGeneBiotype(TranscriptPair pair) {
         var targetBaseData = pair.getTargetTranscript().getBaseData();
         var queryBaseData = pair.getQueryTranscript().getBaseData();
@@ -173,11 +176,10 @@ public class AnnotComparator {
         var targetTranscripts = targetGene.getTranscripts();
         var queryTranscripts = queryGene.getTranscripts();
 
-        var ctx = new ComparisonContext(targetGene, queryGene,"", "", config, targetSequenceExtractor, querySequenceExtractor, targetTranscripts, queryTranscripts);
+        var ctx = new ComparisonContext(targetGene, queryGene, "", "", config, targetSequenceExtractor, querySequenceExtractor, targetTranscripts, queryTranscripts);
 
         for (var comp : geneLoader) {
-            if (!config.isEnabled(comp.getName()))
-                continue;
+            if (!config.isEnabled(comp.getName())) continue;
 
             var changed = comp.compare(ctx);
 
@@ -185,10 +187,7 @@ public class AnnotComparator {
                 addToGeneComparison(comp.getName(), result);
             }
 
-            logger.debug(
-                    "Gene {}: {} changed: {}",
-                    targetGene.getBaseData().getType(), comp.getName(), changed
-            );
+            logger.debug("Gene {}: {} changed: {}", targetGene.getBaseData().getType(), comp.getName(), changed);
         }
 
         var targetGeneBiotypeEmpty = targetGene.getBaseData().getAttributes("gene_biotype").isEmpty();
@@ -232,11 +231,12 @@ public class AnnotComparator {
         transcriptComparisonResult.setTargetTranscriptId(targetTranscript.getTranscriptId());
         transcriptComparisonResult.setQueryTranscriptId(queryTranscript.getTranscriptId());
 
+        var pairedExons = pairExonsByGapAlignment(targetTranscript, queryTranscript, 3, 100, 20, 40);
 
         var targetMap = mapFeaturesByType(targetTranscript);
         var queryMap = mapFeaturesByType(queryTranscript);
 
-        compareFeatures(targetMap, queryMap, transcriptComparisonResult, geneResult);
+        compareFeatures(pairedExons, targetTranscript, queryTranscript, transcriptComparisonResult, geneResult, 10);
 
         // todo mby checken ob aktiviert in config?
         var targetFeatures = targetTranscript.getFeatures();
@@ -245,10 +245,9 @@ public class AnnotComparator {
         var targetBiotype = transcriptComparisonResult.getTargetBiotype();
         var queryBiotype = transcriptComparisonResult.getQueryBiotype();
 
-        var ctx = new ComparisonContext(targetTranscript, queryTranscript,targetBiotype, queryBiotype, config, targetSequenceExtractor, querySequenceExtractor, targetFeatures, queryFeatures);
+        var ctx = new ComparisonContext(targetTranscript, queryTranscript, targetBiotype, queryBiotype, config, targetSequenceExtractor, querySequenceExtractor, targetFeatures, queryFeatures);
         for (var comp : transcriptLoader) {
-            if (!config.isEnabled(comp.getName()))
-                continue;
+            if (!config.isEnabled(comp.getName())) continue;
 
             var changed = comp.compare(ctx);
 
@@ -256,10 +255,7 @@ public class AnnotComparator {
                 addToTranscriptComparison(comp.getName(), transcriptComparisonResult, geneResult);
             }
 
-            logger.debug(
-                    "Transcript {}: {} changed: {}",
-                    targetTranscript.getBaseData().getType(), comp.getName(), changed
-            );
+            logger.debug("Transcript {}: {} changed: {}", targetTranscript.getBaseData().getType(), comp.getName(), changed);
         }
 
         transcriptComparisonResult.setQueryStart(ctx.getQueryTranscriptFeaturesMin());
@@ -292,49 +288,60 @@ public class AnnotComparator {
         var map = new HashMap<String, List<GtfFeature>>();
         for (var f : transcriptFeature.getFeatures()) {
             var type = GtfConfig.getDefault(f.getBaseData().getType());
-            if (!config.isEnabled(type))
-                continue;
+            if (!config.isEnabled(type)) continue;
             map.computeIfAbsent(type, k -> new ArrayList<>()).add(f);
         }
         return map;
     }
 
-    private void compareFeatures(Map<String, List<GtfFeature>> targetMap, Map<String, List<GtfFeature>> queryMap, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
+    public void compareMappedFeaturePairs(
+            String featureType,
+            List<FeaturePair> pairs,
+            TranscriptComparisonResult txRes,
+            ComparisonResult geneRes
+    ) {
+        var featRes = new FeatureComparisonResult();
+        featRes.setFeatureType(featureType);
+        txRes.addFeatureComparison(featRes);
 
-        for (var entry : targetMap.entrySet()) {
-            String featureType = entry.getKey();
-            List<GtfFeature> targets = entry.getValue();
-            List<GtfFeature> queries = queryMap.getOrDefault(featureType, List.of());
+        if (pairs.isEmpty()) {
+            featRes.setAreSameFeatures(false);
+            featRes.setMissingInQueryTranscript(true);
+            txRes.setAreSameTranscript(false);
+            geneRes.setAreSameGene(false);
+            return;
+        }
 
-            var featureComparisonResult = new FeatureComparisonResult();
-            featureComparisonResult.setFeatureType(featureType);
-            transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
+        for (var p : pairs) {
+            compareFeaturePair(p, featRes, txRes, geneRes); // deine bestehende Methode
+        }
+    }
 
-            if (queries.isEmpty()) {
-                featureComparisonResult.setAreSameFeatures(false);
-                featureComparisonResult.setMissingInQueryTranscript(true);
-                transcriptComparisonResult.setAreSameTranscript(false);
-                geneResult.setAreSameGene(false);
+    private void compareFeatures(List<FeaturePair> exonPairs, TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult, int padBp) {
+
+        compareMappedFeaturePairs("exon", exonPairs, transcriptComparisonResult, geneResult);
+
+        for (String ft : List.of("CDS","UTR5","UTR3","start_codon","stop_codon")) {
+            var pairs = mapFeaturesWithinExonPairs(targetTranscript, queryTranscript, exonPairs, ft, padBp);
+            if (pairs.isEmpty()) {
+                // prüfen, ob es auf einer Seite überhaupt Features dieses Typs gab
+                boolean hadTarget = !featuresOfType(targetTranscript, ft).isEmpty();
+                boolean hadQuery  = !featuresOfType(queryTranscript, ft).isEmpty();
+                if (hadTarget || hadQuery) {
+                    var fr = new FeatureComparisonResult();
+                    fr.setFeatureType(ft);
+                    fr.setAreSameFeatures(false);
+                    if (hadTarget && !hadQuery) fr.setMissingInQueryTranscript(true);
+                    if (!hadTarget && hadQuery) fr.setMissingInTargetTranscript(true);
+                    transcriptComparisonResult.addFeatureComparison(fr);
+                    transcriptComparisonResult.setAreSameTranscript(false);
+                    geneResult.setAreSameGene(false);
+                }
                 continue;
             }
-
-            List<FeaturePair> pairs = pairByPosition(targets, queries);
-            for (var pair : pairs) {
-                compareFeaturePair(pair, featureComparisonResult, transcriptComparisonResult, geneResult);
-            }
+            compareMappedFeaturePairs(ft, pairs, transcriptComparisonResult, geneResult);
         }
 
-        for (var featureName : queryMap.keySet()) {
-            if (!targetMap.containsKey(featureName)) {
-                var featRes = new FeatureComparisonResult();
-                featRes.setFeatureType(featureName);
-                featRes.setAreSameFeatures(false);
-                transcriptComparisonResult.addFeatureComparison(featRes);
-                featRes.setMissingInTargetTranscript(true);
-                transcriptComparisonResult.setAreSameTranscript(false);
-                geneResult.setAreSameGene(false);
-            }
-        }
     }
 
     private void compareFeaturePair(FeaturePair pair, FeatureComparisonResult featureComparisonResult, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
@@ -363,8 +370,7 @@ public class AnnotComparator {
             currentLoader = cdsLoader;
         }
         for (var comp : currentLoader) {
-            if (!config.isEnabled(comp.getName()))
-                continue;
+            if (!config.isEnabled(comp.getName())) continue;
 
             boolean changed;
             try {
@@ -377,10 +383,7 @@ public class AnnotComparator {
                 addToRegionComparison(comp.getName(), regionComparisonResult, featureComparisonResult, transcriptComparisonResult, geneResult);
             }
 
-            logger.debug(
-                    "Feature {}: {} changed: {}",
-                    targetFeature.getBaseData().getType(), comp.getName(), changed
-            );
+            logger.debug("Feature {}: {} changed: {}", targetFeature.getBaseData().getType(), comp.getName(), changed);
         }
     }
 
@@ -476,6 +479,13 @@ public class AnnotComparator {
 
                 transcriptComparisonResult.setBiotypeDifferent(true);
                 break;
+            case Constants.TRANSCRIPT_STRAND_COMPARATOR_NAME:
+                transcriptComparisonResult.setAreSameTranscript(false);
+                geneComparisonResult.setAreSameGene(false);
+                result.setAreSameGene(false);
+
+                transcriptComparisonResult.setStrandDifferent(true);
+                break;
             default:
                 logger.warn("Unknown transcript comparison feature: {}", name);
                 break;
@@ -523,10 +533,7 @@ public class AnnotComparator {
         }
     }
 
-    private void markMissingFeature(
-            GtfFeature targetFeature, GtfFeature queryFeature,
-            FeatureComparisonResult featRes, TranscriptComparisonResult transcriptComparisonResult,
-            ComparisonResult comparisonResult) {
+    private void markMissingFeature(GtfFeature targetFeature, GtfFeature queryFeature, FeatureComparisonResult featRes, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult comparisonResult) {
 
         comparisonResult.setAreSameGene(false);
         comparisonResult.getGeneComparison().setAreSameGene(false);
@@ -546,13 +553,9 @@ public class AnnotComparator {
     }
 
 
-    private List<FeaturePair> pairByPosition(
-            List<GtfFeature> targets,
-            List<GtfFeature> queries) {
+    private List<FeaturePair> pairByPosition(List<GtfFeature> targets, List<GtfFeature> queries) {
 
-        Comparator<GtfFeature> byStartThenEnd = Comparator
-                .comparingInt((GtfFeature f) -> f.getBaseData().getStart())
-                .thenComparingInt(f -> f.getBaseData().getEnd());
+        Comparator<GtfFeature> byStartThenEnd = Comparator.comparingInt((GtfFeature f) -> f.getBaseData().getStart()).thenComparingInt(f -> f.getBaseData().getEnd());
 
         var a = new ArrayList<>(targets);
         var b = new ArrayList<>(queries);
@@ -568,6 +571,42 @@ public class AnnotComparator {
             GtfFeature qb = i < bSize ? b.get(i) : null;
             pairs.add(new FeaturePair(ta, qb));
         }
+        return pairs;
+    }
+
+    private List<FeaturePair> pairByOverlap(List<GtfFeature> targets, List<GtfFeature> queries) {
+        var pairs = new ArrayList<FeaturePair>();
+        for (GtfFeature ta : targets) {
+            if (ta.getBaseData().getAttributes("transcript_id") != null && ta.getBaseData().getAttributes("transcript_id").getFirst().equals("ENST00000412513")) {
+                var a = 2;
+            }
+            var targetStart = ta.getBaseData().getStart();
+            var targetEnd = ta.getBaseData().getEnd();
+
+            var found = false;
+            for (GtfFeature qb : queries) {
+                var queryStart = qb.getBaseData().getStart();
+                int queryEnd = qb.getBaseData().getEnd();
+
+                if (queryStart <= targetEnd && queryEnd >= targetStart) {
+                    pairs.add(new FeaturePair(ta, qb));
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                pairs.add(new FeaturePair(ta, null));
+            }
+        }
+
+        // Option: Queries, die nie gematcht wurden, mit null target zurückgeben
+        for (GtfFeature qb : queries) {
+            var matched = pairs.stream().anyMatch(p -> p.getQuery() != null && p.getQuery().equals(qb));
+            if (!matched) {
+                pairs.add(new FeaturePair(null, qb));
+            }
+        }
+
         return pairs;
     }
 
@@ -601,5 +640,286 @@ public class AnnotComparator {
 
         stopWatch.stop();
         return transcriptPairs;
+    }
+
+
+    private static List<GtfFeature> sortedExons(TranscriptFeature tf) {
+        boolean fwd = tf.getBaseData().isForwardStrand();
+        Comparator<GtfFeature> byStart = Comparator.comparingInt(f -> f.getBaseData().getStart());
+        var list = tf.getFeatures().stream().filter(f -> "exon".equals(f.getBaseData().getType())).sorted(byStart).toList();
+        return fwd ? list : new ArrayList<>(list) {{
+            Collections.reverse(this);
+        }};
+    }
+
+    private static List<Integer> gapProfile(List<GtfFeature> exons) {
+        var gaps = new ArrayList<Integer>(Math.max(0, exons.size() - 1));
+        for (int i = 0; i < exons.size() - 1; i++) {
+            int g = exons.get(i + 1).getBaseData().getStart() - exons.get(i).getBaseData().getEnd() - 1;
+            gaps.add(g);
+        }
+        return gaps;
+    }
+
+    private static int[][] nwBacktrace(int[] A, int[] B, int gapPenalty, int cap) {
+        int n = A.length, m = B.length;
+        int[][] dp = new int[n + 1][m + 1];
+        int[][] bt = new int[n + 1][m + 1]; // 0=diag,1=up,2=left
+
+        for (int i = 1; i <= n; i++) {
+            dp[i][0] = dp[i - 1][0] - gapPenalty;
+            bt[i][0] = 1;
+        }
+        for (int j = 1; j <= m; j++) {
+            dp[0][j] = dp[0][j - 1] - gapPenalty;
+            bt[0][j] = 2;
+        }
+
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= m; j++) {
+                int diff = Math.abs(A[i - 1] - B[j - 1]);
+                int match = dp[i - 1][j - 1] - Math.min(diff, cap);
+                int delA = dp[i - 1][j] - gapPenalty;
+                int delB = dp[i][j - 1] - gapPenalty;
+
+                if (match >= delA && match >= delB) {
+                    bt[i][j] = 0;
+                    dp[i][j] = match;
+                } else if (delA >= delB) {
+                    bt[i][j] = 1;
+                    dp[i][j] = delA;
+                } else {
+                    bt[i][j] = 2;
+                    dp[i][j] = delB;
+                }
+            }
+        }
+        return bt;
+    }
+
+    private static List<int[]> recoverGapMatches(int[][] bt, int n, int m) {
+        var pairs = new ArrayList<int[]>();
+        int i = n, j = m;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && bt[i][j] == 0) {
+                pairs.add(new int[]{i - 1, j - 1});
+                i--;
+                j--;
+            } else if (i > 0 && (j == 0 || bt[i][j] == 1)) {
+                i--;
+            } else {
+                j--;
+            }
+        }
+        Collections.reverse(pairs);
+        return pairs;
+    }
+
+    private static int overlapLen(GtfFeature a, GtfFeature b) {
+        int s = Math.max(a.getBaseData().getStart(), b.getBaseData().getStart());
+        int e = Math.min(a.getBaseData().getEnd(), b.getBaseData().getEnd());
+        return Math.max(0, e - s + 1);
+    }
+
+    private static int endpointManhattan(GtfFeature a, GtfFeature b) {
+        return Math.abs(a.getBaseData().getStart() - b.getBaseData().getStart()) + Math.abs(a.getBaseData().getEnd() - b.getBaseData().getEnd());
+    }
+
+    public static List<FeaturePair> pairExonsByGapAlignment(TranscriptFeature t, TranscriptFeature q, int gapPenalty, int capDelta, int deltaStartBp, int deltaEndBp) {
+        var pairs = new ArrayList<FeaturePair>();
+        var targetExons = sortedExons(t);
+        var queryExons = sortedExons(q);
+
+        if (targetExons.isEmpty() && queryExons.isEmpty()) return pairs;
+        if (targetExons.size() == 1 && queryExons.size() == 1) {
+            pairs.add(new FeaturePair(targetExons.getFirst(), queryExons.getFirst()));
+            return pairs;
+        }
+
+        var A = gapProfile(targetExons).stream().mapToInt(x -> x).toArray();
+        var B = gapProfile(queryExons).stream().mapToInt(x -> x).toArray();
+
+        if (A.length == 0 || B.length == 0) {
+            var usedQ = new HashSet<GtfFeature>();
+            for (var te : targetExons) {
+                GtfFeature best = null;
+                int bestOverlap = -1, bestD = Integer.MAX_VALUE;
+                for (var qe : queryExons) {
+                    if (usedQ.contains(qe)) continue;
+                    int ov = overlapLen(te, qe);
+                    int d = endpointManhattan(te, qe);
+                    boolean withinTol = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart()) <= deltaStartBp && Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd()) <= deltaEndBp;
+                    if (!withinTol) continue;
+                    if (ov > bestOverlap || (ov == bestOverlap && d < bestD)) {
+                        best = qe;
+                        bestOverlap = ov;
+                        bestD = d;
+                    }
+                }
+                pairs.add(new FeaturePair(te, best));
+                if (best != null) usedQ.add(best);
+            }
+            for (var qe : queryExons)
+                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery()))) pairs.add(new FeaturePair(null, qe));
+            return pairs;
+        }
+
+        var bt = nwBacktrace(A, B, gapPenalty, capDelta);
+        var gapMatches = recoverGapMatches(bt, A.length, B.length);
+
+        var usedT = new boolean[targetExons.size()];
+        var usedQ = new boolean[queryExons.size()];
+
+        for (var g : gapMatches) {
+            int k = g[0], l = g[1];
+            int[] candT = {k, k + 1};
+            int[] candQ = {l, l + 1};
+
+            // Kandidatenpaare sammeln und bestes wählen
+            record Cand(int ct, int cq, int ov, int d) {
+            }
+            var cands = new ArrayList<Cand>();
+            for (int ct : candT)
+                for (int cq : candQ) {
+                    if (ct < 0 || cq < 0 || ct >= targetExons.size() || cq >= queryExons.size()) continue;
+                    if (usedT[ct] || usedQ[cq]) continue;
+                    var te = targetExons.get(ct);
+                    var qe = queryExons.get(cq);
+                    boolean withinTol = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart()) <= deltaStartBp && Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd()) <= deltaEndBp;
+                    if (!withinTol) continue;
+                    int ov = overlapLen(te, qe);
+                    int d = endpointManhattan(te, qe);
+                    cands.add(new Cand(ct, cq, ov, d));
+                }
+            cands.sort((x, y) -> {
+                if (x.ov != y.ov) return Integer.compare(y.ov, x.ov); // max overlap
+                return Integer.compare(x.d, y.d);                      // then min distance
+            });
+            if (!cands.isEmpty()) {
+                var best = cands.get(0);
+                var te = targetExons.get(best.ct);
+                var qe = queryExons.get(best.cq);
+                pairs.add(new FeaturePair(te, qe));
+                usedT[best.ct] = usedQ[best.cq] = true;
+            }
+        }
+
+        int tFirst = 0, qFirst = 0;
+        while (tFirst < targetExons.size() && usedT[tFirst]) tFirst++;
+        while (qFirst < queryExons.size() && usedQ[qFirst]) qFirst++;
+        if (tFirst < targetExons.size() && qFirst < queryExons.size()) {
+            var te = targetExons.get(tFirst);
+            var qe = queryExons.get(qFirst);
+            int d = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart())
+                    + Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd());
+            if (d <= 2 * deltaEndBp) {
+                pairs.add(new FeaturePair(te, qe));
+                usedT[tFirst] = usedQ[qFirst] = true;
+            }
+        }
+
+        int tLast = targetExons.size() - 1, qLast = queryExons.size() - 1;
+        while (tLast >= 0 && usedT[tLast]) tLast--;
+        while (qLast >= 0 && usedQ[qLast]) qLast--;
+        if (tLast >= 0 && qLast >= 0) {
+            var te = targetExons.get(tLast);
+            var qe = queryExons.get(qLast);
+            int d = Math.abs(te.getBaseData().getStart() - qe.getBaseData().getStart())
+                    + Math.abs(te.getBaseData().getEnd() - qe.getBaseData().getEnd());
+            if (d <= 2 * deltaEndBp) {
+                pairs.add(new FeaturePair(te, qe));
+                usedT[tLast] = usedQ[qLast] = true;
+            }
+        }
+
+        for (int i = 0; i < targetExons.size(); i++)
+            if (!usedT[i]) pairs.add(new FeaturePair(targetExons.get(i), null));
+        for (int j = 0; j < queryExons.size(); j++)
+            if (!usedQ[j]) pairs.add(new FeaturePair(null, queryExons.get(j)));
+
+        return pairs;
+    }
+
+    private static boolean within(int s, int e, int xs, int xe, int pad) {
+        return s >= xs - pad && e <= xe + pad;
+    }
+
+    private static List<GtfFeature> featuresOfType(TranscriptFeature tf, String type) {
+        return tf.getFeatures().stream()
+                .filter(f -> type.equals(com.github.kleinsamuel.gtfutils.GtfConfig.getDefault(f.getBaseData().getType())))
+                .sorted(Comparator.comparingInt(f -> f.getBaseData().getStart()))
+                .toList();
+    }
+
+    public static List<FeaturePair> mapFeaturesWithinExonPairs(
+            TranscriptFeature t,
+            TranscriptFeature q,
+            List<FeaturePair> exonPairs,      // aus pairExonsByGapAlignment(t,q,...)
+            String featureType,
+            int padBp                          // z.B. 10..50 bp
+    ) {
+        var res = new ArrayList<FeaturePair>();
+        var usedQ = new HashSet<GtfFeature>();
+
+        var tFeat = featuresOfType(t, featureType);
+        var qFeat = featuresOfType(q, featureType);
+
+        // Schneller Zugriff: Query-Features pro Query-Exon sammeln
+        var qByExon = new HashMap<GtfFeature, List<GtfFeature>>();
+        for (var fp : exonPairs) {
+            var qe = fp.getQuery();
+            if (qe != null) qByExon.put(qe, new ArrayList<>());
+        }
+        for (var qf : qFeat) {
+            // finde Query-Exon-Container (erstes passendes Exon reicht)
+            for (var fp : exonPairs) {
+                var qe = fp.getQuery();
+                if (qe == null) continue;
+                var qS = qf.getBaseData().getStart();
+                var qE = qf.getBaseData().getEnd();
+                var qeS = fp.getQuery().getBaseData().getStart();
+                var qeE = fp.getQuery().getBaseData().getEnd();
+                if (within(qS, qE, qeS, qeE, padBp)) {
+                    qByExon.computeIfAbsent(qe, k -> new ArrayList<>()).add(qf);
+                    break;
+                }
+            }
+        }
+
+        for (var fpExon : exonPairs) {
+            var te = fpExon.getTarget();
+            var qe = fpExon.getQuery();
+            // alle Target-Features, die in dieses Target-Exon fallen
+            var tSub = new ArrayList<GtfFeature>();
+            if (te != null) {
+                int teS = te.getBaseData().getStart(), teE = te.getBaseData().getEnd();
+                for (var tf : tFeat) {
+                    int s = tf.getBaseData().getStart(), e = tf.getBaseData().getEnd();
+                    if (within(s, e, teS, teE, padBp)) tSub.add(tf);
+                }
+            }
+
+            var candidates = (qe != null) ? qByExon.getOrDefault(qe, List.of()) : List.<GtfFeature>of();
+
+            for (var tf : tSub) {
+                GtfFeature best = null;
+                int bestDist = Integer.MAX_VALUE;
+                for (var qf : candidates) {
+                    if (usedQ.contains(qf)) continue;
+                    int d = Math.abs(tf.getBaseData().getStart() - qf.getBaseData().getStart())
+                            + Math.abs(tf.getBaseData().getEnd()   - qf.getBaseData().getEnd());
+                    if (d < bestDist) { bestDist = d; best = qf; }
+                }
+                res.add(new FeaturePair(tf, best));
+                if (best != null) usedQ.add(best);
+            }
+        }
+
+        for (var qf : qFeat) {
+            if (!usedQ.contains(qf) && res.stream().noneMatch(p -> qf.equals(p.getQuery()))) {
+                res.add(new FeaturePair(null, qf));
+            }
+        }
+        return res;
     }
 }
