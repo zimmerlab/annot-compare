@@ -715,12 +715,6 @@ public class AnnotComparator {
         return pairs;
     }
 
-    private static int overlapLen(GtfFeature a, GtfFeature b) {
-        int s = Math.max(a.getBaseData().getStart(), b.getBaseData().getStart());
-        int e = Math.min(a.getBaseData().getEnd(), b.getBaseData().getEnd());
-        return Math.max(0, e - s + 1);
-    }
-
     private static int endpointManhattan(GtfFeature a, GtfFeature b) {
         return Math.abs(a.getBaseData().getStart() - b.getBaseData().getStart()) + Math.abs(a.getBaseData().getEnd() - b.getBaseData().getEnd());
     }
@@ -728,7 +722,7 @@ public class AnnotComparator {
     public static List<FeaturePair> pairExonsByGapAlignment(
             TranscriptFeature t, TranscriptFeature q,
             int gapPenalty, int capDelta,
-            int lenCapBp, double lenCapFrac // NEU: Längen-Toleranzen
+            int lenCapBp, double lenCapFrac
     ) {
         var pairs = new ArrayList<FeaturePair>();
         var targetExons = sortedExons(t);
@@ -740,11 +734,9 @@ public class AnnotComparator {
             return pairs;
         }
 
-        // Gap-Profile (positionsinvariant):
         var A = gapProfile(targetExons).stream().mapToInt(x -> x).toArray();
         var B = gapProfile(queryExons).stream().mapToInt(x -> x).toArray();
 
-        // Hilfsfunktionen:
         java.util.function.ToIntFunction<GtfFeature> len = f ->
                 f.getBaseData().getEnd() - f.getBaseData().getStart() + 1;
 
@@ -756,18 +748,17 @@ public class AnnotComparator {
                     return abs <= lenCapBp || rel <= lenCapFrac;
                 };
 
-        // Falls mind. eine Seite nur 1 Exonlücke hat (oder 0 Gaps):
         if (A.length == 0 || B.length == 0) {
             var usedQ = new HashSet<GtfFeature>();
             for (var te : targetExons) {
                 GtfFeature best = null;
                 int bestLenDiff = Integer.MAX_VALUE;
-                int bestD = Integer.MAX_VALUE; // weicher Tiebreaker
+                int bestD = Integer.MAX_VALUE;
                 for (var qe : queryExons) {
                     if (usedQ.contains(qe)) continue;
                     if (!passLen.test(te, qe)) continue;
                     int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
-                    int d = endpointManhattan(te, qe); // nur Ranking, kein Filter!
+                    int d = endpointManhattan(te, qe);
                     if (lenDiff < bestLenDiff || (lenDiff == bestLenDiff && d < bestD)) {
                         bestLenDiff = lenDiff; bestD = d; best = qe;
                     }
@@ -781,14 +772,12 @@ public class AnnotComparator {
             return pairs;
         }
 
-        // Normalfall: NW auf Gap-Profilen
         var bt = nwBacktrace(A, B, gapPenalty, capDelta);
         var gapMatches = recoverGapMatches(bt, A.length, B.length);
 
         var usedT = new boolean[targetExons.size()];
         var usedQ = new boolean[queryExons.size()];
 
-        // Optionaler globaler Offset (nur Ranking):
         var deltas = new ArrayList<Integer>();
         java.util.function.IntSupplier deltaHat = () -> {
             if (deltas.size() < 2) return 0;
@@ -818,7 +807,6 @@ public class AnnotComparator {
 
                     int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
 
-                    // weiches Ranking: kleiner ist besser
                     int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ)
                             + Math.abs((te.getBaseData().getEnd()   - qe.getBaseData().getEnd())   - Δ);
 
@@ -837,12 +825,11 @@ public class AnnotComparator {
                 pairs.add(new FeaturePair(te, qe));
                 usedT[best.ct] = usedQ[best.cq] = true;
 
-                // Δ aktualisieren (nur fürs Ranking)
                 deltas.add(te.getBaseData().getStart() - qe.getBaseData().getStart());
             }
         }
 
-        // ----- PASS 2a: linker Anker -----
+        // left anchor
         int iL = 0, jL = 0;
         while (iL < targetExons.size() && usedT[iL]) iL++;
         while (jL < queryExons.size()  && usedQ[jL]) jL++;
@@ -859,7 +846,7 @@ public class AnnotComparator {
             }
         }
 
-// ----- PASS 2b: rechter Anker -----
+// right anchor
         int iR = targetExons.size() - 1, jR = queryExons.size() - 1;
         while (iR >= 0 && usedT[iR]) iR--;
         while (jR >= 0 && usedQ[jR]) jR--;
@@ -876,10 +863,9 @@ public class AnnotComparator {
             }
         }
 
-// ----- PASS 3: greedy für alle restlichen Ungepaarten (längenbasiert, Δ nur fürs Ranking) -----
+// greedy for the rest
         int Δ = 0;
         if (!pairs.isEmpty()) {
-            // grober Δ-Schätzer aus bereits gepaarten Starts
             var ds = new ArrayList<Integer>();
             for (var p : pairs) {
                 if (p.getTarget()!=null && p.getQuery()!=null) {
@@ -907,7 +893,6 @@ public class AnnotComparator {
                 double rel  = (double) lenDiff / Math.max(lt, lq);
                 if (!(lenDiff <= lenCapBp || rel <= lenCapFrac)) continue;
 
-                // weiches Ranking (keine Filterwirkung!)
                 int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ)
                         + Math.abs((te.getBaseData().getEnd()   - qe.getBaseData().getEnd())   - Δ);
 
