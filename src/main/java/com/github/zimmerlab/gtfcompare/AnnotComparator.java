@@ -294,12 +294,7 @@ public class AnnotComparator {
         return map;
     }
 
-    public void compareMappedFeaturePairs(
-            String featureType,
-            List<FeaturePair> pairs,
-            TranscriptComparisonResult txRes,
-            ComparisonResult geneRes
-    ) {
+    public void compareMappedFeaturePairs(String featureType, List<FeaturePair> pairs, TranscriptComparisonResult txRes, ComparisonResult geneRes) {
         var featRes = new FeatureComparisonResult();
         featRes.setFeatureType(featureType);
         txRes.addFeatureComparison(featRes);
@@ -313,7 +308,7 @@ public class AnnotComparator {
         }
 
         for (var p : pairs) {
-            compareFeaturePair(p, featRes, txRes, geneRes); // deine bestehende Methode
+            compareFeaturePair(p, featRes, txRes, geneRes);
         }
     }
 
@@ -321,12 +316,11 @@ public class AnnotComparator {
 
         compareMappedFeaturePairs("exon", exonPairs, transcriptComparisonResult, geneResult);
 
-        for (String ft : List.of("CDS","UTR5","UTR3","start_codon","stop_codon")) {
+        for (String ft : List.of("CDS", "UTR5", "UTR3", "start_codon", "stop_codon")) {
             var pairs = mapFeaturesWithinExonPairs(targetTranscript, queryTranscript, exonPairs, ft, padBp);
             if (pairs.isEmpty()) {
-                // prüfen, ob es auf einer Seite überhaupt Features dieses Typs gab
                 boolean hadTarget = !featuresOfType(targetTranscript, ft).isEmpty();
-                boolean hadQuery  = !featuresOfType(queryTranscript, ft).isEmpty();
+                boolean hadQuery = !featuresOfType(queryTranscript, ft).isEmpty();
                 if (hadTarget || hadQuery) {
                     var fr = new FeatureComparisonResult();
                     fr.setFeatureType(ft);
@@ -599,7 +593,6 @@ public class AnnotComparator {
             }
         }
 
-        // Option: Queries, die nie gematcht wurden, mit null target zurückgeben
         for (GtfFeature qb : queries) {
             var matched = pairs.stream().anyMatch(p -> p.getQuery() != null && p.getQuery().equals(qb));
             if (!matched) {
@@ -719,14 +712,10 @@ public class AnnotComparator {
         return Math.abs(a.getBaseData().getStart() - b.getBaseData().getStart()) + Math.abs(a.getBaseData().getEnd() - b.getBaseData().getEnd());
     }
 
-    public static List<FeaturePair> pairExonsByGapAlignment(
-            TranscriptFeature t, TranscriptFeature q,
-            int gapPenalty, int capDelta,
-            int lenCapBp, double lenCapFrac
-    ) {
+    public static List<FeaturePair> pairExonsByGapAlignment(TranscriptFeature t, TranscriptFeature q, int gapPenalty, int capDelta, int lenCapBp, double lenCapFrac) {
         var pairs = new ArrayList<FeaturePair>();
         var targetExons = sortedExons(t);
-        var queryExons  = sortedExons(q);
+        var queryExons = sortedExons(q);
 
         if (targetExons.isEmpty() && queryExons.isEmpty()) return pairs;
         if (targetExons.size() == 1 && queryExons.size() == 1) {
@@ -737,16 +726,14 @@ public class AnnotComparator {
         var A = gapProfile(targetExons).stream().mapToInt(x -> x).toArray();
         var B = gapProfile(queryExons).stream().mapToInt(x -> x).toArray();
 
-        java.util.function.ToIntFunction<GtfFeature> len = f ->
-                f.getBaseData().getEnd() - f.getBaseData().getStart() + 1;
+        java.util.function.ToIntFunction<GtfFeature> len = f -> f.getBaseData().getEnd() - f.getBaseData().getStart() + 1;
 
-        java.util.function.BiPredicate<GtfFeature,GtfFeature> passLen =
-                (te, qe) -> {
-                    int lt = len.applyAsInt(te), lq = len.applyAsInt(qe);
-                    int abs = Math.abs(lt - lq);
-                    double rel = (double) abs / Math.max(lt, lq);
-                    return abs <= lenCapBp || rel <= lenCapFrac;
-                };
+        java.util.function.BiPredicate<GtfFeature, GtfFeature> passLen = (te, qe) -> {
+            int lt = len.applyAsInt(te), lq = len.applyAsInt(qe);
+            int abs = Math.abs(lt - lq);
+            double rel = (double) abs / Math.max(lt, lq);
+            return abs <= lenCapBp || rel <= lenCapFrac;
+        };
 
         if (A.length == 0 || B.length == 0) {
             var usedQ = new HashSet<GtfFeature>();
@@ -760,15 +747,16 @@ public class AnnotComparator {
                     int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
                     int d = endpointManhattan(te, qe);
                     if (lenDiff < bestLenDiff || (lenDiff == bestLenDiff && d < bestD)) {
-                        bestLenDiff = lenDiff; bestD = d; best = qe;
+                        bestLenDiff = lenDiff;
+                        bestD = d;
+                        best = qe;
                     }
                 }
                 pairs.add(new FeaturePair(te, best));
                 if (best != null) usedQ.add(best);
             }
             for (var qe : queryExons)
-                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery())))
-                    pairs.add(new FeaturePair(null, qe));
+                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery()))) pairs.add(new FeaturePair(null, qe));
             return pairs;
         }
 
@@ -783,8 +771,8 @@ public class AnnotComparator {
             if (deltas.size() < 2) return 0;
             var copy = new ArrayList<>(deltas);
             copy.sort(Integer::compare);
-            int mid = copy.size()/2;
-            return (copy.size()%2==1) ? copy.get(mid) : (copy.get(mid-1)+copy.get(mid))/2;
+            int mid = copy.size() / 2;
+            return (copy.size() % 2 == 1) ? copy.get(mid) : (copy.get(mid - 1) + copy.get(mid)) / 2;
         };
 
         for (var g : gapMatches) {
@@ -792,7 +780,8 @@ public class AnnotComparator {
             int[] candT = {k, k + 1};
             int[] candQ = {l, l + 1};
 
-            record Cand(int ct, int cq, int lenDiff, int rank) {}
+            record Cand(int ct, int cq, int lenDiff, int rank) {
+            }
             var cands = new ArrayList<Cand>();
 
             int Δ = deltaHat.getAsInt();
@@ -807,13 +796,12 @@ public class AnnotComparator {
 
                     int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
 
-                    int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ)
-                            + Math.abs((te.getBaseData().getEnd()   - qe.getBaseData().getEnd())   - Δ);
+                    int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ) + Math.abs((te.getBaseData().getEnd() - qe.getBaseData().getEnd()) - Δ);
 
                     cands.add(new Cand(ct, cq, lenDiff, rank));
                 }
 
-            cands.sort((x,y) -> {
+            cands.sort((x, y) -> {
                 if (x.lenDiff != y.lenDiff) return Integer.compare(x.lenDiff, y.lenDiff); // 1) min lenDiff
                 return Integer.compare(x.rank, y.rank);                                    // 2) min rank
             });
@@ -832,7 +820,7 @@ public class AnnotComparator {
         // left anchor
         int iL = 0, jL = 0;
         while (iL < targetExons.size() && usedT[iL]) iL++;
-        while (jL < queryExons.size()  && usedQ[jL]) jL++;
+        while (jL < queryExons.size() && usedQ[jL]) jL++;
         if (iL < targetExons.size() && jL < queryExons.size()) {
             var te = targetExons.get(iL);
             var qe = queryExons.get(jL);
@@ -864,18 +852,18 @@ public class AnnotComparator {
         }
 
 // greedy for the rest
-        int Δ = 0;
+        int delta = 0;
         if (!pairs.isEmpty()) {
             var ds = new ArrayList<Integer>();
             for (var p : pairs) {
-                if (p.getTarget()!=null && p.getQuery()!=null) {
+                if (p.getTarget() != null && p.getQuery() != null) {
                     ds.add(p.getTarget().getBaseData().getStart() - p.getQuery().getBaseData().getStart());
                 }
             }
             if (ds.size() >= 2) {
                 ds.sort(Integer::compare);
-                int mid = ds.size()/2;
-                Δ = (ds.size()%2==1) ? ds.get(mid) : (ds.get(mid-1)+ds.get(mid))/2;
+                int mid = ds.size() / 2;
+                delta = (ds.size() % 2 == 1) ? ds.get(mid) : (ds.get(mid - 1) + ds.get(mid)) / 2;
             }
         }
         for (int it = 0; it < targetExons.size(); it++) {
@@ -883,27 +871,29 @@ public class AnnotComparator {
             var te = targetExons.get(it);
             GtfFeature best = null;
             int bestLenDiff = Integer.MAX_VALUE;
-            int bestRank   = Integer.MAX_VALUE;
+            int bestRank = Integer.MAX_VALUE;
             for (int iq = 0; iq < queryExons.size(); iq++) {
                 if (usedQ[iq]) continue;
                 var qe = queryExons.get(iq);
                 int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
                 int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
                 int lenDiff = Math.abs(lt - lq);
-                double rel  = (double) lenDiff / Math.max(lt, lq);
+                double rel = (double) lenDiff / Math.max(lt, lq);
                 if (!(lenDiff <= lenCapBp || rel <= lenCapFrac)) continue;
 
-                int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ)
-                        + Math.abs((te.getBaseData().getEnd()   - qe.getBaseData().getEnd())   - Δ);
+                int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - delta) + Math.abs((te.getBaseData().getEnd() - qe.getBaseData().getEnd()) - delta);
 
                 if (lenDiff < bestLenDiff || (lenDiff == bestLenDiff && rank < bestRank)) {
-                    bestLenDiff = lenDiff; bestRank = rank; best = qe;
+                    bestLenDiff = lenDiff;
+                    bestRank = rank;
+                    best = qe;
                 }
             }
             pairs.add(new FeaturePair(te, best));
             if (best != null) {
                 int idx = queryExons.indexOf(best);
-                usedT[it] = true; usedQ[idx] = true;
+                usedT[it] = true;
+                usedQ[idx] = true;
             }
         }
 
@@ -921,33 +911,22 @@ public class AnnotComparator {
     }
 
     private static List<GtfFeature> featuresOfType(TranscriptFeature tf, String type) {
-        return tf.getFeatures().stream()
-                .filter(f -> type.equals(com.github.kleinsamuel.gtfutils.GtfConfig.getDefault(f.getBaseData().getType())))
-                .sorted(Comparator.comparingInt(f -> f.getBaseData().getStart()))
-                .toList();
+        return tf.getFeatures().stream().filter(f -> type.equals(com.github.kleinsamuel.gtfutils.GtfConfig.getDefault(f.getBaseData().getType()))).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
     }
 
-    public static List<FeaturePair> mapFeaturesWithinExonPairs(
-            TranscriptFeature t,
-            TranscriptFeature q,
-            List<FeaturePair> exonPairs,      // aus pairExonsByGapAlignment(t,q,...)
-            String featureType,
-            int padBp                          // z.B. 10..50 bp
-    ) {
+    public static List<FeaturePair> mapFeaturesWithinExonPairs(TranscriptFeature t, TranscriptFeature q, List<FeaturePair> exonPairs, String featureType, int padBp) {
         var res = new ArrayList<FeaturePair>();
         var usedQ = new HashSet<GtfFeature>();
 
         var tFeat = featuresOfType(t, featureType);
         var qFeat = featuresOfType(q, featureType);
 
-        // Schneller Zugriff: Query-Features pro Query-Exon sammeln
         var qByExon = new HashMap<GtfFeature, List<GtfFeature>>();
         for (var fp : exonPairs) {
             var qe = fp.getQuery();
             if (qe != null) qByExon.put(qe, new ArrayList<>());
         }
         for (var qf : qFeat) {
-            // finde Query-Exon-Container (erstes passendes Exon reicht)
             for (var fp : exonPairs) {
                 var qe = fp.getQuery();
                 if (qe == null) continue;
@@ -965,7 +944,6 @@ public class AnnotComparator {
         for (var fpExon : exonPairs) {
             var te = fpExon.getTarget();
             var qe = fpExon.getQuery();
-            // alle Target-Features, die in dieses Target-Exon fallen
             var tSub = new ArrayList<GtfFeature>();
             if (te != null) {
                 int teS = te.getBaseData().getStart(), teE = te.getBaseData().getEnd();
@@ -982,9 +960,11 @@ public class AnnotComparator {
                 int bestDist = Integer.MAX_VALUE;
                 for (var qf : candidates) {
                     if (usedQ.contains(qf)) continue;
-                    int d = Math.abs(tf.getBaseData().getStart() - qf.getBaseData().getStart())
-                            + Math.abs(tf.getBaseData().getEnd()   - qf.getBaseData().getEnd());
-                    if (d < bestDist) { bestDist = d; best = qf; }
+                    int d = Math.abs(tf.getBaseData().getStart() - qf.getBaseData().getStart()) + Math.abs(tf.getBaseData().getEnd() - qf.getBaseData().getEnd());
+                    if (d < bestDist) {
+                        bestDist = d;
+                        best = qf;
+                    }
                 }
                 res.add(new FeaturePair(tf, best));
                 if (best != null) usedQ.add(best);
