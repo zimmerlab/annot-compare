@@ -784,7 +784,7 @@ public class AnnotComparator {
             }
             var cands = new ArrayList<Cand>();
 
-            int Δ = deltaHat.getAsInt();
+            int delta = deltaHat.getAsInt();
 
             for (int ct : candT)
                 for (int cq : candQ) {
@@ -796,7 +796,7 @@ public class AnnotComparator {
 
                     int lenDiff = Math.abs(len.applyAsInt(te) - len.applyAsInt(qe));
 
-                    int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - Δ) + Math.abs((te.getBaseData().getEnd() - qe.getBaseData().getEnd()) - Δ);
+                    int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - delta) + Math.abs((te.getBaseData().getEnd() - qe.getBaseData().getEnd()) - delta);
 
                     cands.add(new Cand(ct, cq, lenDiff, rank));
                 }
