@@ -233,7 +233,7 @@ public class AnnotComparator {
         transcriptComparisonResult.setTargetTranscriptId(targetTranscript.getTranscriptId());
         transcriptComparisonResult.setQueryTranscriptId(queryTranscript.getTranscriptId());
 
-        var pairedExons = pairExonsByGapAlignment(targetTranscript, queryTranscript, 2, 200, 50, 0.1);
+        var pairedExons = pairExonsByGapAlignment(targetTranscript, queryTranscript, 2, 200, 200, 0.2);
 
         var targetMap = mapFeaturesByType(targetTranscript);
         var queryMap = mapFeaturesByType(queryTranscript);
@@ -672,9 +672,9 @@ public class AnnotComparator {
         for (int i = 1; i <= n; i++) {
             for (int j = 1; j <= m; j++) {
                 int diff = Math.abs(A[i - 1] - B[j - 1]);
-                int match = dp[i - 1][j - 1] - Math.min(diff, cap);
-                int delA = dp[i - 1][j] - gapPenalty;
-                int delB = dp[i][j - 1] - gapPenalty;
+                int match = dp[i - 1][j - 1] - Math.min(diff, cap); // diag
+                int delA = dp[i - 1][j] - gapPenalty; // up
+                int delB = dp[i][j - 1] - gapPenalty; // left
 
                 if (match >= delA && match >= delB) {
                     bt[i][j] = 0;
@@ -777,7 +777,8 @@ public class AnnotComparator {
         };
 
         for (var g : gapMatches) {
-            int k = g[0], l = g[1];
+            var k = g[0];
+            var l = g[1];
             int[] candT = {k, k + 1};
             int[] candQ = {l, l + 1};
 
@@ -787,7 +788,7 @@ public class AnnotComparator {
 
             int delta = deltaHat.getAsInt();
 
-            for (int ct : candT)
+            for (int ct : candT) {
                 for (int cq : candQ) {
                     if (ct < 0 || cq < 0 || ct >= targetExons.size() || cq >= queryExons.size()) continue;
                     if (usedT[ct] || usedQ[cq]) continue;
@@ -801,6 +802,7 @@ public class AnnotComparator {
 
                     cands.add(new Cand(ct, cq, lenDiff, rank));
                 }
+            }
 
             cands.sort((x, y) -> {
                 if (x.lenDiff != y.lenDiff) return Integer.compare(x.lenDiff, y.lenDiff); // 1) min lenDiff
@@ -818,23 +820,6 @@ public class AnnotComparator {
             }
         }
 
-        // left anchor
-        int iL = 0, jL = 0;
-        while (iL < targetExons.size() && usedT[iL]) iL++;
-        while (jL < queryExons.size() && usedQ[jL]) jL++;
-        if (iL < targetExons.size() && jL < queryExons.size()) {
-            var te = targetExons.get(iL);
-            var qe = queryExons.get(jL);
-            int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
-            int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
-            int lenDiff = Math.abs(lt - lq);
-            double rel = (double) lenDiff / Math.max(lt, lq);
-            if (lenDiff <= lenCapBp || rel <= lenCapFrac) {
-                pairs.add(new FeaturePair(te, qe));
-                usedT[iL] = usedQ[jL] = true;
-            }
-        }
-
 // right anchor
         int iR = targetExons.size() - 1, jR = queryExons.size() - 1;
         while (iR >= 0 && usedT[iR]) iR--;
@@ -842,8 +827,8 @@ public class AnnotComparator {
         if (iR >= 0 && jR >= 0) {
             var te = targetExons.get(iR);
             var qe = queryExons.get(jR);
-            int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
-            int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
+            int lt = len.applyAsInt(te);
+            int lq = len.applyAsInt(qe);
             int lenDiff = Math.abs(lt - lq);
             double rel = (double) lenDiff / Math.max(lt, lq);
             if (lenDiff <= lenCapBp || rel <= lenCapFrac) {
