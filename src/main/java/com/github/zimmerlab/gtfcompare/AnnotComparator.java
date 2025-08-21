@@ -861,8 +861,9 @@ public class AnnotComparator {
             for (int iq = 0; iq < queryExons.size(); iq++) {
                 if (usedQ[iq]) continue;
                 var qe = queryExons.get(iq);
-                int lt = te.getBaseData().getEnd() - te.getBaseData().getStart() + 1;
-                int lq = qe.getBaseData().getEnd() - qe.getBaseData().getStart() + 1;
+                int lt = len.applyAsInt(te);
+                int lq = len.applyAsInt(qe);
+
                 int lenDiff = Math.abs(lt - lq);
                 double rel = (double) lenDiff / Math.max(lt, lq);
                 if (!(lenDiff <= lenCapBp || rel <= lenCapFrac)) continue;
