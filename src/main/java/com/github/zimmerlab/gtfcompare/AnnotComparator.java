@@ -19,6 +19,8 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.util.StopWatch;
 
 import java.util.*;
+import java.util.function.BiPredicate;
+import java.util.function.ToIntFunction;
 
 public class AnnotComparator {
     private static final List<StopWatch> stopWatches = Constants.STOP_WATCHES;
@@ -546,7 +548,6 @@ public class AnnotComparator {
         }
     }
 
-
     private List<FeaturePair> pairByPosition(List<GtfFeature> targets, List<GtfFeature> queries) {
 
         Comparator<GtfFeature> byStartThenEnd = Comparator.comparingInt((GtfFeature f) -> f.getBaseData().getStart()).thenComparingInt(f -> f.getBaseData().getEnd());
@@ -726,9 +727,9 @@ public class AnnotComparator {
         var A = gapProfile(targetExons).stream().mapToInt(x -> x).toArray();
         var B = gapProfile(queryExons).stream().mapToInt(x -> x).toArray();
 
-        java.util.function.ToIntFunction<GtfFeature> len = f -> f.getBaseData().getEnd() - f.getBaseData().getStart() + 1;
+        ToIntFunction<GtfFeature> len = f -> f.getBaseData().getEnd() - f.getBaseData().getStart() + 1;
 
-        java.util.function.BiPredicate<GtfFeature, GtfFeature> passLen = (te, qe) -> {
+        BiPredicate<GtfFeature, GtfFeature> passLen = (te, qe) -> {
             int lt = len.applyAsInt(te), lq = len.applyAsInt(qe);
             int abs = Math.abs(lt - lq);
             double rel = (double) abs / Math.max(lt, lq);
@@ -882,15 +883,14 @@ public class AnnotComparator {
                 if (!(lenDiff <= lenCapBp || rel <= lenCapFrac)) continue;
 
                 int rank = Math.abs((te.getBaseData().getStart() - qe.getBaseData().getStart()) - delta) + Math.abs((te.getBaseData().getEnd() - qe.getBaseData().getEnd()) - delta);
-
                 if (lenDiff < bestLenDiff || (lenDiff == bestLenDiff && rank < bestRank)) {
                     bestLenDiff = lenDiff;
                     bestRank = rank;
                     best = qe;
                 }
             }
-            pairs.add(new FeaturePair(te, best));
             if (best != null) {
+                pairs.add(new FeaturePair(te, best));
                 int idx = queryExons.indexOf(best);
                 usedT[it] = true;
                 usedQ[idx] = true;

@@ -132,6 +132,7 @@ public class AnalysisRunner implements CommandLineRunner {
                 e.printStackTrace();
             }
         }
+
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
