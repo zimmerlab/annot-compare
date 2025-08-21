@@ -314,6 +314,7 @@ public class AnnotComparator {
         }
     }
 
+    // TODO introns, config für for loop
     private void compareFeatures(List<FeaturePair> exonPairs, TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult, int padBp) {
 
         compareMappedFeaturePairs("exon", exonPairs, transcriptComparisonResult, geneResult);
