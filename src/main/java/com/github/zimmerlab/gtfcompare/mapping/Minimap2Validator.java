@@ -1,10 +1,12 @@
-package com.github.zimmerlab.gtfcompare.utils;
+package com.github.zimmerlab.gtfcompare.mapping;
 
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.model.MappingResult;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 
 import java.io.IOException;
 import java.nio.file.Files;

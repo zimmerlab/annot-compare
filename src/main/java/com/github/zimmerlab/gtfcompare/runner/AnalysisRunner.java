@@ -7,7 +7,9 @@ import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
-import com.github.zimmerlab.gtfcompare.model.Impact;
+import com.github.zimmerlab.gtfcompare.mapping.Minimap2Bundler;
+import com.github.zimmerlab.gtfcompare.mapping.Minimap2Validator;
+import com.github.zimmerlab.gtfcompare.mapping.OverlappingTranscripts;
 import com.github.zimmerlab.gtfcompare.model.MappingResult;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
@@ -28,7 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Profile("analysis")
 @Service
