@@ -82,7 +82,7 @@ public class AnnotComparator {
             }
         }
 
-        ResultWriter.writeComparisonResult(comparisonResults, outputPath);
+        ResultWriter.writeComparisonResult(comparisonResults, outputPath, config);
     }
 
     private record BiotypeAllowedResponse(boolean isAllowed, String targetBiotype, String queryBiotype) {
@@ -314,23 +314,46 @@ public class AnnotComparator {
         }
     }
 
-    // TODO introns, config für for loop
     private void compareFeatures(List<FeaturePair> exonPairs, TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult, int padBp) {
 
-        compareMappedFeaturePairs("exon", exonPairs, transcriptComparisonResult, geneResult);
+        if(config.isEnabled("exon"))
+            compareMappedFeaturePairs("exon", exonPairs, transcriptComparisonResult, geneResult);
+
+        if(config.isEnabled("intron")){
+            var intronPairs = mapIntronsByExonPairs(targetTranscript, queryTranscript, exonPairs);
+
+            if(intronPairs.isEmpty()){
+                boolean hadTarget = !featuresOfType(targetTranscript, "intron").isEmpty();
+                boolean hadQuery = !featuresOfType(queryTranscript, "intron").isEmpty();
+
+                if(hadTarget || hadQuery){
+                    var featureComparisonResult = new FeatureComparisonResult();
+                    featureComparisonResult.setFeatureType("intron");
+                    featureComparisonResult.setAreSameFeatures(false);
+                    if (hadTarget && !hadQuery) featureComparisonResult.setMissingInQueryTranscript(true);
+                    if (!hadTarget && hadQuery) featureComparisonResult.setMissingInTargetTranscript(true);
+                    transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
+                    transcriptComparisonResult.setAreSameTranscript(false);
+                    geneResult.setAreSameGene(false);
+                }
+            } else{
+                compareMappedFeaturePairs("intron", intronPairs, transcriptComparisonResult, geneResult);
+            }
+        }
 
         for (String ft : List.of("CDS", "UTR5", "UTR3", "start_codon", "stop_codon")) {
+            if (!config.isEnabled(ft)) continue;
             var pairs = mapFeaturesWithinExonPairs(targetTranscript, queryTranscript, exonPairs, ft, padBp);
             if (pairs.isEmpty()) {
                 boolean hadTarget = !featuresOfType(targetTranscript, ft).isEmpty();
                 boolean hadQuery = !featuresOfType(queryTranscript, ft).isEmpty();
                 if (hadTarget || hadQuery) {
-                    var fr = new FeatureComparisonResult();
-                    fr.setFeatureType(ft);
-                    fr.setAreSameFeatures(false);
-                    if (hadTarget && !hadQuery) fr.setMissingInQueryTranscript(true);
-                    if (!hadTarget && hadQuery) fr.setMissingInTargetTranscript(true);
-                    transcriptComparisonResult.addFeatureComparison(fr);
+                    var featureComparisonResult = new FeatureComparisonResult();
+                    featureComparisonResult.setFeatureType(ft);
+                    featureComparisonResult.setAreSameFeatures(false);
+                    if (hadTarget && !hadQuery) featureComparisonResult.setMissingInQueryTranscript(true);
+                    if (!hadTarget && hadQuery) featureComparisonResult.setMissingInTargetTranscript(true);
+                    transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
                     transcriptComparisonResult.setAreSameTranscript(false);
                     geneResult.setAreSameGene(false);
                 }
@@ -338,7 +361,107 @@ public class AnnotComparator {
             }
             compareMappedFeaturePairs(ft, pairs, transcriptComparisonResult, geneResult);
         }
+    }
 
+    public static List<FeaturePair> mapIntronsByExonPairs(
+            TranscriptFeature targetTranscript,
+            TranscriptFeature queryTranscript,
+            List<FeaturePair> exonPairs
+    ) {
+        var result = new ArrayList<FeaturePair>();
+        var usedT = new HashSet<GtfFeature>();
+        var usedQ = new HashSet<GtfFeature>();
+
+        var tIntrons = featuresOfType(targetTranscript, "intron");
+        var qIntrons = featuresOfType(queryTranscript, "intron");
+
+        var tExonsOrdered = sortedExons(targetTranscript);
+        var qExonsOrdered = sortedExons(queryTranscript);
+
+        var tIndex = new HashMap<GtfFeature, Integer>();
+        for (int i = 0; i < tExonsOrdered.size(); i++) tIndex.put(tExonsOrdered.get(i), i);
+
+        var qIndex = new HashMap<GtfFeature, Integer>();
+        for (int i = 0; i < qExonsOrdered.size(); i++) qIndex.put(qExonsOrdered.get(i), i);
+
+        // Build direct mappings for exons (only fully mapped exon pairs).
+        var t2q = new HashMap<GtfFeature, GtfFeature>();
+        var q2t = new HashMap<GtfFeature, GtfFeature>();
+        for (var fp : exonPairs) {
+            var te = fp.getTarget();
+            var qe = fp.getQuery();
+            if (te != null && qe != null) {
+                t2q.put(te, qe);
+                q2t.put(qe, te);
+            }
+        }
+
+        for (int i = 0; i + 1 < tExonsOrdered.size(); i++) {
+            var teL = tExonsOrdered.get(i);
+            var teR = tExonsOrdered.get(i + 1);
+
+            var qeL = t2q.get(teL);
+            var qeR = t2q.get(teR);
+            if (qeL == null || qeR == null) {
+                continue;
+            }
+
+            var qiL = qIndex.get(qeL);
+            var qiR = qIndex.get(qeR);
+            if (qiL == null || qiR == null) continue;
+
+            // Require adjacency and correct order on the query side as well (no crossing).
+            if (qiR != qiL + 1) {
+                // Not strictly adjacent on query; skip pairing for this intron to avoid ambiguity.
+                continue;
+            }
+
+            // Find the introns bounded by the exon pairs on both sides.
+            var tIntron = findIntronBetween(teL, teR, tIntrons);
+            var qIntron = findIntronBetween(qeL, qeR, qIntrons);
+
+            if (tIntron != null || qIntron != null) {
+                result.add(new FeaturePair(tIntron, qIntron));
+                if (tIntron != null) usedT.add(tIntron);
+                if (qIntron != null) usedQ.add(qIntron);
+            }
+        }
+
+        for (var ti : tIntrons) {
+            if (!usedT.contains(ti)) result.add(new FeaturePair(ti, null));
+        }
+        for (var qi : qIntrons) {
+            if (!usedQ.contains(qi)) result.add(new FeaturePair(null, qi));
+        }
+
+        return result;
+    }
+
+    private static GtfFeature findIntronBetween(
+            GtfFeature eLeft,
+            GtfFeature eRight,
+            List<GtfFeature> introns
+    ) {
+        int exonLeftEnd = eLeft.getBaseData().getEnd() + 1;
+        int exonRightStart = eRight.getBaseData().getStart() - 1;
+        if (exonRightStart < exonLeftEnd) return null;
+
+        GtfFeature best = null;
+        int bestOverlap = -1;
+
+        for (var intron : introns) {
+            int start = intron.getBaseData().getStart();
+            int end = intron.getBaseData().getEnd();
+
+            if (!within(start, end, exonLeftEnd, exonRightStart, 0)) continue;
+
+            int overlap = Math.min(end, exonRightStart) - Math.max(start, exonLeftEnd) + 1;
+            if (overlap > bestOverlap) {
+                bestOverlap = overlap;
+                best = intron;
+            }
+        }
+        return best;
     }
 
     private void compareFeaturePair(FeaturePair pair, FeatureComparisonResult featureComparisonResult, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
@@ -898,7 +1021,7 @@ public class AnnotComparator {
     }
 
     private static List<GtfFeature> featuresOfType(TranscriptFeature tf, String type) {
-        return tf.getFeatures().stream().filter(f -> type.equals(com.github.kleinsamuel.gtfutils.GtfConfig.getDefault(f.getBaseData().getType()))).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
+        return tf.getFeatures().stream().filter(f -> type.equals(GtfConfig.getDefault(f.getBaseData().getType()))).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
     }
 
     public static List<FeaturePair> mapFeaturesWithinExonPairs(TranscriptFeature t, TranscriptFeature q, List<FeaturePair> exonPairs, String featureType, int padBp) {
