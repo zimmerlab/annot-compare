@@ -1,4 +1,4 @@
-package com.github.zimmerlab.gtfcompare.utils;
+package com.github.zimmerlab.gtfcompare.mapping;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

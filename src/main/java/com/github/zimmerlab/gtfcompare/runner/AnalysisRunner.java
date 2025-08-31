@@ -1,11 +1,15 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.AnnotComparator;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
+import com.github.zimmerlab.gtfcompare.mapping.Minimap2Bundler;
+import com.github.zimmerlab.gtfcompare.mapping.Minimap2Validator;
+import com.github.zimmerlab.gtfcompare.mapping.OverlappingTranscripts;
 import com.github.zimmerlab.gtfcompare.model.MappingResult;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
@@ -26,7 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Profile("analysis")
 @Service
@@ -132,6 +135,7 @@ public class AnalysisRunner implements CommandLineRunner {
                 e.printStackTrace();
             }
         }
+
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
         var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
@@ -154,7 +158,7 @@ public class AnalysisRunner implements CommandLineRunner {
             writer.write("");
         }
 
-        final String HEADER = String.join("\t", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype", "targetFeatureStart", "queryFeatureStart", "targetFeatureStop", "queryFeatureStop", "targetStrand", "queryStrand");
+        final String HEADER = String.join("\t", "impact", "contig", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype", "targetFeatureStart", "queryFeatureStart", "targetFeatureStop", "queryFeatureStop", "targetStrand", "queryStrand");
 
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o")),
                 StandardOpenOption.CREATE,
@@ -218,6 +222,7 @@ public class AnalysisRunner implements CommandLineRunner {
         var configPath = cmd.getOptionValue("config");
 
         var objectMapper = new ObjectMapper();
+        objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
         ConfigJSON jsonConfig = null;
         try {
             jsonConfig = objectMapper.readValue(new File(configPath), ConfigJSON.class);
@@ -275,6 +280,11 @@ public class AnalysisRunner implements CommandLineRunner {
             var feature = transcriptFeatures.get(transcriptFeature);
             if (feature != null && feature.isEnabled()) {
                 configBuilder.enableTranscriptFeatures(transcriptFeature);
+                var impactLvl = feature.getImpactLevel();
+                if(impactLvl != null){
+                    configBuilder.setImpactLevels(transcriptFeature, impactLvl);
+
+                }
                 /*var th = feature.getThreshold();
                 if (th != null) {
                     configBuilder.setThreshold(transcriptFeature, th);
@@ -290,6 +300,9 @@ public class AnalysisRunner implements CommandLineRunner {
         if (feature != null && feature.isEnabled()) {
             configBuilder.enableFeature(featureName);
         }
+
+        if(feature.getImpactLevel() == null) return;
+        configBuilder.setImpactLevels(featureName, feature.getImpactLevel() == null ? null : feature.getImpactLevel());
     }
 
     private static void enableFeatureWithThreshold(ComparisonConfigBuilder configBuilder, String featureName, Map<String, FeatureConfig> featureConfig) {
@@ -301,6 +314,9 @@ public class AnalysisRunner implements CommandLineRunner {
                 configBuilder.setThreshold(featureName, th);
             }
         }
+
+        if(feature.getImpactLevel() == null) return;
+        configBuilder.setImpactLevels(featureName, feature.getImpactLevel());
     }
     private static void WriteUnmappedAfterOverlaps(MappingResult<TranscriptPair, TranscriptFeature> loci) {
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of("unmapped.tsv"))) {

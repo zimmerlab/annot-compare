@@ -40,4 +40,5 @@ public class ConfigJSON {
     public Map<String, List<String>> getGeneBiotypes() {
         return geneBiotypes;
     }
+
 }

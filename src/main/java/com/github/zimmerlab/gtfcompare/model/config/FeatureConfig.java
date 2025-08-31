@@ -10,7 +10,7 @@ public class FeatureConfig {
     @JsonProperty("threshold")
     private Double threshold;
 
-    @JsonProperty("impact_level")
+    @JsonProperty("impact")
     private Impact impactLevel;
 
     public boolean isEnabled() {
