@@ -1,4 +1,4 @@
-package com.github.zimmerlab.gtfcompare.mapping;
+package com.github.zimmerlab.gtfcompare.utils;
 
 public class OutputLine {
     private final int orderKey;

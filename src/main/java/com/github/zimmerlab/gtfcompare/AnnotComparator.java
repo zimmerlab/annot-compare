@@ -20,8 +20,6 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.util.StopWatch;
 
 import java.util.*;
-import java.util.function.BiPredicate;
-import java.util.function.ToIntFunction;
 
 import static com.github.zimmerlab.gtfcompare.mapping.ExonMapping.*;
 
@@ -238,9 +236,6 @@ public class AnnotComparator {
 
         var pairedExons = ExonMapping.pairExonsByGapAlignment(targetTranscript, queryTranscript, 2, 200, 200, 0.2);
 
-        var targetMap = mapFeaturesByType(targetTranscript);
-        var queryMap = mapFeaturesByType(queryTranscript);
-
         compareFeatures(pairedExons, targetTranscript, queryTranscript, transcriptComparisonResult, geneResult, 10);
 
         // todo mby checken ob aktiviert in config?
@@ -299,21 +294,21 @@ public class AnnotComparator {
         return map;
     }
 
-    public void compareMappedFeaturePairs(String featureType, List<FeaturePair> pairs, TranscriptComparisonResult txRes, ComparisonResult geneRes) {
-        var featRes = new FeatureComparisonResult();
-        featRes.setFeatureType(featureType);
-        txRes.addFeatureComparison(featRes);
+    public void compareMappedFeaturePairs(String featureType, List<FeaturePair> pairs, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneRes) {
+        var featureComparisonResult = new FeatureComparisonResult();
+        featureComparisonResult.setFeatureType(featureType);
+        transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
 
         if (pairs.isEmpty()) {
-            featRes.setAreSameFeatures(false);
-            featRes.setMissingInQueryTranscript(true);
-            txRes.setAreSameTranscript(false);
+            featureComparisonResult.setAreSameFeatures(false);
+            featureComparisonResult.setMissingInQueryTranscript(true);
+            transcriptComparisonResult.setAreSameTranscript(false);
             geneRes.setAreSameGene(false);
             return;
         }
 
         for (var p : pairs) {
-            compareFeaturePair(p, featRes, txRes, geneRes);
+            compareFeaturePair(p, featureComparisonResult, transcriptComparisonResult, geneRes);
         }
     }
 
@@ -366,106 +361,6 @@ public class AnnotComparator {
         }
     }
 
-    public static List<FeaturePair> mapIntronsByExonPairs(
-            TranscriptFeature targetTranscript,
-            TranscriptFeature queryTranscript,
-            List<FeaturePair> exonPairs
-    ) {
-        var result = new ArrayList<FeaturePair>();
-        var usedT = new HashSet<GtfFeature>();
-        var usedQ = new HashSet<GtfFeature>();
-
-        var tIntrons = featuresOfType(targetTranscript, "intron");
-        var qIntrons = featuresOfType(queryTranscript, "intron");
-
-        var tExonsOrdered = sortedExons(targetTranscript);
-        var qExonsOrdered = sortedExons(queryTranscript);
-
-        var tIndex = new HashMap<GtfFeature, Integer>();
-        for (int i = 0; i < tExonsOrdered.size(); i++) tIndex.put(tExonsOrdered.get(i), i);
-
-        var qIndex = new HashMap<GtfFeature, Integer>();
-        for (int i = 0; i < qExonsOrdered.size(); i++) qIndex.put(qExonsOrdered.get(i), i);
-
-        // Build direct mappings for exons (only fully mapped exon pairs).
-        var t2q = new HashMap<GtfFeature, GtfFeature>();
-        var q2t = new HashMap<GtfFeature, GtfFeature>();
-        for (var fp : exonPairs) {
-            var te = fp.getTarget();
-            var qe = fp.getQuery();
-            if (te != null && qe != null) {
-                t2q.put(te, qe);
-                q2t.put(qe, te);
-            }
-        }
-
-        for (int i = 0; i + 1 < tExonsOrdered.size(); i++) {
-            var teL = tExonsOrdered.get(i);
-            var teR = tExonsOrdered.get(i + 1);
-
-            var qeL = t2q.get(teL);
-            var qeR = t2q.get(teR);
-            if (qeL == null || qeR == null) {
-                continue;
-            }
-
-            var qiL = qIndex.get(qeL);
-            var qiR = qIndex.get(qeR);
-            if (qiL == null || qiR == null) continue;
-
-            // Require adjacency and correct order on the query side as well (no crossing).
-            if (qiR != qiL + 1) {
-                // Not strictly adjacent on query; skip pairing for this intron to avoid ambiguity.
-                continue;
-            }
-
-            // Find the introns bounded by the exon pairs on both sides.
-            var tIntron = findIntronBetween(teL, teR, tIntrons);
-            var qIntron = findIntronBetween(qeL, qeR, qIntrons);
-
-            if (tIntron != null || qIntron != null) {
-                result.add(new FeaturePair(tIntron, qIntron));
-                if (tIntron != null) usedT.add(tIntron);
-                if (qIntron != null) usedQ.add(qIntron);
-            }
-        }
-
-        for (var ti : tIntrons) {
-            if (!usedT.contains(ti)) result.add(new FeaturePair(ti, null));
-        }
-        for (var qi : qIntrons) {
-            if (!usedQ.contains(qi)) result.add(new FeaturePair(null, qi));
-        }
-
-        return result;
-    }
-
-    private static GtfFeature findIntronBetween(
-            GtfFeature eLeft,
-            GtfFeature eRight,
-            List<GtfFeature> introns
-    ) {
-        int exonLeftEnd = eLeft.getBaseData().getEnd() + 1;
-        int exonRightStart = eRight.getBaseData().getStart() - 1;
-        if (exonRightStart < exonLeftEnd) return null;
-
-        GtfFeature best = null;
-        int bestOverlap = -1;
-
-        for (var intron : introns) {
-            int start = intron.getBaseData().getStart();
-            int end = intron.getBaseData().getEnd();
-
-            if (!within(start, end, exonLeftEnd, exonRightStart, 0)) continue;
-
-            int overlap = Math.min(end, exonRightStart) - Math.max(start, exonLeftEnd) + 1;
-            if (overlap > bestOverlap) {
-                bestOverlap = overlap;
-                best = intron;
-            }
-        }
-        return best;
-    }
 
     private void compareFeaturePair(FeaturePair pair, FeatureComparisonResult featureComparisonResult, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult) {
 
@@ -503,6 +398,7 @@ public class AnnotComparator {
             }
 
             if (changed) {
+                regionComparisonResult.setAreSameRegion(false);
                 addToRegionComparison(comp.getName(), regionComparisonResult, featureComparisonResult, transcriptComparisonResult, geneResult);
             }
 
@@ -706,7 +602,4 @@ public class AnnotComparator {
         stopWatch.stop();
         return transcriptPairs;
     }
-
-
-
 }

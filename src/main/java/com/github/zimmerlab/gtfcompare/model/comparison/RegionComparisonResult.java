@@ -14,6 +14,7 @@ public class RegionComparisonResult {
     private boolean isMissingInTargetFile;
     private boolean isMissingInQueryFile;
     private boolean isProteinDifferent;
+    private boolean areSameRegion = true;
 
     public RegionComparisonResult(int targetStart, int targetEnd, int queryStart, int queryEnd){
         this.targetStart = targetStart;
@@ -122,5 +123,13 @@ public class RegionComparisonResult {
 
     public void setProteinDifferent(boolean proteinDifferent) {
         isProteinDifferent = proteinDifferent;
+    }
+
+    public boolean areSameRegion() {
+        return areSameRegion;
+    }
+
+    public void setAreSameRegion(boolean areSameRegion) {
+        this.areSameRegion = areSameRegion;
     }
 }

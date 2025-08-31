@@ -46,7 +46,7 @@ public class SameProteinComparator implements CDSComparisonFeature {
         }
 
 
-        return !isSameProtein(targetSequence, targetSequence);
+        return !isSameProtein(targetSequence, querySequence);
     }
 
     private boolean isSameProtein(String targetProtein, String queryProtein) {

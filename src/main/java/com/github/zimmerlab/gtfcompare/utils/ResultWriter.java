@@ -1,7 +1,6 @@
 package com.github.zimmerlab.gtfcompare.utils;
 
 import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
-import com.github.zimmerlab.gtfcompare.mapping.OutputLine;
 import com.github.zimmerlab.gtfcompare.model.Impact;
 import com.github.zimmerlab.gtfcompare.model.comparison.ComparisonResult;
 import com.github.zimmerlab.gtfcompare.model.comparison.FeatureComparisonResult;
@@ -147,6 +146,14 @@ public class ResultWriter {
             var queryStop = String.valueOf(rc.getQueryEnd());
             var targetStop = String.valueOf(rc.getTargetEnd());
 
+            if (rc.isMissingInTargetFile())
+                lines.add(new OutputLine(350, getImpactLevel("missingFeatureEntryFileInTarget", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInTarget", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+            if (rc.isMissingInQueryFile())
+                lines.add(new OutputLine(360, getImpactLevel("missingFeatureEntryFileInQuery", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInQuery", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+
+            if(!rc.areSameRegion())
+                continue;
+
             if (rc.isLengthDifferenceFound())
                 lines.add(new OutputLine(300, getImpactLevel("length", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "length", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
             if (rc.isStartDifferent())
@@ -158,10 +165,7 @@ public class ResultWriter {
             if(rc.isProteinDifferent()){
                 lines.add(new OutputLine(340, getImpactLevel("protein", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "protein", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
             }
-            if (rc.isMissingInTargetFile())
-                lines.add(new OutputLine(350, getImpactLevel("missingFeatureEntryFileInTarget", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInTarget", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
-            if (rc.isMissingInQueryFile())
-                lines.add(new OutputLine(360, getImpactLevel("missingFeatureEntryFileInQuery", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInQuery", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
+
         }
     }
 

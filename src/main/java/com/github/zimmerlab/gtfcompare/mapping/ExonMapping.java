@@ -30,8 +30,8 @@ public class ExonMapping {
 
     private static int[][] nwBacktrace(int[] A, int[] B, int gapPenalty, int cap) {
         int n = A.length, m = B.length;
-        int[][] dp = new int[n + 1][m + 1];
-        int[][] bt = new int[n + 1][m + 1]; // 0=diag,1=up,2=left
+        var dp = new int[n + 1][m + 1];
+        var bt = new int[n + 1][m + 1]; // 0=diag,1=up,2=left
 
         for (int i = 1; i <= n; i++) {
             dp[i][0] = dp[i - 1][0] - gapPenalty;
@@ -338,6 +338,101 @@ public class ExonMapping {
         return res;
     }
 
+    public static List<FeaturePair> mapIntronsByExonPairs(
+            TranscriptFeature targetTranscript,
+            TranscriptFeature queryTranscript,
+            List<FeaturePair> exonPairs
+    ) {
+        var result = new ArrayList<FeaturePair>();
+        var usedT = new HashSet<GtfFeature>();
+        var usedQ = new HashSet<GtfFeature>();
+
+        var tIntrons = featuresOfType(targetTranscript, "intron");
+        var qIntrons = featuresOfType(queryTranscript, "intron");
+
+        var tExonsOrdered = sortedExons(targetTranscript);
+        var qExonsOrdered = sortedExons(queryTranscript);
+
+        var tIndex = new HashMap<GtfFeature, Integer>();
+        for (int i = 0; i < tExonsOrdered.size(); i++) tIndex.put(tExonsOrdered.get(i), i);
+
+        var qIndex = new HashMap<GtfFeature, Integer>();
+        for (int i = 0; i < qExonsOrdered.size(); i++) qIndex.put(qExonsOrdered.get(i), i);
+
+        var t2q = new HashMap<GtfFeature, GtfFeature>();
+        for (var fp : exonPairs) {
+            var te = fp.getTarget();
+            var qe = fp.getQuery();
+            if (te != null && qe != null) {
+                t2q.put(te, qe);
+            }
+        }
+
+        for (int i = 0; i + 1 < tExonsOrdered.size(); i++) {
+            var targetExonLeft = tExonsOrdered.get(i);
+            var targetExonRight = tExonsOrdered.get(i + 1);
+
+            var queryExonLeft = t2q.get(targetExonLeft);
+            var queryExonRight = t2q.get(targetExonRight);
+            if (queryExonLeft == null || queryExonRight == null) {
+                continue;
+            }
+
+            var queryIndexLeft = qIndex.get(queryExonLeft);
+            var queryIndexRight = qIndex.get(queryExonRight);
+            if (queryIndexLeft == null || queryIndexRight == null) continue;
+
+            if (queryIndexRight != queryIndexLeft + 1) {
+                continue;
+            }
+
+            var tIntron = findIntronBetween(targetExonLeft, targetExonRight, tIntrons);
+            var qIntron = findIntronBetween(queryExonLeft, queryExonRight, qIntrons);
+
+            if (tIntron != null || qIntron != null) {
+                result.add(new FeaturePair(tIntron, qIntron));
+                if (tIntron != null) usedT.add(tIntron);
+                if (qIntron != null) usedQ.add(qIntron);
+            }
+        }
+
+        for (var ti : tIntrons) {
+            if (!usedT.contains(ti)) result.add(new FeaturePair(ti, null));
+        }
+        for (var qi : qIntrons) {
+            if (!usedQ.contains(qi)) result.add(new FeaturePair(null, qi));
+        }
+
+        return result;
+    }
+
+    private static GtfFeature findIntronBetween(
+            GtfFeature eLeft,
+            GtfFeature eRight,
+            List<GtfFeature> introns
+    ) {
+        int exonLeftEnd = eLeft.getBaseData().getEnd() + 1;
+        int exonRightStart = eRight.getBaseData().getStart() - 1;
+        if (exonRightStart < exonLeftEnd) return null;
+
+        GtfFeature best = null;
+        int bestOverlap = -1;
+
+        for (var intron : introns) {
+            int start = intron.getBaseData().getStart();
+            int end = intron.getBaseData().getEnd();
+
+            if (!within(start, end, exonLeftEnd, exonRightStart, 0)) continue;
+
+            int overlap = Math.min(end, exonRightStart) - Math.max(start, exonLeftEnd) + 1;
+            if (overlap > bestOverlap) {
+                bestOverlap = overlap;
+                best = intron;
+            }
+        }
+        return best;
+    }
+
     // DEPRECATED
 
     private List<FeaturePair> pairByPosition(List<GtfFeature> targets, List<GtfFeature> queries) {
@@ -395,5 +490,4 @@ public class ExonMapping {
 
         return pairs;
     }
-
 }
