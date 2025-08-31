@@ -36,6 +36,6 @@ public class ComparisonConfigBuilder {
         return this;
     }
     public ComparisonConfig build() {
-        return new ComparisonConfig(enabledFeatures, enabledTranscriptFeatures, thresholds, allowedGeneBioTypes);
+        return new ComparisonConfig(enabledFeatures, enabledTranscriptFeatures, thresholds, allowedGeneBioTypes, impactLevels);
     }
 }

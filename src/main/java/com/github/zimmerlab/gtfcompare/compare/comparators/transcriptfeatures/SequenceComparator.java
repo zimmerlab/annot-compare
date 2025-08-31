@@ -27,9 +27,19 @@ public class SequenceComparator implements ComparisonFeature, CDSComparisonFeatu
 
         var targetBaseData = ctx.getTargetFeature().getBaseData();
         var queryBaseData = ctx.getQueryFeature().getBaseData();
+
+        var targetStart = targetBaseData.getStart();
+        var targetStop = targetBaseData.getEnd();
+
+        var queryStart = queryBaseData.getStart();
+        var queryStop = queryBaseData.getEnd();
+
+        if((targetStop - targetStart) != (queryStop - queryStart))
+            return true;
+
         try{
-            var targetSequence = targetSequenceExtractor.get().getSequence(targetBaseData.getContig(), targetBaseData.getStart(), targetBaseData.getEnd());
-            var querySequence = targetSequenceExtractor.get().getSequence(queryBaseData.getContig(), queryBaseData.getStart(), queryBaseData.getEnd());
+            var targetSequence = targetSequenceExtractor.get().getSequence(targetBaseData.getContig(), targetStart, targetStop);
+            var querySequence = querySequenceExtractor.get().getSequence(queryBaseData.getContig(), queryStart, queryStop);
             return !targetSequence.equals(querySequence);
         } catch (Exception e){
             LOG.error("Error while extracting sequences: {}", e.getMessage());

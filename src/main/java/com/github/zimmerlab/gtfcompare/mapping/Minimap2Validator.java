@@ -1,41 +1,34 @@
-package com.github.zimmerlab.gtfcompare.utils;
+package com.github.zimmerlab.gtfcompare.mapping;
 
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.model.MappingResult;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.TranscriptComparisonResult;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Minimap2Validator {
-    private static final double MIN_IDENTITY = 95.0;      // percent
-    private static final double MIN_COVERAGE = 80.0;      // percent
+    private static final double MIN_IDENTITY = 95.0;
+    private static final double MIN_COVERAGE = 80.0;
+    private static final boolean USE_CDS_ONLY = false;
 
-    private static String buildCdna(TranscriptFeature tf, GenomeSequenceExtractor ex) throws IOException {
-        var exons = tf.getFeatures().stream().filter(f -> "exon".equals(f.getBaseData().getType())).collect(Collectors.toList());
-        var cdss = tf.getFeatures().stream().filter(f -> Constants.CDS.equals(f.getBaseData().getType())).collect(Collectors.toList());
+    private static String buildCdna(TranscriptFeature tf, GenomeSequenceExtractor ex, boolean useCdsOnly) throws IOException {
+        var exons = tf.getFeatures().stream().filter(f -> "exon".equals(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).collect(Collectors.toList());
 
-        if (exons.isEmpty()) {
-            var a = 2;
-        }
-        var toUse = cdss.isEmpty() ? exons : cdss;
+        var cdss = tf.getFeatures().stream().filter(f -> Constants.CDS.equals(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).collect(Collectors.toList());
 
-        toUse.sort(Comparator.comparingInt(f -> f.getBaseData().getStart()));
+        var toUse = (useCdsOnly && !cdss.isEmpty()) ? cdss : exons;
+
         var forward = tf.getBaseData().isForwardStrand();
-        if (!forward) {
-            Collections.reverse(toUse);
-        }
+        if (!forward) Collections.reverse(toUse);
 
         var sb = new StringBuilder();
         for (GtfFeature seg : toUse) {
@@ -43,7 +36,6 @@ public class Minimap2Validator {
             sb.append(ex.getSequence(bd.getContig(), bd.getStart(), bd.getEnd()));
         }
         var seq = sb.toString();
-
         return forward ? seq : reverseComplement(seq);
     }
 
@@ -72,15 +64,30 @@ public class Minimap2Validator {
     }
 
 
-    public static Map<String, String> parseAndFilterSam(Path samFile) throws IOException {
+    private static final int MIN_MAPQ = 0;    // moderate uniqueness
+    private static final int MIN_ALIGNED_BP = 0;    // absolute floor for very short queries
+    private static final double MIN_ALIGNED_FRAC = 0.0;  // 50% of query length
+    private static final double MAX_SOFTCLIP_FRAC = 1.0;  // up to 10%
+
+    public static Map<String, String> parseAndFilterSam(Path samFile, Map<String, Integer> ref) throws IOException {
         var cigarOp = Pattern.compile("(\\d+)([MIDNSHP=X])");
         var validated = new HashMap<String, String>();
+
         try (var in = Files.newBufferedReader(samFile)) {
             String line;
             while ((line = in.readLine()) != null) {
                 if (line.isEmpty() || line.charAt(0) == '@') continue;
-                String[] f = line.split("\t");
-                if (f.length < 11) continue; // need at least up to optional tags
+
+                var f = line.split("\t");
+                if (f.length < 11) continue;
+
+                // 1) Keep primary only (drop secondary 0x100, supplementary 0x800)
+                var flag = Integer.parseInt(f[1]);
+                if ((flag & 0x900) != 0) continue;
+
+                // 2) MAPQ filter (relaxed)
+                var mapq = Integer.parseInt(f[4]);
+                if (mapq < MIN_MAPQ) continue;
 
                 String qname = f[0];
                 String rname = f[2];
@@ -90,6 +97,7 @@ public class Minimap2Validator {
                 String seq = f[9];
                 int seqLen = seq.length();
 
+                // NM
                 int nm = 0;
                 for (int i = 11; i < f.length; i++) {
                     if (f[i].startsWith("NM:i:")) {
@@ -98,8 +106,9 @@ public class Minimap2Validator {
                     }
                 }
 
+                // Parse CIGAR
                 var m = cigarOp.matcher(cigar);
-                int M = 0, I = 0, D = 0;
+                int M = 0, I = 0, D = 0, S = 0;
                 while (m.find()) {
                     int len = Integer.parseInt(m.group(1));
                     switch (m.group(2).charAt(0)) {
@@ -107,25 +116,46 @@ public class Minimap2Validator {
                         case '=':
                         case 'X':
                             M += len;
-                            break;
+                            break; // aligned on query & ref
                         case 'I':
                             I += len;
-                            break;
+                            break;                      // insertion on query
                         case 'D':
                             D += len;
-                            break;
+                            break;                      // deletion on query
+                        case 'S':
+                            S += len;
+                            break;                      // soft-clipped on query
                         default:
-                            break; // ignore S,H,N,P for identity here
+                            break;                                 // ignore H,N,P here
                     }
                 }
 
-                double queryAligned = M + I;
-                double coverage = (seqLen == 0) ? 0.0 : (queryAligned * 100.0 / seqLen);
+                var alignedQuery = M + I;
 
-                double denom = M + I + D;
-                double identity = (denom == 0) ? 0.0 : (100.0 * (1.0 - ((double) nm / denom)));
+                var minAlignedBp = Math.max(MIN_ALIGNED_BP, (int) Math.round(MIN_ALIGNED_FRAC * seqLen));
+                if (alignedQuery < minAlignedBp) continue;
 
-                if (coverage >= MIN_COVERAGE && identity >= MIN_IDENTITY) {
+                //  soft clip
+                var softFrac = (alignedQuery + S == 0) ? 1.0 : (double) S / (alignedQuery + S);
+                if (softFrac > MAX_SOFTCLIP_FRAC) continue;
+
+                // coverage query
+                var covQ = (seqLen == 0) ? 0.0 : (alignedQuery * 100.0 / seqLen);
+
+                // coverage ref
+                var refLen = ref.get(rname);
+                var alignedRef = M + D; // auf der Referenz zählen Matches/Mismatches und Deletionen
+                var covR = (refLen == null || refLen == 0) ? 0.0 : (alignedRef * 100.0 / refLen);
+
+                // alternative: min(covQ, covR)
+                var meanCov = (covQ + covR) / 2.0;
+
+                // identity from nm
+                var denom = M + I + D; // ausgerichtete Basen (query-seitig + Deletionen)
+                var identity = (denom == 0) ? 0.0 : (100.0 * (1.0 - ((double) nm / denom)));
+
+                if (covQ >= MIN_COVERAGE && covR >= MIN_COVERAGE && meanCov >= MIN_COVERAGE && identity >= MIN_IDENTITY) {
                     validated.put(qname, rname);
                 }
             }
@@ -133,23 +163,31 @@ public class Minimap2Validator {
         return validated;
     }
 
-    private static Path writeFastaFile(List<TranscriptFeature> transcripts, GenomeSequenceExtractor seqExtractor, Path outFa) throws IOException {
+    private record FastaOut(Path path, Map<String, Integer> lengths) {
+    }
+
+    private static FastaOut writeFastaFile(List<TranscriptFeature> transcripts, GenomeSequenceExtractor seqExtractor, Path outFa) throws IOException {
+
+        Map<String, Integer> refLenByName = new HashMap<>();
         try (var w = Files.newBufferedWriter(outFa)) {
             for (TranscriptFeature tf : transcripts) {
-                String seq = buildCdna(tf, seqExtractor);
+                String seq = buildCdna(tf, seqExtractor, USE_CDS_ONLY);
+                String id = tf.getTranscriptId();
                 w.write(">");
-                w.write(tf.getTranscriptId());
+                w.write(id);
                 w.newLine();
                 w.write(seq); // one line is fine for minimap2
                 w.newLine();
+                refLenByName.put(id, seq.length());
             }
         }
-        return outFa;
+        return new FastaOut(outFa, refLenByName);
     }
 
-    private static void runMinimap2Streaming(Path minimap2Exe, Path refFaOrMmi, List<TranscriptFeature> queries, GenomeSequenceExtractor querySeqExtractor, Path outSam, Path errLog, int threads) throws IOException, InterruptedException {
+
+    private static void runMinimap2Streaming(Path minimap2Exe, Path refFa, List<TranscriptFeature> queries, GenomeSequenceExtractor querySeqExtractor, Path outSam, Path errLog, int threads) throws IOException, InterruptedException {
         // Use "-" to read queries from stdin.
-        var cmd = List.of(minimap2Exe.toString(), "-ax", "map-pb", "--secondary=no", "-t", Integer.toString(threads), refFaOrMmi.toString(), "-" );
+        var cmd = List.of(minimap2Exe.toString(), "-ax", "asm10", "--secondary=no", "-t", Integer.toString(threads), refFa.toString(), "-");
 
         // Do NOT merge stderr into stdout. Keep SAM clean.
         var pb = new ProcessBuilder(cmd).redirectOutput(outSam.toFile()).redirectError(errLog != null ? errLog.toFile() : ProcessBuilder.Redirect.INHERIT.file());
@@ -158,7 +196,7 @@ public class Minimap2Validator {
         // Stream queries to minimap2 stdin and then close to signal EOF.
         try (var os = proc.getOutputStream(); var w = new java.io.BufferedWriter(new java.io.OutputStreamWriter(os))) {
             for (TranscriptFeature tf : queries) {
-                String seq = buildCdna(tf, querySeqExtractor);
+                String seq = buildCdna(tf, querySeqExtractor, USE_CDS_ONLY);
                 w.write(">");
                 w.write(tf.getTranscriptId());
                 w.newLine();
@@ -174,33 +212,24 @@ public class Minimap2Validator {
     }
 
 
-    /**
-     * High-level driver:
-     * - Creates two FIFOs
-     * - Spawns writers via ExecutorService
-     * - Runs minimap2
-     * - Cleans up FIFOs even on error
-     * - Parses SAM and returns mapping
-     */
     public static MappingResult<TranscriptPair, TranscriptFeature> validateWithMinimap2(List<TranscriptFeature> unmappedQueries, List<TranscriptFeature> unmappedTargets, GenomeSequenceExtractor targetSeqExtractor, GenomeSequenceExtractor querySeqExtractor, Path workDir, Path minimap2Exe, int threads) throws IOException, InterruptedException {
 
-        // Short-circuit when there is nothing to do.
         if (unmappedQueries.isEmpty() || unmappedTargets.isEmpty()) {
             return new MappingResult<>(List.of(), unmappedTargets, unmappedQueries);
         }
 
-        Path refFa = workDir.resolve("targets.tmp.fa");
-        Path samOut = workDir.resolve("minimap2.sam");
-        Path errLog = workDir.resolve("minimap2.stderr.log");
+        var refFa = workDir.resolve("targets.tmp.fa");
+        var samOut = workDir.resolve("minimap2.sam");
+        var errLog = workDir.resolve("minimap2.stderr.log");
 
         // 1) Write targets to a regular FASTA (or prebuild an .mmi once and reuse).
-        writeFastaFile(unmappedTargets, targetSeqExtractor, refFa);
+        var ref = writeFastaFile(unmappedTargets, targetSeqExtractor, refFa).lengths;
 
         // 2) Run minimap2: stream queries via stdin; keep stderr separate from SAM.
         runMinimap2Streaming(minimap2Exe, refFa, unmappedQueries, querySeqExtractor, samOut, errLog, threads);
 
         // 3) Parse SAM and build mapping.
-        var qToT = parseAndFilterSam(samOut);
+        var qToT = parseAndFilterSam(samOut, ref);
 
         var id2Target = unmappedTargets.stream().collect(Collectors.toMap(TranscriptFeature::getTranscriptId, tf -> tf));
 
