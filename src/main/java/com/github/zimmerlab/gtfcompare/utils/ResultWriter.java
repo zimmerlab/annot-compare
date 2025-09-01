@@ -182,5 +182,24 @@ public class ResultWriter {
             return Impact.max(featureImpactLevel, propertyImpactLevel).toString();
         }
     }
+
+    public static void createFiles(String output) throws IOException {
+        final String HEADER = String.join("\t", "impact", "contig", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype", "targetFeatureStart", "queryFeatureStart", "targetFeatureStop", "queryFeatureStop", "targetStrand", "queryStrand");
+
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of(output),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write(HEADER);
+            writer.newLine();
+        }
+
+        try (BufferedWriter writer = Files.newBufferedWriter(Path.of(output + ".minimap2"),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write(HEADER);
+            writer.newLine();
+        }
+
+    }
 }
 

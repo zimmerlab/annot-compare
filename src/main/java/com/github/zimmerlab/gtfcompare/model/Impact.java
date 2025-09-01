@@ -1,7 +1,7 @@
 package com.github.zimmerlab.gtfcompare.model;
 
 public enum Impact {
-    MODERATE(3), LOW(2), HIGH(4), MODIFIER(1), NONE(0);
+    NONE(0), MODIFIER(1), LOW(2), MODERATE(3), HIGH(4);
 
     private final int level;
 
