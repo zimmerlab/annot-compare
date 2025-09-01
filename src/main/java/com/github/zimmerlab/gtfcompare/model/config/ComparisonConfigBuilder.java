@@ -1,4 +1,4 @@
-package com.github.zimmerlab.gtfcompare.compare;
+package com.github.zimmerlab.gtfcompare.model.config;
 
 import com.github.zimmerlab.gtfcompare.model.Impact;
 

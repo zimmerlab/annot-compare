@@ -1,9 +1,9 @@
 package com.github.zimmerlab.gtfcompare.compare;
 
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
+import com.github.zimmerlab.gtfcompare.model.config.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 

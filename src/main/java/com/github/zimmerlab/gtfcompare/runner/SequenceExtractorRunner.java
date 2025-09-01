@@ -1,13 +1,7 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.zimmerlab.gtfcompare.AnnotComparator;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
-import com.github.zimmerlab.gtfcompare.compare.ComparisonConfigBuilder;
-import com.github.zimmerlab.gtfcompare.model.config.ConfigJSON;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
-import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -20,7 +14,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 
 @Profile("seqExtractor")
 @Service

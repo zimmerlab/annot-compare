@@ -1,6 +1,6 @@
 package com.github.zimmerlab.gtfcompare.utils;
 
-import com.github.zimmerlab.gtfcompare.compare.ComparisonConfig;
+import com.github.zimmerlab.gtfcompare.model.config.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.model.Impact;
 import com.github.zimmerlab.gtfcompare.model.comparison.ComparisonResult;
 import com.github.zimmerlab.gtfcompare.model.comparison.FeatureComparisonResult;

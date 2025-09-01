@@ -12,6 +12,7 @@ import com.github.zimmerlab.gtfcompare.model.FeaturePair;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.*;
+import com.github.zimmerlab.gtfcompare.model.config.ComparisonConfig;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import com.github.zimmerlab.gtfcompare.utils.ResultWriter;
