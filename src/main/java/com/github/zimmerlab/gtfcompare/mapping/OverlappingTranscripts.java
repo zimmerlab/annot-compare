@@ -29,7 +29,7 @@ public class OverlappingTranscripts {
 
     private static final double MIN_OVERLAP_FRACTION = 0.00;
     private static final double ENSEMBLE_ALPHA = 0.5;
-    private static final double MIN_ENSEMBLE_SCORE = 0.95;
+    private static final double MIN_ENSEMBLE_SCORE = 0.1;
     private static final double IDENTITY_EDGE_WEIGHT = 2.0;
 
     public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
@@ -74,7 +74,7 @@ public class OverlappingTranscripts {
                     double chn = chainSimilarity(t, q);
                     double sDist = distanceScore(t, q, 10_000);
                     double sEnd = tssTesScore(t, q, 150.0, 250.0);
-                    double score = 0.2 * jac + 0.2 * chn + 0.55 * sEnd + 0.05 * sDist;
+                    double score = 0.2 * jac + 0.2 * chn + 0.55 * sEnd + 0.5 * sDist;
                     if (score < MIN_ENSEMBLE_SCORE) continue;
                     DefaultWeightedEdge edge = graph.addEdge(t, q);
                     if (edge != null) {

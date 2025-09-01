@@ -4,7 +4,9 @@ import com.github.zimmerlab.gtfcompare.compare.CDSComparisonFeature;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonContext;
 import com.github.zimmerlab.gtfcompare.compare.ComparisonFeature;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 
+import java.util.Arrays;
 import java.util.Map;
 
 public class SameProteinComparator implements CDSComparisonFeature {
@@ -15,6 +17,8 @@ public class SameProteinComparator implements CDSComparisonFeature {
         return Constants.SAME_PROTEIN_COMPARATOR_NAME;
     }
 
+
+    // TODO IUPAC Ambiguity?
     @Override
     public boolean compare(ComparisonContext ctx) throws Exception {
         var targetBaseData = ctx.getTargetFeature().getBaseData();
@@ -45,6 +49,13 @@ public class SameProteinComparator implements CDSComparisonFeature {
             throw new Exception("Failed to extract protein sequences for comparison.");
         }
 
+        if(!targetBaseData.isForwardStrand()){
+            targetSequence = GenomeSequenceExtractor.getReverseComplement(targetSequence);
+        }
+
+        if(!queryBaseData.isForwardStrand()){
+            querySequence = GenomeSequenceExtractor.getReverseComplement(querySequence);
+        }
 
         return !isSameProtein(targetSequence, querySequence);
     }

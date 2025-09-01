@@ -151,7 +151,7 @@ public class ResultWriter {
             if (rc.isMissingInQueryFile())
                 lines.add(new OutputLine(360, getImpactLevel("missingFeatureEntryFileInQuery", featureImpactLvl), contig, targetGeneId, queryGeneId, targetBiotype, queryBiotype, ft, "missingFeatureEntryFileInQuery", targetTranscriptId, queryTranscriptId, targetTranscriptBiotype, queryTranscriptBiotype, targetStart, queryStart, targetStop, queryStop, targetIsForwardStrand, queryIsForwardStrand));
 
-            if(!rc.areSameRegion())
+            if(rc.areSameRegion())
                 continue;
 
             if (rc.isLengthDifferenceFound())

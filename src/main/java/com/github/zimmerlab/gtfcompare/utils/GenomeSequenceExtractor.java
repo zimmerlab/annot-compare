@@ -118,16 +118,11 @@ public class GenomeSequenceExtractor {
             for (int i = 0; i < length; i++) {
                 char base = gene.charAt(length - 1 - i);
                 reverseComplement[i] = switch (base) {
-                    case 'A':
-                        yield 'T';
-                    case 'T':
-                        yield 'A';
-                    case 'C':
-                        yield 'G';
-                    case 'G':
-                        yield 'C';
-                    default:
-                        throw new Exception("yur");
+                    case 'A' -> 'T';
+                    case 'T' -> 'A';
+                    case 'C' -> 'G';
+                    case 'G' -> 'C';
+                    default -> 'N';
                 };
 
                 //reverseComplement[i] = Constants.COMPLEMENT_MAP.get(base);
