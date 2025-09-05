@@ -40,17 +40,13 @@ public class AnalysisRunner implements CommandLineRunner {
     public void run(String... args) throws Exception {
         Options o = new Options();
         o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
-        o.addOption(Option.builder().longOpt("gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("fasta").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("fidx").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
-        o.addOption(Option.builder().longOpt("gtf2").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
-
-        o.addOption(Option.builder().longOpt("fasta2").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
-
-        o.addOption(Option.builder().longOpt("fidx2").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
@@ -78,8 +74,13 @@ public class AnalysisRunner implements CommandLineRunner {
 
         logger.info("Running test");
 
-        if (!cmd.hasOption("gtf")) {
-            logger.error("No gtf file specified");
+        if (!cmd.hasOption("target-gtf")) {
+            logger.error("No target gtf file specified");
+            System.exit(1);
+        }
+
+        if (!cmd.hasOption("query-gtf")) {
+            logger.error("No query gtf file specified");
             System.exit(1);
         }
 
@@ -136,28 +137,17 @@ public class AnalysisRunner implements CommandLineRunner {
         }
 
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
-        var fidx2Entries = FidxParser.parse(cmd.getOptionValue("fidx2"));
 
-        GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("gtf")));
-        GtfFile gtfFile2 = new GtfFile(new File(cmd.getOptionValue("gtf2")));
+        GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("target-gtf")));
+        GtfFile gtfFile2 = new GtfFile(new File(cmd.getOptionValue("query-gtf")));
 
         var targetSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
-        var querySequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta2")), fidx2Entries);
 
         var queryUnmappedFilePath = Path.of("output/unmapped_queries.txt");
         var targetUnmappedFilePath = Path.of("output/unmapped_targets.txt");
-        try (BufferedWriter writer = Files.newBufferedWriter(queryUnmappedFilePath,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
-            writer.write("");
-        }
-        try (BufferedWriter writer = Files.newBufferedWriter(targetUnmappedFilePath,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
-            writer.write("");
-        }
 
-        ResultWriter.createFiles(cmd.getOptionValue("o"));
+
+        ResultWriter.createFiles(cmd.getOptionValue("o"), targetUnmappedFilePath, queryUnmappedFilePath);
 
         try {
             while (true) {
@@ -166,7 +156,7 @@ public class AnalysisRunner implements CommandLineRunner {
                 if (!gtfFile.getParsedContig().equals(gtfFile2.getParsedContig())) {
                     throw new Exception("Contigs do not match");
                 }
-                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, querySequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath);
+                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath);
             }
         } catch (java.text.ParseException e) {
             logger.info("Program finished");

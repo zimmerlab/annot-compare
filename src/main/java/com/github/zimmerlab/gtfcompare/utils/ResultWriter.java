@@ -183,7 +183,18 @@ public class ResultWriter {
         }
     }
 
-    public static void createFiles(String output) throws IOException {
+    public static void createFiles(String output, Path targetUnmappedFilePath, Path queryUnmappedFilePath) throws IOException {
+        try (BufferedWriter writer = Files.newBufferedWriter(queryUnmappedFilePath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write("");
+        }
+        try (BufferedWriter writer = Files.newBufferedWriter(targetUnmappedFilePath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write("");
+        }
+
         final String HEADER = String.join("\t", "impact", "contig", "targetGeneId", "queryGeneId", "targetBioType", "queryBiotype", "featureType", "difference", "targetTranscriptId", "queryTranscriptId", "targetTranscriptBiotype", "queryTranscriptBiotype", "targetFeatureStart", "queryFeatureStart", "targetFeatureStop", "queryFeatureStop", "targetStrand", "queryStrand");
 
         try (BufferedWriter writer = Files.newBufferedWriter(Path.of(output),

@@ -4,10 +4,7 @@ import com.github.zimmerlab.gtfcompare.model.FidxEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.util.Map;
 
 public class GenomeSequenceExtractor {
@@ -24,49 +21,56 @@ public class GenomeSequenceExtractor {
 
     public String getSequence(String chr, int start, int end) throws IOException {
         var fidx = fidxData.get(chr);
-        var lineLength = fidx.getLineLength();
-        var lineLengthWithNewline = fidx.getLineLengthWithNewLine();
+        if (fidx == null) throw new IllegalArgumentException("Unknown contig: " + chr);
+        if (start < 1 || end < start) throw new IllegalArgumentException("Invalid coordinates");
+
+        final int lineLength = fidx.getLineLength();
+        final int lineLengthWithNewline = fidx.getLineLengthWithNewLine();
+        final int newLineLength = lineLengthWithNewline - lineLength;
+
+        final int linesTillStart = (start - 1) / lineLength; // FIX 1
+        final long totalLinebreaks = (long) linesTillStart * newLineLength;
+        final long realStart = fidx.getStart() + (start - 1) + totalLinebreaks; // 1-basiert → 0-basiert
+
         var result = new StringBuilder();
-        var newLineLength = lineLengthWithNewline - lineLength;
-        // var realStart = fidx.getStart();
-        var linesTillStart = (start) / lineLength;
-        var totalLinebreaks = linesTillStart * newLineLength;
 
-        var realStart = fidx.getStart() + start + totalLinebreaks - 1;
-
-        var position = 0;
+        // Erstes Teilstück bis zum Zeilenende
         raf.seek(realStart);
-        var tempBuffer = new byte[Math.min(end - start + 1, lineLength)];
-        raf.readFully(tempBuffer);
+        int firstChunkMax = Math.min(end - start + 1, lineLength - ((start - 1) % lineLength));
+        byte[] buf = new byte[firstChunkMax];
+        raf.readFully(buf);
 
-        for (var b : tempBuffer) {
-            var value = b & 0xFF;
-            if (value < 32 || value == 127) {
-                break;
-            }
+        int position = 0;
+        for (byte b : buf) {
+            int v = b & 0xFF;
+            if (v < 32 || v == 127) break; // newline o.ä.
             position++;
         }
+        if (position > 0) {
+            result.append(new String(buf, 0, position, java.nio.charset.StandardCharsets.US_ASCII));
+        }
 
-        raf.seek(realStart);
-        tempBuffer = new byte[position];
+        int totalLen = end - start + 1;
+        int bytesToRead = totalLen - position; // FIX 2
 
-        raf.readFully(tempBuffer);
+        if (bytesToRead > 0) {
+            int skipped = raf.skipBytes(newLineLength);
+            if (skipped != newLineLength) throw new EOFException("Unexpected EOF while skipping newline");
+        }
 
-        result.append(new String(tempBuffer));
-        raf.skipBytes(newLineLength);
-
-        var bytesToRead = end - start - position - (newLineLength - 1) + 1;
-        var bytesRead = 0;
-
+        int bytesRead = 0;
         while (bytesRead < bytesToRead) {
-            var currentBytesToRead = Math.min(lineLength, bytesToRead - bytesRead);
-            if (tempBuffer.length != currentBytesToRead)
-                tempBuffer = new byte[currentBytesToRead];
+            int currentBytesToRead = Math.min(lineLength, bytesToRead - bytesRead);
+            if (buf.length != currentBytesToRead) buf = new byte[currentBytesToRead];
 
-            raf.readFully(tempBuffer);
-            result.append(new String(tempBuffer));
-            raf.skipBytes(newLineLength);
+            raf.readFully(buf);
+            result.append(new String(buf, java.nio.charset.StandardCharsets.US_ASCII));
             bytesRead += currentBytesToRead;
+
+            if (bytesRead < bytesToRead) {
+                int skipped = raf.skipBytes(newLineLength);
+                if (skipped != newLineLength) throw new EOFException("Unexpected EOF while skipping newline");
+            }
         }
 
         return result.toString();

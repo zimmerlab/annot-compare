@@ -7,16 +7,26 @@ import com.github.zimmerlab.gtfcompare.model.FeaturePair;
 
 import java.util.*;
 import java.util.function.BiPredicate;
+import java.util.function.IntSupplier;
 import java.util.function.ToIntFunction;
 
 public class ExonMapping {
-    public static List<GtfFeature> sortedExons(TranscriptFeature tf) {
+    public static List<GtfFeature> sortedExons(TranscriptFeature transcriptFeature){
+        return sortedExons(transcriptFeature, true);
+    }
+
+    public static List<GtfFeature> sortedExons(TranscriptFeature tf, boolean sortByStrand) {
         boolean fwd = tf.getBaseData().isForwardStrand();
         Comparator<GtfFeature> byStart = Comparator.comparingInt(f -> f.getBaseData().getStart());
         var list = tf.getFeatures().stream().filter(f -> "exon".equals(f.getBaseData().getType())).sorted(byStart).toList();
-        return fwd ? list : new ArrayList<>(list) {{
-            Collections.reverse(this);
-        }};
+
+        if (sortByStrand) {
+            return fwd ? list : new ArrayList<>(list) {{
+                Collections.reverse(this);
+            }};
+        }
+
+        return list;
     }
 
     private static List<Integer> gapProfile(List<GtfFeature> exons) {
@@ -141,7 +151,7 @@ public class ExonMapping {
         var usedQ = new boolean[queryExons.size()];
 
         var deltas = new ArrayList<Integer>();
-        java.util.function.IntSupplier deltaHat = () -> {
+        IntSupplier deltaHat = () -> {
             if (deltas.size() < 2) return 0;
             var copy = new ArrayList<>(deltas);
             copy.sort(Integer::compare);
@@ -350,8 +360,8 @@ public class ExonMapping {
         var tIntrons = featuresOfType(targetTranscript, "intron");
         var qIntrons = featuresOfType(queryTranscript, "intron");
 
-        var tExonsOrdered = sortedExons(targetTranscript);
-        var qExonsOrdered = sortedExons(queryTranscript);
+        var tExonsOrdered = sortedExons(targetTranscript, false);
+        var qExonsOrdered = sortedExons(queryTranscript, false);
 
         var tIndex = new HashMap<GtfFeature, Integer>();
         for (int i = 0; i < tExonsOrdered.size(); i++) tIndex.put(tExonsOrdered.get(i), i);
