@@ -143,8 +143,8 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var targetSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
 
-        var queryUnmappedFilePath = Path.of("output/unmapped_queries.txt");
-        var targetUnmappedFilePath = Path.of("output/unmapped_targets.txt");
+        var queryUnmappedFilePath = Path.of(cmd.getOptionValue("o") + ".unmapped_queries");
+        var targetUnmappedFilePath = Path.of(cmd.getOptionValue("o") + ".unmapped_targets");
 
 
         ResultWriter.createFiles(cmd.getOptionValue("o"), targetUnmappedFilePath, queryUnmappedFilePath);

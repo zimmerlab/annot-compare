@@ -11,10 +11,10 @@
     </parent>
 
     <groupId>com.github.zimmerlab</groupId>
-    <artifactId>gtf-compare</artifactId>
+    <artifactId>annot-compare</artifactId>
     <version>0.1</version>
-    <name>gtf-compare</name>
-    <description>gtf-compare</description>
+    <name>annot-compare</name>
+    <description>annot-compare</description>
 
 
     <repositories>
