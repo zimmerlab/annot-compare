@@ -120,51 +120,7 @@ public class AnnotComparator {
         return new GetGeneBiotypeResponse(targetBiotype, queryBiotype);
     }
 
-    private List<GenePair> getGenePairsByExactId() {
-        var targetGeneMap = new HashMap<String, GeneFeature>();
-        var queryGeneMap = new HashMap<String, GeneFeature>();
 
-        var everyBiotypeAllowed = config.getAllowedGeneBiotypes().isEmpty();
-        for (var geneId : targetGtf.getAllGeneFeatureIds()) {
-            var gene = targetGtf.getGeneFeature(geneId);
-
-            if (everyBiotypeAllowed) {
-                targetGeneMap.put(geneId, gene);
-                continue;
-            }
-            var baseData = gene.getBaseData();
-            var geneBiotypeEmpty = baseData.getAttributes("gene_biotype").isEmpty();
-
-
-            String geneBiotype = geneBiotypeEmpty ? baseData.getSource() : baseData.getAttributes("gene_biotype").getFirst();
-            if (config.getAllowedGeneBiotypes().contains(geneBiotype)) targetGeneMap.put(geneId, gene);
-        }
-
-        for (var geneId : queryGtf.getAllGeneFeatureIds()) {
-            var gene = queryGtf.getGeneFeature(geneId);
-            if (everyBiotypeAllowed) {
-                queryGeneMap.put(geneId, gene);
-                continue;
-            }
-            var baseData = gene.getBaseData();
-            var geneBiotypeEmpty = baseData.getAttributes("gene_biotype").isEmpty();
-
-            String geneBiotype = geneBiotypeEmpty ? baseData.getSource() : baseData.getAttributes("gene_biotype").getFirst();
-            if (config.getAllowedGeneBiotypes().contains(geneBiotype)) queryGeneMap.put(geneId, gene);
-        }
-
-        var allGeneIds = new HashSet<String>();
-        allGeneIds.addAll(targetGeneMap.keySet());
-        allGeneIds.addAll(queryGeneMap.keySet());
-
-        var genePairs = new ArrayList<GenePair>();
-        for (var geneId : allGeneIds) {
-            GeneFeature t1 = targetGeneMap.get(geneId);
-            GeneFeature t2 = queryGeneMap.get(geneId);
-            genePairs.add(new GenePair(t1, t2));
-        }
-        return genePairs;
-    }
 
     private void compareGene(GeneFeature targetGene, GeneFeature queryGene, ComparisonResult result) {
         if (targetGene == null || queryGene == null) {

@@ -40,13 +40,14 @@ public class AnalysisRunner implements CommandLineRunner {
     public void run(String... args) throws Exception {
         Options o = new Options();
         o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
-        o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to target gtf file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("fasta").numberOfArgs(1).required().desc("Path to fasta file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("fidx").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
-        o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("liftoff-gtf").numberOfArgs(1).desc("Path to liftoff gtf file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
@@ -104,42 +105,17 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
-        var useLiftoff = false;
-
-        if (useLiftoff) {
-            String userHome = System.getProperty("user.home");
-            String liftoffExec = Paths.get(userHome, "miniconda3", "bin", "liftoff").toString();
-
-            ProcessBuilder pb = new ProcessBuilder(liftoffExec, "-g", cmd.getOptionValue("gtf"), cmd.getOptionValue("fasta"), cmd.getOptionValue("fasta2"), "-o", "output/lifted.gtf");
-
-            pb.redirectErrorStream(true);
-
-            try {
-                Process process = pb.start();
-
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        System.out.println(line);
-                    }
-                }
-
-                int exitCode = process.waitFor();
-                if (exitCode == 0) {
-                    System.out.println("Liftoff successfully executed.");
-                } else {
-                    System.err.println("Liftoff failed with exit code " + exitCode + ".");
-                }
-
-            } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
 
         GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("target-gtf")));
         GtfFile gtfFile2 = new GtfFile(new File(cmd.getOptionValue("query-gtf")));
+
+        GtfFile liftoffGtf = null;
+        var useLiftOff = false;
+        if(cmd.getOptionValue("liftoff-gtf") != null){
+            liftoffGtf = new GtfFile(new File(cmd.getOptionValue("liftoff-gtf")));
+            useLiftOff = true;
+        }
 
         var targetSequenceExtractor = new GenomeSequenceExtractor(new File(cmd.getOptionValue("fasta")), fidxEntries);
 
@@ -153,10 +129,13 @@ public class AnalysisRunner implements CommandLineRunner {
             while (true) {
                 gtfFile.parseNextContig();
                 gtfFile2.parseNextContig();
+                if(useLiftOff){
+                    liftoffGtf.parseNextContig();
+                }
                 if (!gtfFile.getParsedContig().equals(gtfFile2.getParsedContig())) {
                     throw new Exception("Contigs do not match");
                 }
-                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath);
+                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath, useLiftOff, liftoffGtf);
             }
         } catch (java.text.ParseException e) {
             logger.info("Program finished");
@@ -166,7 +145,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
     }
 
-    private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath) throws IOException, InterruptedException {
+    private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath, boolean useLiftOff, GtfFile liftoffGtf) throws IOException, InterruptedException {
         var currentContig = gtfFile.getParsedContig();
         logger.info("Current contig: " + currentContig);
         var loci = OverlappingTranscripts.map(gtfFile, gtfFile2);

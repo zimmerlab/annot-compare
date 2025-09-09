@@ -65,8 +65,8 @@ public class SameProteinComparator implements CDSComparisonFeature {
             var targetCodon = targetProtein.substring(i, i + 3);
             var queryCodon = queryProtein.substring(i, i + 3);
 
-            var targetAA = CODON_TABLE.get(targetCodon);
-            var queryAA = CODON_TABLE.get(queryCodon);
+            var targetAA = CODON_TABLE.getOrDefault(targetCodon,'X');
+            var queryAA = CODON_TABLE.getOrDefault(queryCodon, 'X');
             if (targetAA == null || queryAA == null) {
                 throw new IllegalArgumentException("Invalid Codon: " + (targetAA == null ? targetCodon : queryCodon));
             }
