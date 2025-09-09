@@ -33,6 +33,8 @@ public class OverlappingTranscripts {
     private static final double IDENTITY_EDGE_WEIGHT = 2.0;
 
     public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
+        setTranscriptPositions(targetGtfFile);
+        setTranscriptPositions(queryGtfFile);
 
         // Build interval trees
         logger.info("Building Interval Trees");
@@ -128,6 +130,32 @@ public class OverlappingTranscripts {
 
     private static Set<TranscriptFeature> getAllTranscripts(GtfFile gtfFile) {
         return gtfFile.getAllGeneFeatureIds().stream().flatMap(geneId -> gtfFile.getGeneFeature(geneId).getTranscripts().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static void setTranscriptPositions(GtfFile gtfFile) {
+        var transcripts = getAllTranscripts(gtfFile);
+        for(var transcript : transcripts){
+            var transcriptBaseData = transcript.getBaseData();
+
+            var start = transcriptBaseData.getStart();
+
+            if(start == -1){
+                start = transcript.getFeatures().stream().mapToInt(target -> target.getBaseData().getStart())
+                        .min()
+                        .orElse(Integer.MAX_VALUE);
+
+                transcriptBaseData.setStart(start);
+            }
+
+            var stop =  transcriptBaseData.getEnd();
+            if(stop == -1){
+                stop = transcript.getFeatures().stream().mapToInt(target -> target.getBaseData().getEnd())
+                        .max()
+                        .orElse(Integer.MIN_VALUE);
+
+                transcriptBaseData.setEnd(stop);
+            }
+        }
     }
 
     private static void addIdentityMatchEdges(SimpleWeightedGraph<TranscriptFeature, DefaultWeightedEdge> graph, Set<TranscriptFeature> targets, Set<TranscriptFeature> queries) {
