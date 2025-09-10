@@ -19,7 +19,8 @@ public class BenchmarkRunner implements CommandLineRunner {
         Options o = new Options();
         o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
         o.addOption(Option.builder().longOpt("jfr").numberOfArgs(1).required().desc("Path to jfr file").type(File.class).build());
-        o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output directory").type(File.class).build());
+        o.addOption(Option.builder().longOpt("pre").numberOfArgs(1).required().desc("Prefix for output files").type(File.class).build());
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
@@ -38,11 +39,16 @@ public class BenchmarkRunner implements CommandLineRunner {
         }
 
         if (!cmd.hasOption("o")) {
-            logger.error("No output file specified");
+            logger.error("No output directory specified");
             System.exit(1);
         }
 
-        JfrAggregate.benchmark(cmd.getOptionValue("jfr"));
+        if (!cmd.hasOption("pre")) {
+            logger.error("No prefix for output files");
+            System.exit(1);
+        }
+
+        JfrAggregate.benchmark(cmd.getOptionValue("jfr"), cmd.getOptionValue("o"), cmd.getOptionValue("pre"));
     }
 
 

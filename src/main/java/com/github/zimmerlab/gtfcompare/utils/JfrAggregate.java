@@ -4,6 +4,8 @@ import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordedFrame;
 import jdk.jfr.consumer.RecordedMethod;
 import jdk.jfr.consumer.RecordingFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,13 +15,12 @@ import java.time.Instant;
 import java.util.*;
 
 public class JfrAggregate {
+    private static final Logger logger = LoggerFactory.getLogger(JfrAggregate.class);
 
     private static final String EV_EXEC = "jdk.ExecutionSample";
     private static final String EV_ALLOC_SAMPLE = "jdk.ObjectAllocationSample";
-    private static final String EV_ALLOC_TLAB = "jdk.ObjectAllocationInNewTLAB";
-    private static final String EV_ALLOC_OUT = "jdk.ObjectAllocationOutsideTLAB";
 
-    private static final int TOP = 20;
+    private static final int TOP = 100;
     private static long totalCpuSamples = 0L;
     private static long totalAllocEvents = 0L;
 
@@ -36,7 +37,7 @@ public class JfrAggregate {
         }
     }
 
-    public static void benchmark(String file) throws Exception {
+    public static void benchmark(String jfrFile, String outDir, String prefix) throws Exception {
         var byMethod = new HashMap<String, Counters>();
         long totalAllocatedBytes = 0L;
         var totalDuration = Duration.ZERO;
@@ -44,9 +45,9 @@ public class JfrAggregate {
         boolean sawAllocSample = false;
         boolean sawAllocTlabs = false;
 
-        var p = Paths.get(file);
+        var p = Paths.get(jfrFile);
         if (!Files.isRegularFile(p)) {
-            System.err.println("Not a file: " + file);
+            System.err.println("Not a file: " + jfrFile);
             return;
         }
 
@@ -74,7 +75,7 @@ public class JfrAggregate {
                         totalCpuSamples++;
                         handleExecSample(e, byMethod);
                     }
-                    case EV_ALLOC_SAMPLE, EV_ALLOC_TLAB, EV_ALLOC_OUT-> {
+                    case EV_ALLOC_SAMPLE-> {
                         totalAllocEvents++;
                         sawAllocSample = true;
                         long size = getAllocationBytes(e);
@@ -90,7 +91,7 @@ public class JfrAggregate {
             }
 
         } catch (IOException ioe) {
-            System.err.println("Failed to read " + file + ": " + ioe.getMessage());
+            System.err.println("Failed to read " + jfrFile + ": " + ioe.getMessage());
         }
 
 
@@ -98,25 +99,18 @@ public class JfrAggregate {
         var topCpu = byMethod.entrySet().stream().sorted(Comparator.comparingLong((Map.Entry<String, Counters> e) -> e.getValue().cpuSamples).reversed()).limit(TOP).toList();
         var topAlloc = byMethod.entrySet().stream().sorted(Comparator.comparingLong((Map.Entry<String, Counters> e) -> e.getValue().allocBytes).reversed()).limit(TOP).toList();
 
-        // Print summary
-        System.out.println("\n=== JFR Aggregate Summary ===");
-        System.out.printf("Total recordings duration : %s%n", human(totalDuration));
-        System.out.printf("Total allocated bytes     : %,d (%.2f MB)%n", totalAllocatedBytes, totalAllocatedBytes / (1024.0 * 1024.0));
-        System.out.printf("Allocation sources seen   : %s%s%n", sawAllocSample ? "ObjectAllocationSample " : "", sawAllocTlabs ? "ObjectAllocationIn/OutsideTLAB" : (sawAllocSample ? "" : "(none)"));
-        System.out.printf("Total CPU samples         : %,d%n", totalCpuSamples);
-        System.out.printf("Total allocation events   : %,d%n", totalAllocEvents);
-
-        System.out.println("\n--- Top CPU-intensive methods (by ExecutionSample count) ---");
-        printTable(topCpu, /*showCpu*/true, /*showAlloc*/false);
-
-        System.out.println("\n--- Top allocation-intensive methods (by allocated bytes) ---");
-        printTable(topAlloc, /*showCpu*/false, /*showAlloc*/true);
-
-        // CSV exports (optional)
-        System.out.println("\nCSV (method,cpuSamples,allocBytes):");
-        System.out.println("method,cpuSamples,allocBytes");
-        byMethod.entrySet().stream().sorted(Comparator.comparingLong((Map.Entry<String, Counters> e) -> e.getValue().cpuSamples + e.getValue().allocBytes).reversed()).forEach(e -> System.out.printf("%s,%d,%d%n", csvEscape(e.getKey()), e.getValue().cpuSamples, e.getValue().allocBytes));
-    }
+        try {
+            writeTsvReports(
+                    Paths.get(outDir),
+                    totalDuration, totalAllocatedBytes,
+                    sawAllocSample, sawAllocTlabs,
+                    totalCpuSamples, totalAllocEvents,
+                    topCpu, topAlloc, byMethod, prefix
+            );
+        } catch (IOException ex) {
+            logger.error("Failed to write TSV reports: ", ex);
+        }
+       }
 
     private static void handleExecSample(RecordedEvent e, Map<String, Counters> byMethod) {
         String key = topUserOrJavaFrameKey(e);
@@ -155,6 +149,8 @@ public class JfrAggregate {
             if (fallback == null) {
                 fallback = methodKey(m, f);
             }
+
+            if (startsWithAny(typeName, EXCLUDE_PACKAGES)) continue;
 
             // prefer user packages
             if (startsWithAny(typeName, INCLUDE_PACKAGES)) {
@@ -206,6 +202,12 @@ public class JfrAggregate {
     }
 
     private static final List<String> INCLUDE_PACKAGES = List.of("com.github.zimmerlab.", "com.github.kleinsamuel.");
+
+    private static final List<String> EXCLUDE_PACKAGES = List.of(
+            "java.", "jdk.", "sun.", "javax.",
+            "org.springframework.", "org.apache.", "com.fasterxml.",
+            "kotlin.", "scala."
+    );
 
     private static boolean startsWithAny(String s, List<String> prefixes) {
         for (String p : prefixes) {
@@ -265,5 +267,84 @@ public class JfrAggregate {
             default -> core;
         };
         return base + "[]".repeat(dims);
+    }
+
+    private static void writeTsvReports(
+            java.nio.file.Path outDir,
+            java.time.Duration totalDuration,
+            long totalAllocatedBytes,
+            boolean sawAllocSample,
+            boolean sawAllocTlabs,
+            long totalCpuSamples,
+            long totalAllocEvents,
+            java.util.List<java.util.Map.Entry<String, Counters>> topCpu,
+            java.util.List<java.util.Map.Entry<String, Counters>> topAlloc,
+            java.util.Map<String, Counters> byMethod,
+            String prefix
+    ) throws java.io.IOException {
+        java.nio.file.Files.createDirectories(outDir);
+
+        var summaryName = "summary.tsv";
+        var top_cpu_name = "top_cpu.tsv";
+        var top_alloc_name = "top_alloc.tsv";
+        var methods_name = "methods.tsv";
+
+        if(prefix != null){
+            summaryName = prefix + "_" + summaryName;
+            top_cpu_name = prefix + "_" + top_cpu_name;
+            top_alloc_name = prefix + "_" + top_alloc_name;
+            methods_name = prefix + "_" + methods_name;
+        }
+        try (var w = java.nio.file.Files.newBufferedWriter(outDir.resolve(summaryName))) {
+            // header
+            w.write("totalRecordingsDurationMillis\ttotalAllocatedBytes\tallocationSources\ttotalCpuSamples\ttotalAllocationEvents\n");
+            // single row
+            String allocSources = (sawAllocSample ? "ObjectAllocationSample " : "")
+                    + (sawAllocTlabs ? "ObjectAllocationIn/OutsideTLAB"
+                    : (sawAllocSample ? "" : "(none)"));
+            w.write(totalDuration.toMillis() + "\t"
+                    + totalAllocatedBytes + "\t"
+                    + tsvEscape(allocSources) + "\t"
+                    + totalCpuSamples + "\t"
+                    + totalAllocEvents + "\n");
+        }
+
+        try (var w = java.nio.file.Files.newBufferedWriter(outDir.resolve(top_cpu_name))) {
+            w.write("rank\tmethod\tcpuSamples\n");
+            for (int i = 0; i < topCpu.size(); i++) {
+                var e = topCpu.get(i);
+                w.write((i + 1) + "\t" + tsvEscape(e.getKey()) + "\t" + e.getValue().cpuSamples + "\n");
+            }
+        }
+
+        try (var w = java.nio.file.Files.newBufferedWriter(outDir.resolve(top_alloc_name))) {
+            w.write("rank\tmethod\tallocBytes\n");
+            for (int i = 0; i < topAlloc.size(); i++) {
+                var e = topAlloc.get(i);
+                w.write((i + 1) + "\t" + tsvEscape(e.getKey()) + "\t" + e.getValue().allocBytes + "\n");
+            }
+        }
+
+        try (var w = java.nio.file.Files.newBufferedWriter(outDir.resolve(methods_name))) {
+            w.write("method\tcpuSamples\tallocBytes\n");
+            byMethod.entrySet().stream()
+                    .sorted(java.util.Comparator.comparingLong(
+                            (java.util.Map.Entry<String, Counters> e) -> e.getValue().cpuSamples + e.getValue().allocBytes
+                    ).reversed())
+                    .forEach(e -> {
+                        try {
+                            w.write(tsvEscape(e.getKey()) + "\t" + e.getValue().cpuSamples + "\t" + e.getValue().allocBytes + "\n");
+                        } catch (java.io.IOException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    });
+        }
+    }
+
+    private static String tsvEscape(String s) {
+        if (s == null) return "";
+        String r = s.replace('\t', ' ');
+        r = r.replace('\r', ' ').replace('\n', ' ');
+        return r;
     }
 }
