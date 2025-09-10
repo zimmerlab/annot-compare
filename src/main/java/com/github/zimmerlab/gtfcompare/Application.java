@@ -12,7 +12,7 @@ import java.util.TreeMap;
 @SpringBootApplication
 public class Application {
 
-    private final static Logger LOG  = LogManager.getLogger(Application.class);
+    private final static Logger LOG = LogManager.getLogger(Application.class);
 
     private static void printModeUsage(TreeMap<String, String> modeDescriptions) {
         System.out.println("Usage: <mode> [options]");
@@ -30,6 +30,7 @@ public class Application {
         modeDescriptions.put("firstAnalysis", "First Analysis mode");
         modeDescriptions.put("seqExtractor", "Sequence extractor mode");
         modeDescriptions.put("addMetaFeatures", "Add Meta Features mode");
+        modeDescriptions.put("gtfStats", "Get Gtf Stats mode");
         modeDescriptions.put("benchmark", "Benchmark mode");
 
         return modeDescriptions;
@@ -72,6 +73,10 @@ public class Application {
                 break;
             case "benchmark":
                 builder.profiles("benchmark");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "gtfStats":
+                builder.profiles("gtfStats");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:

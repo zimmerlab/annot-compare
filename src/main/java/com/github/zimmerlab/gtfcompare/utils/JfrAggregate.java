@@ -201,7 +201,7 @@ public class JfrAggregate {
         return 0L;
     }
 
-    private static final List<String> INCLUDE_PACKAGES = List.of("com.github.zimmerlab.", "com.github.kleinsamuel.");
+    private static final List<String> INCLUDE_PACKAGES = List.of("com.github.zimmerlab.");
 
     private static final List<String> EXCLUDE_PACKAGES = List.of(
             "java.", "jdk.", "sun.", "javax.",
