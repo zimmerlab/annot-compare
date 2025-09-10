@@ -30,6 +30,7 @@ public class Application {
         modeDescriptions.put("firstAnalysis", "First Analysis mode");
         modeDescriptions.put("seqExtractor", "Sequence extractor mode");
         modeDescriptions.put("addMetaFeatures", "Add Meta Features mode");
+        modeDescriptions.put("benchmark", "Benchmark mode");
 
         return modeDescriptions;
     }
@@ -67,6 +68,10 @@ public class Application {
                 break;
             case "addMetaFeatures":
                 builder.profiles("addMetaFeatures");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "benchmark":
+                builder.profiles("benchmark");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:

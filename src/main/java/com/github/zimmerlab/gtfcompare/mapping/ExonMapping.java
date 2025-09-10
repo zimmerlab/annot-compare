@@ -96,6 +96,10 @@ public class ExonMapping {
         return Math.abs(a.getBaseData().getStart() - b.getBaseData().getStart()) + Math.abs(a.getBaseData().getEnd() - b.getBaseData().getEnd());
     }
 
+    private static int length(GtfFeature f) {
+        return Math.abs(f.getBaseData().getEnd() - f.getBaseData().getStart()) + 1;
+    }
+
     public static List<FeaturePair> pairExonsByGapAlignment(TranscriptFeature t, TranscriptFeature q, int gapPenalty, int capDelta, int lenCapBp, double lenCapFrac) {
         var pairs = new ArrayList<FeaturePair>();
         var targetExons = sortedExons(t);
@@ -285,66 +289,135 @@ public class ExonMapping {
 
     public static List<FeaturePair> mapFeaturesWithinExonPairs(TranscriptFeature t, TranscriptFeature q, List<FeaturePair> exonPairs, String featureType, int padBp) {
         var res = new ArrayList<FeaturePair>();
-        var usedQ = new HashSet<GtfFeature>();
 
-        var tFeat = featuresOfType(t, featureType);
-        var qFeat = featuresOfType(q, featureType);
+        if(t.getTranscriptId().equals("ENST00000367772")) {
+         var a = 2;
+        }
+        var targetFeatures = featuresOfType(t, featureType);
+        var queryFeatures = featuresOfType(q, featureType);
 
         var qByExon = new HashMap<GtfFeature, List<GtfFeature>>();
-        for (var fp : exonPairs) {
-            var qe = fp.getQuery();
+        for (var exonPair : exonPairs) {
+            var qe = exonPair.getQuery();
             if (qe != null) qByExon.put(qe, new ArrayList<>());
         }
-        for (var qf : qFeat) {
-            for (var fp : exonPairs) {
-                var qe = fp.getQuery();
-                if (qe == null) continue;
-                var qS = qf.getBaseData().getStart();
-                var qE = qf.getBaseData().getEnd();
-                var qeS = fp.getQuery().getBaseData().getStart();
-                var qeE = fp.getQuery().getBaseData().getEnd();
-                if (within(qS, qE, qeS, qeE, padBp)) {
-                    qByExon.computeIfAbsent(qe, k -> new ArrayList<>()).add(qf);
+        for (var queryFeature : queryFeatures) {
+            for (var exonPair : exonPairs) {
+                var queryExon = exonPair.getQuery();
+                if (queryExon == null) continue;
+                var queryFeatureStart = queryFeature.getBaseData().getStart();
+                var queryFeatureEnd = queryFeature.getBaseData().getEnd();
+                var queryExonStart = exonPair.getQuery().getBaseData().getStart();
+                var queryExonEnd = exonPair.getQuery().getBaseData().getEnd();
+                if (within(queryFeatureStart, queryFeatureEnd, queryExonStart, queryExonEnd, padBp)) {
+                    qByExon.computeIfAbsent(queryExon, k -> new ArrayList<>()).add(queryFeature);
                     break;
                 }
             }
         }
 
-        for (var fpExon : exonPairs) {
-            var te = fpExon.getTarget();
-            var qe = fpExon.getQuery();
-            var tSub = new ArrayList<GtfFeature>();
-            if (te != null) {
-                int teS = te.getBaseData().getStart(), teE = te.getBaseData().getEnd();
-                for (var tf : tFeat) {
+        final int WINDOW = 3;
+
+        for (var exonPair : exonPairs) {
+            var targetExon = exonPair.getTarget();
+            var queryExon = exonPair.getQuery();
+
+            var targetSubFeatures = new ArrayList<GtfFeature>();
+            if (targetExon != null) {
+                int targetExonStart = targetExon.getBaseData().getStart(), targetExonEnd = targetExon.getBaseData().getEnd();
+                for (var tf : targetFeatures) {
                     int s = tf.getBaseData().getStart(), e = tf.getBaseData().getEnd();
-                    if (within(s, e, teS, teE, padBp)) tSub.add(tf);
+                    if (within(s, e, targetExonStart, targetExonEnd, padBp)) targetSubFeatures.add(tf);
                 }
             }
 
-            var candidates = (qe != null) ? qByExon.getOrDefault(qe, List.of()) : List.<GtfFeature>of();
+            var querySubFeatures = (queryExon != null) ? new ArrayList<>(qByExon.getOrDefault(queryExon, List.of())) : new ArrayList<GtfFeature>();
 
-            for (var tf : tSub) {
-                GtfFeature best = null;
-                int bestDist = Integer.MAX_VALUE;
-                for (var qf : candidates) {
-                    if (usedQ.contains(qf)) continue;
-                    int d = Math.abs(tf.getBaseData().getStart() - qf.getBaseData().getStart()) + Math.abs(tf.getBaseData().getEnd() - qf.getBaseData().getEnd());
-                    if (d < bestDist) {
-                        bestDist = d;
-                        best = qf;
+            if (targetSubFeatures.isEmpty() && querySubFeatures.isEmpty()) continue;
+
+            targetSubFeatures.sort(Comparator.comparingInt(a -> a.getBaseData().getStart()));
+            querySubFeatures.sort(Comparator.comparingInt(a -> a.getBaseData().getStart()));
+
+            if(targetSubFeatures.size() == querySubFeatures.size()) {
+                for(int i = 0; i < targetSubFeatures.size(); i++) {
+                    var targetFeature = targetSubFeatures.get(i);
+                    var queryFeature = querySubFeatures.get(i);
+
+                    res.add(new FeaturePair(targetFeature, queryFeature));
+                }
+                continue;
+            }
+
+            int i = 0, j = 0;
+            var usedQ = new boolean[querySubFeatures.size()];
+
+            while (i < targetSubFeatures.size()) {
+                var targetFeature = targetSubFeatures.get(i);
+
+                int bestJ = -1;
+                int bestOrder = Integer.MAX_VALUE;
+                int bestPos = Integer.MAX_VALUE;
+                int bestLenDiff = Integer.MAX_VALUE;
+
+                for (int k = 0; k < WINDOW && (j + k) < querySubFeatures.size(); k++) {
+                    int jj = j + k;
+                    if (usedQ[jj]) continue;
+
+                    var queryFeature = querySubFeatures.get(jj);
+                    int positionDifference = endpointManhattan(targetFeature, queryFeature);
+
+                    final double REL_FRAC = 0.20;
+                    final int ABS_TOL = Math.max(2, padBp);
+
+                    int targetLength = length(targetFeature), queryLength = length(queryFeature);
+                    int maxLen = Math.max(targetLength, queryLength);
+                    int relTol = (int) Math.ceil(REL_FRAC * maxLen);
+                    int lenTol = Math.max(ABS_TOL, relTol);
+
+                    int lengthDifference = Math.abs(targetLength - queryLength);
+                    boolean lengthOK = (lengthDifference <= lenTol);
+
+                    if (!lengthOK) continue;
+
+                    // soft order bias (smaller jumps preferred)
+                    int orderPenalty = k; // 0 for j, 1 for j+1, ...
+                    if (
+                            orderPenalty < bestOrder
+                            || (orderPenalty == bestOrder && lengthDifference < bestLenDiff)
+                            || (orderPenalty == bestOrder && lengthDifference == bestLenDiff && positionDifference < bestPos)
+                    ) {
+                        bestOrder = orderPenalty;
+                        bestLenDiff = lengthDifference;
+                        bestPos = positionDifference;
+                        bestJ = jj;
                     }
                 }
-                res.add(new FeaturePair(tf, best));
-                if (best != null) usedQ.add(best);
+
+                if (bestJ != -1) {
+                    res.add(new FeaturePair(targetFeature, querySubFeatures.get(bestJ)));
+                    usedQ[bestJ] = true;
+                    j = bestJ + 1;
+                } else {
+                    res.add(new FeaturePair(targetFeature, null));
+                }
+                i++;
+            }
+
+            for (int jj = 0; jj < querySubFeatures.size(); jj++) {
+                if (!usedQ[jj]) {
+                    res.add(new FeaturePair(null, querySubFeatures.get(jj)));
+                }
             }
         }
 
-        for (var qf : qFeat) {
-            if (!usedQ.contains(qf) && res.stream().noneMatch(p -> qf.equals(p.getQuery()))) {
-                res.add(new FeaturePair(null, qf));
+        outer:
+        for (var qf : queryFeatures) {
+            for (var fp : res) {
+                if (qf.equals(fp.getQuery())) continue outer;
             }
+            res.add(new FeaturePair(null, qf));
         }
+
         return res;
     }
 
