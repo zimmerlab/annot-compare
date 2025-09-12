@@ -296,7 +296,7 @@ public class AnnotComparator {
             }
         }
 
-        for (String ft : List.of("CDS", "UTR5", "UTR3", "start_codon", "stop_codon")) {
+        for (String ft : Constants.FEATURE_TYPES) {
             if (!config.isEnabled(ft)) continue;
             var pairs = mapFeaturesWithinExonPairs(targetTranscript, queryTranscript, exonPairs, ft, padBp);
             if (pairs.isEmpty()) {
