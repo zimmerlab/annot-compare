@@ -52,6 +52,7 @@ public class AnalysisRunner implements CommandLineRunner {
         o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("config").numberOfArgs(1).required().desc("Path to config file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("map-with-strand").numberOfArgs(1).desc("Determines whether the mapping takes the strand into account").type(Boolean.class).build());
 
         /*o.addOption(Option.builder()
                 .longOpt("gene-mapping")
@@ -105,6 +106,20 @@ public class AnalysisRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        boolean useStrandForMapping = true;
+
+        if(cmd.hasOption("map-with-strand")){
+            var optionValue = cmd.getOptionValue("map-with-strand");
+
+            if(optionValue != null && (optionValue.equals("true") || optionValue.equals("false"))){
+                useStrandForMapping =  Boolean.parseBoolean(cmd.getOptionValue("map-with-strand"));
+            } else{
+                logger.error("map with strand param not valid");
+                System.exit(1);
+            }
+
+        }
+
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
 
         GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("target-gtf")));
@@ -135,7 +150,7 @@ public class AnalysisRunner implements CommandLineRunner {
                 if (!gtfFile.getParsedContig().equals(gtfFile2.getParsedContig())) {
                     throw new Exception("Contigs do not match");
                 }
-                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath, useLiftOff, liftoffGtf);
+                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath, useLiftOff, liftoffGtf, useStrandForMapping);
             }
         } catch (java.text.ParseException e) {
             logger.info("Program finished");
@@ -145,10 +160,10 @@ public class AnalysisRunner implements CommandLineRunner {
 
     }
 
-    private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath, boolean useLiftOff, GtfFile liftoffGtf) throws IOException, InterruptedException {
+    private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath, boolean useLiftOff, GtfFile liftoffGtf, boolean mapWithStrand) throws IOException, InterruptedException {
         var currentContig = gtfFile.getParsedContig();
         logger.info("Current contig: " + currentContig);
-        var loci = OverlappingTranscripts.map(gtfFile, gtfFile2);
+        var loci = OverlappingTranscripts.map(gtfFile, gtfFile2, mapWithStrand);
 
 
 

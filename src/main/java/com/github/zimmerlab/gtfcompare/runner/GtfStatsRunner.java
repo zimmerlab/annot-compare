@@ -86,6 +86,8 @@ public class GtfStatsRunner implements CommandLineRunner {
         var exonsPerTranscript = new ArrayList<Integer>();
         var intronsPerTranscript = new ArrayList<Integer>();
 
+        var geneLengths = new ArrayList<Integer>();
+        var transcriptLengths = new ArrayList<Integer>();
         var exonLengths = new ArrayList<Integer>();
         var intronLengths = new ArrayList<Integer>();
         var cdsLengths = new ArrayList<Integer>();
@@ -102,6 +104,7 @@ public class GtfStatsRunner implements CommandLineRunner {
                     transcriptsPerGene.add(gene.getTranscripts().size());
 
                     var geneBaseData = gene.getBaseData();
+                    geneLengths.add(geneBaseData.getEnd() - geneBaseData.getStart() + 1);
 
                     var geneBiotype = geneBaseData.getAttributes("gene_biotype") == null ? geneBaseData.getSource() : geneBaseData.getAttributes("gene_biotype").getFirst();
                     geneBiotypeCount.merge(geneBiotype, 1, Integer::sum);
@@ -109,6 +112,21 @@ public class GtfStatsRunner implements CommandLineRunner {
                     for (var transcript : gene.getTranscripts()) {
                         numTranscripts++;
                         var transcriptBaseData = transcript.getBaseData();
+                        var tStart = transcriptBaseData.getStart();
+                        var tEnd = transcriptBaseData.getEnd();
+
+                        if(tStart == -1 || tEnd == -1) {
+                            tStart = transcript.getFeatures().stream()
+                                    .mapToInt(query -> query.getBaseData().getStart())
+                                    .min()
+                                    .orElse(Integer.MAX_VALUE);
+
+                            tEnd = transcript.getFeatures().stream()
+                                    .mapToInt(query -> query.getBaseData().getEnd())
+                                    .max()
+                                    .orElse(Integer.MIN_VALUE);
+                        }
+                        transcriptLengths.add(tEnd - tStart + 1);
                         var transcriptBiotype = transcriptBaseData.getAttributes("transcript_biotype") == null ? transcriptBaseData.getSource() : transcriptBaseData.getAttributes("transcript_biotype").getFirst();
                         transcriptBiotypeCount.merge(transcriptBiotype, 1, Integer::sum);
 
@@ -192,6 +210,8 @@ public class GtfStatsRunner implements CommandLineRunner {
         writeListTsv(outDir.resolve("cds_lengths").resolve(prefix + "_cds_lengths.tsv"), "cds_length", cdsLengths);
         writeListTsv(outDir.resolve("utr5_lengths").resolve(prefix + "_utr5_lengths.tsv"), "utr5_length", utr5Lengths);
         writeListTsv(outDir.resolve("utr3_lengths").resolve(prefix + "_utr3_lengths.tsv"), "utr3_length", utr3Lengths);
+        writeListTsv(outDir.resolve("gene_lengths").resolve(prefix + "_gene_lengths.tsv"), "gene_length", geneLengths);
+        writeListTsv(outDir.resolve("transcript_lengths").resolve(prefix + "_transcript_lengths.tsv"), "transcript_length", transcriptLengths);
 
     }
 

@@ -32,14 +32,14 @@ public class OverlappingTranscripts {
     private static final double MIN_ENSEMBLE_SCORE = 0.1;
     private static final double IDENTITY_EDGE_WEIGHT = 2.0;
 
-    public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile) {
+    public static MappingResult<TranscriptPair, TranscriptFeature> map(GtfFile targetGtfFile, GtfFile queryGtfFile, boolean useStrandInKey) {
         setTranscriptPositions(targetGtfFile);
         setTranscriptPositions(queryGtfFile);
 
         // Build interval trees
         logger.info("Building Interval Trees");
-        Map<String, IntervalTreeMap<List<TranscriptFeature>>> targetTrees = buildIntervalTrees(targetGtfFile);
-        Map<String, IntervalTreeMap<List<TranscriptFeature>>> queryTrees = buildIntervalTrees(queryGtfFile);
+        Map<String, IntervalTreeMap<List<TranscriptFeature>>> targetTrees = buildIntervalTrees(targetGtfFile, useStrandInKey);
+        Map<String, IntervalTreeMap<List<TranscriptFeature>>> queryTrees = buildIntervalTrees(queryGtfFile, useStrandInKey);
 
         // Find overlaps
         logger.info("Finding Overlaps");
@@ -173,10 +173,16 @@ public class OverlappingTranscripts {
     }
 
 
-    private static Map<String, IntervalTreeMap<List<TranscriptFeature>>> buildIntervalTrees(GtfFile gtfFile) {
+    private static Map<String, IntervalTreeMap<List<TranscriptFeature>>> buildIntervalTrees(GtfFile gtfFile, boolean useStrandInKey) {
         var trees = new HashMap<String, IntervalTreeMap<List<TranscriptFeature>>>();
-        Function<TranscriptFeature, String> keyOf = t -> t.getBaseData().getContig() + "_" + (t.getBaseData().isForwardStrand() ? "p" : "n");
-        extractTranscripts(gtfFile, trees, keyOf);
+        Function<TranscriptFeature, String> keyOf;
+        if(useStrandInKey) {
+            keyOf = t -> t.getBaseData().getContig() + "_" + (t.getBaseData().isForwardStrand() ? "p" : "n");
+
+        } else {
+            keyOf = t -> t.getBaseData().getContig();
+        }
+                extractTranscripts(gtfFile, trees, keyOf);
         return trees;
     }
 
