@@ -297,6 +297,7 @@ public class AnnotComparator {
         }
 
         for (String ft : Constants.FEATURE_TYPES) {
+            if(ft.equals(Constants.INTRON) || ft.equals(Constants.EXON)) continue;
             if (!config.isEnabled(ft)) continue;
             var pairs = mapFeaturesWithinExonPairs(targetTranscript, queryTranscript, exonPairs, ft, padBp);
             if (pairs.isEmpty()) {
