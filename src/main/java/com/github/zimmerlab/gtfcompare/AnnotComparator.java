@@ -59,6 +59,10 @@ public class AnnotComparator {
         int idx = 0;
         var everyBiotypeAllowed = config.getAllowedGeneBiotypes().isEmpty();
         for (var pair : transcriptPairs) {
+
+            if(pair.getTargetTranscript().getTranscriptId().equals("ENST00000000233") || pair.getQueryTranscript().getTranscriptId().equals("ENST00000000233")){
+                var a = 2;
+            }
             var isTranscriptBiotypeAllowed = isBiotypeAllowed(pair);
             idx++;
             if (!everyBiotypeAllowed && !isTranscriptBiotypeAllowed.isAllowed) continue;

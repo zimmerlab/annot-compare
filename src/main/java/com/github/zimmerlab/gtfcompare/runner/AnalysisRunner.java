@@ -153,6 +153,7 @@ public class AnalysisRunner implements CommandLineRunner {
                 runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath, useLiftOff, liftoffGtf, useStrandForMapping);
             }
         } catch (java.text.ParseException e) {
+            System.out.printf(e.getMessage());
             logger.info("Program finished");
         } catch (Exception e) {
             logger.error("Program failed", e);

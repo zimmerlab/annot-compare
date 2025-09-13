@@ -42,6 +42,7 @@ public class Constants {
     public final static String CDS = GtfConfig.TYPE_CDS_DEFAULT;
     public final static String UTR5 = GtfConfig.TYPE_FIVE_PRIME_UTR_DEFAULT;
     public final static String UTR3 = GtfConfig.TYPE_THREE_PRIME_UTR_DEFAULT;
+    public final static String UTR = GtfConfig.TYPE_UTR_DEFAULT;
     public final static String INTRON = GtfConfig.TYPE_INTRON_DEFAULT;
     public final static String START_CODON = GtfConfig.TYPE_START_CODON_DEFAULT;
     public final static String STOP_CODON = GtfConfig.TYPE_STOP_CODON_DEFAULT;
@@ -52,6 +53,7 @@ public class Constants {
             CDS,
             UTR5,
             UTR3,
+            UTR,
             INTRON,
             START_CODON,
             STOP_CODON
