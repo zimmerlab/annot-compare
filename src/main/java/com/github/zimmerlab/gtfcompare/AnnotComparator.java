@@ -115,7 +115,7 @@ public class AnnotComparator {
         var hasQueryBiotypeAttribute = queryBaseData.getAttributes("gene_biotype") != null;
 
         var targetBiotype = hasTargetBiotypeAttribute ? targetBaseData.getAttributes("gene_biotype").getFirst() : targetBaseData.getSource();
-        var queryBiotype = hasQueryBiotypeAttribute ? queryBaseData.getAttributes("gene_biotype").getFirst() : targetBaseData.getSource();
+        var queryBiotype = hasQueryBiotypeAttribute ? queryBaseData.getAttributes("gene_biotype").getFirst() : queryBaseData.getSource();
 
         return new GetGeneBiotypeResponse(targetBiotype, queryBiotype);
     }
