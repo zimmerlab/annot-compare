@@ -65,12 +65,12 @@ public class ComparisonConfig {
 
         // GENE COMPARATORS
 
-        enableFeatureWithThreshold(configBuilder, Constants.GENE_LENGTH_COMPARATOR_NAME, configFeatures);
+        /*enableFeatureWithThreshold(configBuilder, Constants.GENE_LENGTH_COMPARATOR_NAME, configFeatures);
         enableFeatureWithThreshold(configBuilder, Constants.START_COMPARATOR_NAME, configFeatures);
         enableFeatureWithThreshold(configBuilder, Constants.STOP_COMPARATOR_NAME, configFeatures);
 
         enableFeature(configBuilder, Constants.GENE_STRAND_COMPARATOR_NAME, configFeatures);
-        enableFeature(configBuilder, Constants.GENE_CONTIG_COMPARATOR_NAME, configFeatures);
+        enableFeature(configBuilder, Constants.GENE_CONTIG_COMPARATOR_NAME, configFeatures);*/
 
         var transcriptFeatures = jsonConfig.getTranscriptFeatures();
 
@@ -99,7 +99,7 @@ public class ComparisonConfig {
             configBuilder.enableFeature(featureName);
         }
 
-        if(feature.getImpactLevel() == null) return;
+        if(feature == null || feature.getImpactLevel() == null) return;
         configBuilder.setImpactLevels(featureName, feature.getImpactLevel() == null ? null : feature.getImpactLevel());
     }
 
@@ -113,7 +113,7 @@ public class ComparisonConfig {
             }
         }
 
-        if(feature.getImpactLevel() == null) return;
+        if(feature == null || feature.getImpactLevel() == null) return;
         configBuilder.setImpactLevels(featureName, feature.getImpactLevel());
     }
 }

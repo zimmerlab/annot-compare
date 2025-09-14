@@ -47,7 +47,6 @@ public class AnalysisRunner implements CommandLineRunner {
         o.addOption(Option.builder().longOpt("fidx").numberOfArgs(1).required().desc("Path to fasta index file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
-        o.addOption(Option.builder().longOpt("liftoff-gtf").numberOfArgs(1).desc("Path to liftoff gtf file").type(File.class).build());
 
         o.addOption(Option.builder().longOpt("o").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
@@ -70,7 +69,7 @@ public class AnalysisRunner implements CommandLineRunner {
             cmd = parser.parse(o, args);
         } catch (ParseException e) {
             HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("Test", o, true);
+            formatter.printHelp("analysis", o, true);
             System.exit(1);
         }
 
