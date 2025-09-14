@@ -5,6 +5,7 @@
     },
     "transcript_start": {
       "enabled": true,
+      "threshold": 0,
       "impact": "HIGH"
     },
     "transcript_stop": {
