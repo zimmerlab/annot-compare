@@ -16,4 +16,4 @@ java -jar annot-compare.jar analysis \
 
 A complete, almost ready-to-use example (including input files and configuration) is provided in the [`example/`](example) folder.  
 You can run it directly to test the program. The FASTA file needs to be downloaded separately from this [link](https://ftp.ensembl.org/pub/release-114/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz).
-Put the FASTA unzipped into the input folder to be able to run the program with the makefile.
+Put the FASTA unzipped into the input folder to be able to run the program with the makefile. The config can be customized as desired.
