@@ -1,5 +1,7 @@
 package com.github.zimmerlab.gtfcompare.model.config;
 
+import com.github.kleinsamuel.gtfutils.GtfConfig;
+import com.github.kleinsamuel.gtfutils.GtfConstants;
 import com.github.zimmerlab.gtfcompare.model.Impact;
 import com.github.zimmerlab.gtfcompare.utils.Constants;
 

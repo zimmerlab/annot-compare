@@ -1,0 +1,68 @@
+{
+  "features": {
+    "transcript_length": {
+      "enabled": true
+    },
+    "transcript_start": {
+      "enabled": true,
+      "impact": "HIGH"
+    },
+    "transcript_stop": {
+      "enabled": true
+    },
+    "transcript_strand": {
+      "enabled": true
+    },
+    "transcript_biotype": {
+      "enabled": true
+    },
+    "start": {
+      "enabled": true,
+      "threshold": 5
+    },
+    "stop": {
+      "enabled": true
+    },
+    "length": {
+      "enabled": true
+    },
+    "sequence": {
+      "enabled": true
+    },
+    "same_protein": {
+      "enabled": true
+    }
+  },
+  "transcript_features": {
+    "transcript": {
+      "enabled": true
+    },
+    "exon": {
+      "enabled": true
+    },
+    "3UTR": {
+      "enabled": true
+    },
+    "5UTR": {
+      "enabled": true
+    },
+    "cds": {
+      "enabled": true
+    },
+    "intron": {
+      "enabled": true
+    },
+    "start_codon": {
+      "enabled": true
+    },
+    "stop_codon": {
+      "enabled": true
+    },
+    "utr": {
+    "enabled": true
+    }
+  },
+  "gene_biotypes": {
+    "allowed": ["protein_coding"]
+  }
+}
