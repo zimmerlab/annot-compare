@@ -275,19 +275,19 @@ public class AnnotComparator {
 
     private void compareFeatures(List<FeaturePair> exonPairs, TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult, int padBp) {
 
-        if(config.isEnabled("exon"))
-            compareMappedFeaturePairs("exon", exonPairs, transcriptComparisonResult, geneResult);
+        if(config.isEnabled(Constants.EXON))
+            compareMappedFeaturePairs(Constants.EXON, exonPairs, transcriptComparisonResult, geneResult);
 
-        if(config.isEnabled("intron")){
+        if(config.isEnabled(Constants.INTRON)){
             var intronPairs = mapIntronsByExonPairs(targetTranscript, queryTranscript, exonPairs);
 
             if(intronPairs.isEmpty()){
-                boolean hadTarget = !featuresOfType(targetTranscript, "intron").isEmpty();
-                boolean hadQuery = !featuresOfType(queryTranscript, "intron").isEmpty();
+                boolean hadTarget = !featuresOfType(targetTranscript, Constants.INTRON).isEmpty();
+                boolean hadQuery = !featuresOfType(queryTranscript, Constants.INTRON).isEmpty();
 
                 if(hadTarget || hadQuery){
                     var featureComparisonResult = new FeatureComparisonResult();
-                    featureComparisonResult.setFeatureType("intron");
+                    featureComparisonResult.setFeatureType(Constants.INTRON);
                     featureComparisonResult.setAreSameFeatures(false);
                     if (hadTarget && !hadQuery) featureComparisonResult.setMissingInQueryTranscript(true);
                     if (!hadTarget && hadQuery) featureComparisonResult.setMissingInTargetTranscript(true);
@@ -296,7 +296,7 @@ public class AnnotComparator {
                     geneResult.setAreSameGene(false);
                 }
             } else{
-                compareMappedFeaturePairs("intron", intronPairs, transcriptComparisonResult, geneResult);
+                compareMappedFeaturePairs(Constants.INTRON, intronPairs, transcriptComparisonResult, geneResult);
             }
         }
 

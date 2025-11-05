@@ -4,6 +4,7 @@ import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.model.FeaturePair;
+import com.github.zimmerlab.gtfcompare.utils.Constants;
 
 import java.util.*;
 import java.util.function.BiPredicate;
@@ -311,18 +312,18 @@ public class ExonMapping {
         }
 
         for (var fpExon : exonPairs) {
-            var te = fpExon.getTarget();
-            var qe = fpExon.getQuery();
+            var targetExon = fpExon.getTarget();
+            var queryExon = fpExon.getQuery();
             var tSub = new ArrayList<GtfFeature>();
-            if (te != null) {
-                int teS = te.getBaseData().getStart(), teE = te.getBaseData().getEnd();
+            if (targetExon != null) {
+                int teS = targetExon.getBaseData().getStart(), teE = targetExon.getBaseData().getEnd();
                 for (var tf : tFeat) {
                     int s = tf.getBaseData().getStart(), e = tf.getBaseData().getEnd();
                     if (within(s, e, teS, teE, padBp)) tSub.add(tf);
                 }
             }
 
-            var candidates = (qe != null) ? qByExon.getOrDefault(qe, List.of()) : List.<GtfFeature>of();
+            var candidates = (queryExon != null) ? qByExon.getOrDefault(queryExon, List.of()) : List.<GtfFeature>of();
 
             for (var tf : tSub) {
                 GtfFeature best = null;
@@ -357,11 +358,11 @@ public class ExonMapping {
         var usedT = new HashSet<GtfFeature>();
         var usedQ = new HashSet<GtfFeature>();
 
-        var tIntrons = featuresOfType(targetTranscript, "intron");
-        var qIntrons = featuresOfType(queryTranscript, "intron");
+        var tIntrons = featuresOfType(targetTranscript, Constants.INTRON);
+        var qIntrons = featuresOfType(queryTranscript, Constants.INTRON);
 
-        var tExonsOrdered = sortedExons(targetTranscript, false);
-        var qExonsOrdered = sortedExons(queryTranscript, false);
+        var tExonsOrdered = sortedExons(targetTranscript, true);
+        var qExonsOrdered = sortedExons(queryTranscript, true);
 
         var tIndex = new HashMap<GtfFeature, Integer>();
         for (int i = 0; i < tExonsOrdered.size(); i++) tIndex.put(tExonsOrdered.get(i), i);
