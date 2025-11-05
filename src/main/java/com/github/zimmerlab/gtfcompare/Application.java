@@ -31,6 +31,7 @@ public class Application {
         modeDescriptions.put("seqExtractor", "Sequence extractor mode");
         modeDescriptions.put("addMetaFeatures", "Add Meta Features mode");
         modeDescriptions.put("gtfStats", "Get Gtf Stats mode");
+        modeDescriptions.put("cliqueAnalysis", "Clique Analysis mode");
         modeDescriptions.put("benchmark", "Benchmark mode");
 
         return modeDescriptions;
@@ -77,6 +78,10 @@ public class Application {
                 break;
             case "gtfStats":
                 builder.profiles("gtfStats");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "cliqueAnalysis":
+                builder.profiles("cliqueAnalysis");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:

@@ -40,3 +40,4 @@ build/
 *.sh
 *.txt
 *.jfr
+*.csv
