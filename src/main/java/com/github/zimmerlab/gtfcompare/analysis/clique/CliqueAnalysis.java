@@ -32,15 +32,14 @@ public class CliqueAnalysis {
     private final Set<String> genesSeenInClustersTarget = new HashSet<>();
     private final Set<String> genesSeenInClustersQuery = new HashSet<>();
 
-
-    public AnalysisResult analyze(GtfFile targetGtf, GtfFile queryGtf, boolean useStrandInKey) throws IOException {
+    public AnalysisResult analyze(GtfFile targetGtf, GtfFile queryGtf, boolean useStrandInKey, String outputPath) throws IOException {
         var targetTrees = buildIntervalTrees(targetGtf, useStrandInKey);
         var pairs = findOverlaps(targetTrees, queryGtf, useStrandInKey).toList();
         var clusters = clusterOverlappingPairs(pairs);
 
         computeStatsFromClusters(clusters, targetGtf, queryGtf);
 
-        printUnmatchedGenes(targetGtf, queryGtf);
+        printUnmatchedGenes(targetGtf, queryGtf, outputPath);
 
         return new AnalysisResult(
                 targetGtf.getParsedContig(),
@@ -82,7 +81,7 @@ public class CliqueAnalysis {
         genesWithExactMatch = exactMatchedGeneIds.size();
     }
 
-    private void printUnmatchedGenes(GtfFile targetGtfFile, GtfFile queryGtfFile) throws IOException {
+    private void printUnmatchedGenes(GtfFile targetGtfFile, GtfFile queryGtfFile, String outputPath) throws IOException {
         StringBuilder unmatchedGenes = new StringBuilder();
         var currentContig =targetGtfFile.getParsedContig();
         var allTarget = new HashSet<>(targetGtfFile.getAllGeneFeatureIds());
@@ -113,7 +112,7 @@ public class CliqueAnalysis {
         }
 
         Files.writeString(
-                Paths.get("output/cliqueAnalysis/unmatched.tsv"),
+                Paths.get(outputPath),
                 unmatchedGenes.toString(),
                 StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE,

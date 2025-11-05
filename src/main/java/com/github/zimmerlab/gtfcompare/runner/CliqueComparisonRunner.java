@@ -28,6 +28,7 @@ public class CliqueComparisonRunner implements CommandLineRunner {
         o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
         o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to target gtf file").type(File.class).build());
         o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("output").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
@@ -50,8 +51,14 @@ public class CliqueComparisonRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        if (!cmd.hasOption("output")) {
+            logger.error("No output specified");
+            System.exit(1);
+        }
+
         var queryPath = cmd.getOptionValue("query-gtf");
         var targetPath = cmd.getOptionValue("target-gtf");
+        var outputPath = cmd.getOptionValue("output");
 
         var targetGtf = new GtfFile(new File(targetPath));
         var queryGtf = new GtfFile(new File(queryPath));
@@ -60,7 +67,7 @@ public class CliqueComparisonRunner implements CommandLineRunner {
 
         try {
             Files.writeString(
-                    Paths.get("output/cliqueAnalysis/unmatched.tsv"),
+                    Paths.get(outputPath),
                     "contig\tsource\ttype\tid\n"
             );
 
@@ -73,7 +80,7 @@ public class CliqueComparisonRunner implements CommandLineRunner {
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
 
                 var analysis = new CliqueAnalysis();
-                var res = analysis.analyze(targetGtf, queryGtf, true);
+                var res = analysis.analyze(targetGtf, queryGtf, true, outputPath);
                 reporter.add(res);
 
                 logger.debug("Analyzed contig {}: {} clusters, {} exact matches",
