@@ -84,6 +84,10 @@ public class Application {
                 builder.profiles("cliqueAnalysis");
                 builder.web(WebApplicationType.NONE);
                 break;
+            case "liftedDifferences":
+                builder.profiles("liftedDifferences");
+                builder.web(WebApplicationType.NONE);
+                break;
             default:
                 LOG.error("Unknown mode: {}", mode);
                 printModeUsage(modeDescriptions);
