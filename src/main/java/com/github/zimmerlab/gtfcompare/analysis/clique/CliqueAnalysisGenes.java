@@ -19,8 +19,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class CliqueAnalysis {
-    private final static Logger logger = LogManager.getLogger(CliqueAnalysis.class);
+public class CliqueAnalysisGenes {
+    private final static Logger logger = LogManager.getLogger(CliqueAnalysisGenes.class);
 
     private int genesWithExactMatch;
     private int overallTargetGeneCount;

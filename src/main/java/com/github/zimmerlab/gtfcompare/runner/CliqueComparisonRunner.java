@@ -1,7 +1,7 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.zimmerlab.gtfcompare.analysis.clique.CliqueAnalysis;
+import com.github.zimmerlab.gtfcompare.analysis.clique.CliqueAnalysisGenes;
 import com.github.zimmerlab.gtfcompare.analysis.clique.Reporter;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -11,10 +11,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
 
@@ -79,7 +77,7 @@ public class CliqueComparisonRunner implements CommandLineRunner {
                 String q = queryGtf.getParsedContig();
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
 
-                var analysis = new CliqueAnalysis();
+                var analysis = new CliqueAnalysisGenes();
                 var res = analysis.analyze(targetGtf, queryGtf, true, outputPath);
                 reporter.add(res);
 
