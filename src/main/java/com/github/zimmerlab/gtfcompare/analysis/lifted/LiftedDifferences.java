@@ -10,19 +10,22 @@ public class LiftedDifferences {
 
     private static int numQueryGenes;
     private static int numTargetGenes;
-    private static int mappingSize;
-    private static int numDifferentPairs;
+    private static int normalMappingSize;
+    private static int liftedMappingSize;
+    private static int numDifferentPairsByPosition;
 
     public static void analyze(GtfFile queryGtf, GtfFile targetGtf, GtfFile liftedQueryGtf){
         numQueryGenes = queryGtf.getAllGeneFeatureIds().size();
         numTargetGenes = targetGtf.getAllGeneFeatureIds().size();
 
-        var mapping = find1To1Mapping(queryGtf, targetGtf);
+        var mappingWithNormal = find1To1Mapping(queryGtf, targetGtf);
+        var mappingWithLifted = find1To1Mapping(liftedQueryGtf, targetGtf);
 
-        mappingSize = mapping.size();
+        normalMappingSize = mappingWithNormal.size();
+        liftedMappingSize = mappingWithLifted.size();
 
-        var differentPairs = findDifferentPairs(mapping);
-        numDifferentPairs = differentPairs.size();
+        var differentPairsByPosition = findDifferentPairsByPosition(mappingWithLifted);
+        numDifferentPairsByPosition = differentPairsByPosition.size();
     }
 
     private static List<GenePair> find1To1Mapping(GtfFile queryGtf, GtfFile targetGtf){
@@ -38,7 +41,7 @@ public class LiftedDifferences {
         return mapping;
     }
 
-    private static List<GenePair> findDifferentPairs(List<GenePair> mapping){
+    private static List<GenePair> findDifferentPairsByPosition(List<GenePair> mapping){
         var differentPairs = new ArrayList<GenePair>();
         for(var genePair : mapping){
             var targetGeneBaseData = genePair.getTargetGene().getBaseData();

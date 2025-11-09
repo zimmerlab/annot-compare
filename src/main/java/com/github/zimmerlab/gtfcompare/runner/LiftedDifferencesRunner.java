@@ -1,6 +1,7 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
+import com.github.zimmerlab.gtfcompare.analysis.clique.CliqueAnalysisGenes;
 import com.github.zimmerlab.gtfcompare.analysis.lifted.LiftedDifferences;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -10,6 +11,9 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Objects;
 
 @Profile("liftedDifferences")
 @Service
@@ -65,6 +69,24 @@ public class LiftedDifferencesRunner implements CommandLineRunner {
         var queryGtf = new GtfFile(new File(queryPath));
         var liftedQueryGtf = new GtfFile(new File(liftedQueryPath));
 
-        LiftedDifferences.analyze(queryGtf, targetGtf, liftedQueryGtf);
+        try {
+            while (true) {
+                targetGtf.parseNextContig();
+                queryGtf.parseNextContig();
+                liftedQueryGtf.parseNextContig();
+
+                String t = targetGtf.getParsedContig();
+                String q = queryGtf.getParsedContig();
+                String lq = liftedQueryGtf.getParsedContig();
+                if (!Objects.equals(t, q) ||!Objects.equals(q, lq)) throw new Exception("Contigs do not match Target: " + t + ", Query: " + q + "Lifted Query: " + lq);
+
+                LiftedDifferences.analyze(queryGtf, targetGtf, liftedQueryGtf);
+            }
+        } catch (java.text.ParseException e) {
+            logger.debug("Program finished: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Program failed", e);
+        }
+
     }
 }
