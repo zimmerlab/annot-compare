@@ -13,7 +13,7 @@ public class LiftedDifferences {
     private static int mappingSize;
     private static int numDifferentPairs;
 
-    public static void analyze(GtfFile queryGtf, GtfFile targetGtf){
+    public static void analyze(GtfFile queryGtf, GtfFile targetGtf, GtfFile liftedQueryGtf){
         numQueryGenes = queryGtf.getAllGeneFeatureIds().size();
         numTargetGenes = targetGtf.getAllGeneFeatureIds().size();
 
