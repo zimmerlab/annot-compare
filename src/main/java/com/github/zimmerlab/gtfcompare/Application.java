@@ -33,6 +33,7 @@ public class Application {
         modeDescriptions.put("gtfStats", "Get Gtf Stats mode");
         modeDescriptions.put("cliqueAnalysis", "Clique Analysis mode");
         modeDescriptions.put("benchmark", "Benchmark mode");
+        modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
 
         return modeDescriptions;
     }

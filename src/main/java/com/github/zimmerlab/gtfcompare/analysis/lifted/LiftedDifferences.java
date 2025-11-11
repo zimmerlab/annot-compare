@@ -2,43 +2,99 @@ package com.github.zimmerlab.gtfcompare.analysis.lifted;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
+import com.github.zimmerlab.gtfcompare.runner.LiftedDifferencesRunner;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+// TODO ist ID gleich von lifted vs target.
 
 public class LiftedDifferences {
+    private final static Logger logger = LogManager.getLogger(LiftedDifferences.class);
+    private static class Stats {
+        int numQueryGenes;
+        int numTargetGenes;
+        int numLiftedQueryGenes;
+        int normalMappingSize;
+        int liftedMappingSize;
+        int numDifferentPairsByPosition;
+        int numDifferentPairsBySequence;
+    }
 
-    private static int numQueryGenes;
-    private static int numTargetGenes;
-    private static int normalMappingSize;
-    private static int liftedMappingSize;
-    private static int numDifferentPairsByPosition;
-    private static int numDifferentPairsBySequence;
+    private static final Map<String, Stats> results = new HashMap<>();
 
-    public static void analyze(GtfFile queryGtf, GtfFile targetGtf, GtfFile liftedQueryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE){
-        numQueryGenes = queryGtf.getAllGeneFeatureIds().size();
-        numTargetGenes = targetGtf.getAllGeneFeatureIds().size();
+    public static void analyze(String contig, GtfFile queryGtf, GtfFile targetGtf, GtfFile liftedQueryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE) {
+        var s = new Stats();
+
+        s.numQueryGenes = queryGtf.getAllGeneFeatureIds().size();
+        s.numTargetGenes = targetGtf.getAllGeneFeatureIds().size();
+        s.numLiftedQueryGenes = liftedQueryGtf.getAllGeneFeatureIds().size();
 
         var mappingWithNormal = find1To1Mapping(queryGtf, targetGtf);
         var mappingWithLifted = find1To1Mapping(liftedQueryGtf, targetGtf);
 
-        normalMappingSize = mappingWithNormal.size();
-        liftedMappingSize = mappingWithLifted.size();
+        s.normalMappingSize = mappingWithNormal.size();
+        s.liftedMappingSize = mappingWithLifted.size();
 
         var differentPairsByPosition = findDifferentPairsByPosition(mappingWithLifted);
-        numDifferentPairsByPosition = differentPairsByPosition.size();
+        s.numDifferentPairsByPosition = differentPairsByPosition.size();
 
-        findDifferentPairsBySequence(mappingWithLifted, queryGtf, queryGSE, targetGSE);
+        var differentPairsBySequence = findDifferentPairsBySequence(mappingWithLifted, queryGtf, queryGSE, targetGSE);
+        s.numDifferentPairsBySequence = differentPairsBySequence.size();
+
+        results.put(contig, s);
     }
 
-    private static List<GenePair> find1To1Mapping(GtfFile queryGtf, GtfFile targetGtf){
+    public static void printResults(String outputPath) {
+
+        try(BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath))) {
+            writer.write("Chrom\tQueryGenes\tTargetGenes\tLiftedQueryGenes\t1to1Normal\t1to1Lifted\tDiffPos\tDiffSeq\n");
+
+            int totalQ = 0, totalT = 0, totalN = 0, totalL = 0, totalP = 0, totalS = 0;
+
+            for (var entry : results.entrySet()) {
+                String chr = entry.getKey();
+                Stats s = entry.getValue();
+
+                writer.write(chr + "\t" +
+                        s.numQueryGenes + "\t" +
+                        s.numTargetGenes + "\t" +
+                        s.numLiftedQueryGenes + "\t" +
+                        s.normalMappingSize + "\t" +
+                        s.liftedMappingSize + "\t" +
+                        s.numDifferentPairsByPosition + "\t" +
+                        s.numDifferentPairsBySequence + "\n");
+
+                totalQ += s.numQueryGenes;
+                totalT += s.numTargetGenes;
+                totalN += s.normalMappingSize;
+                totalL += s.liftedMappingSize;
+                totalP += s.numDifferentPairsByPosition;
+                totalS += s.numDifferentPairsBySequence;
+            }
+
+            writer.write("TOTAL\t" + totalQ + "\t" + totalT + "\t" +
+                    totalN + "\t" + totalL + "\t" + totalP + "\t" + totalS + "\n");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    private static List<GenePair> find1To1Mapping(GtfFile queryGtf, GtfFile targetGtf) {
         var mapping = new ArrayList<GenePair>();
 
-        for(var geneId : queryGtf.getAllGeneFeatureIds()){
+        for (var geneId : queryGtf.getAllGeneFeatureIds()) {
             var targetGene = targetGtf.getGeneFeature(geneId);
-            if(targetGene == null) continue;
+            if (targetGene == null) continue;
 
             mapping.add(new GenePair(targetGene, queryGtf.getGeneFeature(geneId)));
         }
@@ -46,18 +102,18 @@ public class LiftedDifferences {
         return mapping;
     }
 
-    private static List<GenePair> findDifferentPairsByPosition(List<GenePair> mapping){
+    private static List<GenePair> findDifferentPairsByPosition(List<GenePair> mapping) {
         var differentPairs = new ArrayList<GenePair>();
-        for(var genePair : mapping){
+        for (var genePair : mapping) {
             var targetGeneBaseData = genePair.getTargetGene().getBaseData();
             var queryGeneBaseData = genePair.getQueryGene().getBaseData();
 
-            if(targetGeneBaseData.getStart() != queryGeneBaseData.getStart()) {
+            if (targetGeneBaseData.getStart() != queryGeneBaseData.getStart()) {
                 differentPairs.add(genePair);
                 continue;
             }
 
-            if(targetGeneBaseData.getEnd() != queryGeneBaseData.getEnd()) {
+            if (targetGeneBaseData.getEnd() != queryGeneBaseData.getEnd()) {
                 differentPairs.add(genePair);
             }
         }
@@ -65,26 +121,24 @@ public class LiftedDifferences {
         return differentPairs;
     }
 
-    private static List<GenePair> findDifferentPairsBySequence(List<GenePair> mapping, GtfFile queryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE){
+    private static List<GenePair> findDifferentPairsBySequence(List<GenePair> mapping, GtfFile queryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE) {
         var differentPairs = new ArrayList<GenePair>();
-        for(var genePair : mapping){
+        for (var genePair : mapping) {
             var targetGeneBaseData = genePair.getTargetGene().getBaseData();
             var queryGeneBaseData = genePair.getQueryGene().getBaseData();
 
-            if(targetGeneBaseData.getStart() != queryGeneBaseData.getStart()) {
-                differentPairs.add(genePair);
+            if (targetGeneBaseData.getStart() != queryGeneBaseData.getStart()) {
                 continue;
             }
 
-            if(targetGeneBaseData.getEnd() != queryGeneBaseData.getEnd()) {
-                differentPairs.add(genePair);
+            if (targetGeneBaseData.getEnd() != queryGeneBaseData.getEnd()) {
                 continue;
             }
 
-            var queryGtfGene = queryGtf.getGeneFeature(genePair.getQueryGene().getGeneId());
-            if(queryGtfGene == null) {
-                differentPairs.add(genePair);
-                System.out.println("wtf");
+            var queryGtfGeneId = genePair.getQueryGene().getGeneId();
+            var queryGtfGene = queryGtf.getGeneFeature(queryGtfGeneId);
+            if (queryGtfGene == null) {
+                logger.info("{} not found", queryGtfGeneId);
                 continue;
             }
 
@@ -95,7 +149,7 @@ public class LiftedDifferences {
                 var targetSeq = targetGSE.getSequence(targetGeneBaseData.getContig(), targetGeneBaseData.getStart(), targetGeneBaseData.getEnd());
                 var querySeq = queryGSE.getSequence(queryGtfGene.getBaseData().getContig(), queryStart, queryEnd);
 
-                if(targetSeq.equals(querySeq)) continue;
+                if (targetSeq.equals(querySeq)) continue;
 
                 differentPairs.add(genePair);
             } catch (IOException e) {

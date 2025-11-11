@@ -103,11 +103,16 @@ public class LiftedDifferencesRunner implements CommandLineRunner {
         var liftedQueryGtf = new GtfFile(new File(liftedQueryPath));
 
         var queryFidxMapping = FidxParser.parse(queryFidx);
+        logger.info("Query FIDX Mapping Size: {}", queryFidxMapping.size());
+        logger.info("Creating Query GSE");
         var queryGSE = new GenomeSequenceExtractor(new File(queryFasta), queryFidxMapping);
 
         var targetFidxMapping = FidxParser.parse(targetFidx);
+        logger.info("Target FIDX Mapping Size: {}", targetFidxMapping.size());
+        logger.info("Creating Target GSE");
         var targetGSE = new GenomeSequenceExtractor(new File(targetFasta),  targetFidxMapping);
         try {
+            logger.info("Starting analysis");
             while (true) {
                 targetGtf.parseNextContig();
                 queryGtf.parseNextContig();
@@ -116,16 +121,19 @@ public class LiftedDifferencesRunner implements CommandLineRunner {
                 String t = targetGtf.getParsedContig();
                 String q = queryGtf.getParsedContig();
                 String lq = liftedQueryGtf.getParsedContig();
+                logger.info("Using target: {}, query: {}, lifted query: {}",t, q, lq);
                 if (!Objects.equals(t, q) || !Objects.equals(q, lq))
-                    throw new Exception("Contigs do not match Target: " + t + ", Query: " + q + "Lifted Query: " + lq);
+                    throw new Exception("Contigs do not match Target: " + t + ", Query: " + q + ", Lifted Query: " + lq);
 
-                LiftedDifferences.analyze(queryGtf, targetGtf, liftedQueryGtf, queryGSE, targetGSE);
+                LiftedDifferences.analyze(t, queryGtf, targetGtf, liftedQueryGtf, queryGSE, targetGSE);
             }
         } catch (java.text.ParseException e) {
-            logger.debug("Program finished: {}", e.getMessage());
+            logger.info("Program finished: {}", e.getMessage());
         } catch (Exception e) {
             logger.error("Program failed", e);
         }
+
+        LiftedDifferences.printResults(outputPath);
 
     }
 }
