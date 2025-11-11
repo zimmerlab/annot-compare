@@ -9,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +16,7 @@ import java.util.Map;
 
 public class LiftedDifferences {
     private final static Logger logger = LogManager.getLogger(LiftedDifferences.class);
+
     private static class Stats {
         int numQueryGenes;
         int numTargetGenes;
@@ -25,6 +25,8 @@ public class LiftedDifferences {
         int liftedMappingSize;
         int numDifferentPairsByPosition;
         int numDifferentPairsBySequence;
+        List<GenePair> normalMapping = new ArrayList<>();
+        List<GenePair> liftedMapping = new ArrayList<>();
         List<GenePair> differentPairsByPosition = new ArrayList<>();
         List<GenePair> differentPairsBySequence = new ArrayList<>();
         List<String> notFoundInLifted = new ArrayList<>();
@@ -40,7 +42,10 @@ public class LiftedDifferences {
         s.numLiftedQueryGenes = liftedQueryGtf.getAllGeneFeatureIds().size();
 
         var mappingWithNormal = find1To1Mapping(queryGtf, targetGtf);
+        s.normalMapping = mappingWithNormal;
+
         var mappingWithLifted = find1To1Mapping(liftedQueryGtf, targetGtf);
+        s.liftedMapping = mappingWithLifted;
 
         s.normalMappingSize = mappingWithNormal.size();
         s.liftedMappingSize = mappingWithLifted.size();
@@ -58,30 +63,21 @@ public class LiftedDifferences {
 
     public static void printResults(String outputPath) {
 
-        try(BufferedWriter overviewWriter = new BufferedWriter(new FileWriter(outputPath));
-            BufferedWriter byPositionWriter = new BufferedWriter(new FileWriter(outputPath + ".diffByPosition"));
-            BufferedWriter bySeqWriter = new BufferedWriter(new FileWriter(outputPath + ".diffBySeq"));
-            BufferedWriter missingInLiftedWriter = new BufferedWriter(new FileWriter(outputPath + ".missingInLifted"));
-            ) {
+        try (BufferedWriter overviewWriter = new BufferedWriter(new FileWriter(outputPath)); BufferedWriter byPositionWriter = new BufferedWriter(new FileWriter(outputPath + ".diffByPosition")); BufferedWriter bySeqWriter = new BufferedWriter(new FileWriter(outputPath + ".diffBySeq")); BufferedWriter normalMappingWriter = new BufferedWriter(new FileWriter(outputPath + ".normalMapping")); BufferedWriter liftedMappingWriter = new BufferedWriter(new FileWriter(outputPath + ".liftedMapping")); BufferedWriter missingInLiftedWriter = new BufferedWriter(new FileWriter(outputPath + ".missingInLifted"));) {
 
             overviewWriter.write("Chrom\tQueryGenes\tTargetGenes\tLiftedQueryGenes\t1to1Normal\t1to1Lifted\tDiffPos\tDiffSeq\n");
             var headerString = "contig\tqueryGeneId\ttargetGeneId\n";
             byPositionWriter.write(headerString);
             bySeqWriter.write(headerString);
+            normalMappingWriter.write(headerString);
+            liftedMappingWriter.write(headerString);
             int totalQ = 0, totalT = 0, totalN = 0, totalL = 0, totalP = 0, totalS = 0;
 
             for (var entry : results.entrySet()) {
                 String chr = entry.getKey();
                 Stats s = entry.getValue();
 
-                overviewWriter.write(chr + "\t" +
-                        s.numQueryGenes + "\t" +
-                        s.numTargetGenes + "\t" +
-                        s.numLiftedQueryGenes + "\t" +
-                        s.normalMappingSize + "\t" +
-                        s.liftedMappingSize + "\t" +
-                        s.numDifferentPairsByPosition + "\t" +
-                        s.numDifferentPairsBySequence + "\n");
+                overviewWriter.write(chr + "\t" + s.numQueryGenes + "\t" + s.numTargetGenes + "\t" + s.numLiftedQueryGenes + "\t" + s.normalMappingSize + "\t" + s.liftedMappingSize + "\t" + s.numDifferentPairsByPosition + "\t" + s.numDifferentPairsBySequence + "\n");
 
                 totalQ += s.numQueryGenes;
                 totalT += s.numTargetGenes;
@@ -93,18 +89,19 @@ public class LiftedDifferences {
 
                 writeGenePairs(byPositionWriter, s.differentPairsByPosition);
                 writeGenePairs(bySeqWriter, s.differentPairsBySequence);
+                writeGenePairs(normalMappingWriter, s.normalMapping);
+                writeGenePairs(liftedMappingWriter, s.liftedMapping);
                 writeGenes(missingInLiftedWriter, s.notFoundInLifted);
             }
 
-            overviewWriter.write("TOTAL\t" + totalQ + "\t" + totalT + "\t" +
-                    totalN + "\t" + totalL + "\t" + totalP + "\t" + totalS + "\n");
+            overviewWriter.write("TOTAL\t" + totalQ + "\t" + totalT + "\t" + totalN + "\t" + totalL + "\t" + totalP + "\t" + totalS + "\n");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     private static void writeGenePairs(BufferedWriter fw, List<GenePair> genePairs) throws IOException {
-        for(var genePair : genePairs) {
+        for (var genePair : genePairs) {
             var targetGeneId = genePair.getTargetGene().getGeneId();
             var queryGeneId = genePair.getQueryGene().getGeneId();
             var contig = genePair.getTargetGene().getBaseData().getContig();
@@ -114,7 +111,7 @@ public class LiftedDifferences {
     }
 
     private static void writeGenes(BufferedWriter fw, List<String> genes) throws IOException {
-        for(var  gene : genes) {
+        for (var gene : genes) {
             fw.write(gene + "\n");
         }
     }
