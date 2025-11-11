@@ -125,7 +125,7 @@ public class LiftedDifferencesRunner implements CommandLineRunner {
                 if (!Objects.equals(t, q) || !Objects.equals(q, lq))
                     throw new Exception("Contigs do not match Target: " + t + ", Query: " + q + ", Lifted Query: " + lq);
 
-                LiftedDifferences.analyze(t, queryGtf, targetGtf, liftedQueryGtf, queryGSE, targetGSE);
+                LiftedDifferences.analyze(t, queryGtf, targetGtf, liftedQueryGtf, queryGSE, targetGSE, outputPath);
             }
         } catch (java.text.ParseException e) {
             logger.info("Program finished: {}", e.getMessage());
