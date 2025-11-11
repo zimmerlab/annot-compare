@@ -2,7 +2,6 @@ package com.github.zimmerlab.gtfcompare.analysis.lifted;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
-import com.github.zimmerlab.gtfcompare.runner.LiftedDifferencesRunner;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,8 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// TODO ist ID gleich von lifted vs target.
-
 public class LiftedDifferences {
     private final static Logger logger = LogManager.getLogger(LiftedDifferences.class);
     private static class Stats {
@@ -27,6 +24,9 @@ public class LiftedDifferences {
         int liftedMappingSize;
         int numDifferentPairsByPosition;
         int numDifferentPairsBySequence;
+        List<GenePair> differentPairsByPosition = new ArrayList<>();
+        List<GenePair> differentPairsBySequence = new ArrayList<>();
+        List<String> notFoundInLifted = new ArrayList<>();
     }
 
     private static final Map<String, Stats> results = new HashMap<>();
@@ -45,9 +45,11 @@ public class LiftedDifferences {
         s.liftedMappingSize = mappingWithLifted.size();
 
         var differentPairsByPosition = findDifferentPairsByPosition(mappingWithLifted);
+        s.differentPairsByPosition = differentPairsByPosition;
         s.numDifferentPairsByPosition = differentPairsByPosition.size();
 
-        var differentPairsBySequence = findDifferentPairsBySequence(mappingWithLifted, queryGtf, queryGSE, targetGSE);
+        var differentPairsBySequence = findDifferentPairsBySequence(mappingWithLifted, queryGtf, queryGSE, targetGSE, s);
+        s.differentPairsBySequence = differentPairsBySequence;
         s.numDifferentPairsBySequence = differentPairsBySequence.size();
 
         results.put(contig, s);
@@ -121,7 +123,7 @@ public class LiftedDifferences {
         return differentPairs;
     }
 
-    private static List<GenePair> findDifferentPairsBySequence(List<GenePair> mapping, GtfFile queryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE) {
+    private static List<GenePair> findDifferentPairsBySequence(List<GenePair> mapping, GtfFile queryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE, Stats s) {
         var differentPairs = new ArrayList<GenePair>();
         for (var genePair : mapping) {
             var targetGeneBaseData = genePair.getTargetGene().getBaseData();
@@ -139,6 +141,7 @@ public class LiftedDifferences {
             var queryGtfGene = queryGtf.getGeneFeature(queryGtfGeneId);
             if (queryGtfGene == null) {
                 logger.info("{} not found", queryGtfGeneId);
+                s.notFoundInLifted.add(queryGtfGeneId);
                 continue;
             }
 
