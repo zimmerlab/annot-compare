@@ -4,11 +4,9 @@ import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
+import org.yaml.snakeyaml.error.MissingEnvironmentVariableException;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Mapping {
@@ -20,11 +18,11 @@ public class Mapping {
         var noSameTranscripts = getGenesNoSameTranscript(idMapping);
         var leftOvers = getLeftoverGeneIds(targetGeneIds, queryGeneIds);
 
-        for(var leftOver : leftOvers.targetOnly){
+        for (var leftOver : leftOvers.targetOnly) {
             var cigar = structureCigarString(targetGtf.getGeneFeature(leftOver));
         }
 
-        for(var leftOver : leftOvers.queryOnly){
+        for (var leftOver : leftOvers.queryOnly) {
             var cigar = structureCigarString(queryGtf.getGeneFeature(leftOver));
         }
         return null;
@@ -66,8 +64,10 @@ public class Mapping {
         return noSameTranscripts;
     }
 
-    private record LeftoverGeneIds(Set<String> targetOnly, Set<String> queryOnly){}
-    private static LeftoverGeneIds getLeftoverGeneIds(Set<String> targetGeneIds, Set<String> queryGeneIds){
+    private record LeftoverGeneIds(Set<String> targetOnly, Set<String> queryOnly) {
+    }
+
+    private static LeftoverGeneIds getLeftoverGeneIds(Set<String> targetGeneIds, Set<String> queryGeneIds) {
         var targetOnly = new HashSet<>(targetGeneIds);
         targetOnly.removeAll(queryGeneIds);
 
@@ -77,34 +77,33 @@ public class Mapping {
         return new LeftoverGeneIds(targetOnly, queryOnly);
     }
 
-    private static String structureCigarString(GeneFeature geneFeature){
-        var geneExons = geneFeature.getTranscripts()
-                .stream()
-                .flatMap(t -> t.getFeatures(GtfConfig.TYPE_EXON_DEFAULT).stream())
-                .collect(Collectors.toSet());
+    private static HashMap<String, List<Integer>> structureCigarString(GeneFeature geneFeature) {
+        var geneExons = geneFeature.getTranscripts().stream().flatMap(t -> t.getFeatures().stream()).collect(Collectors.toSet());
+        var result = new HashMap<String, List<Integer>>();
 
-        StringBuilder sb = new StringBuilder();
+        geneExons.forEach(g -> {
+            var baseData = g.getBaseData();
+            var len = baseData.getEnd() - baseData.getStart() + 1;
+            result.computeIfAbsent(g.getBaseData().getType(), k -> new ArrayList<>()).add(len);
+        });
+
         var lastStop = 0;
         var isFirst = true;
-        for(var geneExon : geneExons){
-            var baseData = geneExon.getBaseData();
+        for (var geneFeatures : geneExons) {
+            var baseData = geneFeatures.getBaseData();
             var start = baseData.getStart();
             var stop = baseData.getEnd();
 
-            if(!isFirst){
-                sb.append("I");
-                sb.append((start - lastStop + 1));
+            if (!isFirst) {
             }
 
             var length = stop - start + 1;
 
-            sb.append("E");
-            sb.append(length);
 
             isFirst = false;
             lastStop = stop;
         }
 
-        return sb.toString();
+        return result;
     }
 }
