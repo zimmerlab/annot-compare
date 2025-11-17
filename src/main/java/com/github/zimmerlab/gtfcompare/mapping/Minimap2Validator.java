@@ -18,10 +18,10 @@ import java.util.stream.Collectors;
 public class Minimap2Validator {
     private static final double MIN_IDENTITY = 95.0;
     private static final double MIN_COVERAGE = 80.0;
-    private static final boolean USE_CDS_ONLY = false;
+    private static boolean USE_CDS_ONLY = false;
 
     private static String buildCdna(TranscriptFeature tf, GenomeSequenceExtractor ex, boolean useCdsOnly) throws IOException {
-        var exons = tf.getFeatures().stream().filter(f -> "exon".equals(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).collect(Collectors.toList());
+        var exons = tf.getFeatures().stream().filter(f -> Constants.EXON.equals(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).collect(Collectors.toList());
 
         var cdss = tf.getFeatures().stream().filter(f -> Constants.CDS.equals(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).collect(Collectors.toList());
 
@@ -212,8 +212,8 @@ public class Minimap2Validator {
     }
 
 
-    public static MappingResult<TranscriptPair, TranscriptFeature> validateWithMinimap2(List<TranscriptFeature> unmappedQueries, List<TranscriptFeature> unmappedTargets, GenomeSequenceExtractor targetSeqExtractor, GenomeSequenceExtractor querySeqExtractor, Path workDir, Path minimap2Exe, int threads) throws IOException, InterruptedException {
-
+    public static MappingResult<TranscriptPair, TranscriptFeature> validateWithMinimap2(List<TranscriptFeature> unmappedQueries, List<TranscriptFeature> unmappedTargets, GenomeSequenceExtractor targetSeqExtractor, GenomeSequenceExtractor querySeqExtractor, Path workDir, Path minimap2Exe, int threads, boolean useCDSOnly) throws IOException, InterruptedException {
+        USE_CDS_ONLY = useCDSOnly;
         if (unmappedQueries.isEmpty() || unmappedTargets.isEmpty()) {
             return new MappingResult<>(List.of(), unmappedTargets, unmappedQueries);
         }
