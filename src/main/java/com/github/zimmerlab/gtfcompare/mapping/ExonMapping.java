@@ -97,14 +97,14 @@ public class ExonMapping {
         return Math.abs(a.getBaseData().getStart() - b.getBaseData().getStart()) + Math.abs(a.getBaseData().getEnd() - b.getBaseData().getEnd());
     }
 
-    public static List<FeaturePair> pairExonsByGapAlignment(TranscriptFeature t, TranscriptFeature q, int gapPenalty, int capDelta, int lenCapBp, double lenCapFrac) {
-        var pairs = new ArrayList<FeaturePair>();
+    public static List<FeaturePair<GtfFeature>> pairExonsByGapAlignment(TranscriptFeature t, TranscriptFeature q, int gapPenalty, int capDelta, int lenCapBp, double lenCapFrac) {
+        var pairs = new ArrayList<FeaturePair<GtfFeature>>();
         var targetExons = sortedExons(t);
         var queryExons = sortedExons(q);
 
         if (targetExons.isEmpty() && queryExons.isEmpty()) return pairs;
         if (targetExons.size() == 1 && queryExons.size() == 1) {
-            pairs.add(new FeaturePair(targetExons.getFirst(), queryExons.getFirst()));
+            pairs.add(new FeaturePair<GtfFeature>(targetExons.getFirst(), queryExons.getFirst()));
             return pairs;
         }
 
@@ -137,11 +137,11 @@ public class ExonMapping {
                         best = qe;
                     }
                 }
-                pairs.add(new FeaturePair(te, best));
+                pairs.add(new FeaturePair<>(te, best));
                 if (best != null) usedQ.add(best);
             }
             for (var qe : queryExons)
-                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery()))) pairs.add(new FeaturePair(null, qe));
+                if (pairs.stream().noneMatch(p -> qe.equals(p.getQuery()))) pairs.add(new FeaturePair<>(null, qe));
             return pairs;
         }
 
@@ -197,7 +197,7 @@ public class ExonMapping {
                 var best = cands.get(0);
                 var te = targetExons.get(best.ct);
                 var qe = queryExons.get(best.cq);
-                pairs.add(new FeaturePair(te, qe));
+                pairs.add(new FeaturePair<>(te, qe));
                 usedT[best.ct] = usedQ[best.cq] = true;
 
                 deltas.add(te.getBaseData().getStart() - qe.getBaseData().getStart());
@@ -216,7 +216,7 @@ public class ExonMapping {
             int lenDiff = Math.abs(lt - lq);
             double rel = (double) lenDiff / Math.max(lt, lq);
             if (lenDiff <= lenCapBp || rel <= lenCapFrac) {
-                pairs.add(new FeaturePair(te, qe));
+                pairs.add(new FeaturePair<>(te, qe));
                 usedT[iR] = usedQ[jR] = true;
             }
         }
@@ -260,7 +260,7 @@ public class ExonMapping {
                 }
             }
             if (best != null) {
-                pairs.add(new FeaturePair(te, best));
+                pairs.add(new FeaturePair<>(te, best));
                 int idx = queryExons.indexOf(best);
                 usedT[it] = true;
                 usedQ[idx] = true;
@@ -268,9 +268,9 @@ public class ExonMapping {
         }
 
         for (int i = 0; i < targetExons.size(); i++)
-            if (!usedT[i]) pairs.add(new FeaturePair(targetExons.get(i), null));
+            if (!usedT[i]) pairs.add(new FeaturePair<>(targetExons.get(i), null));
         for (int j = 0; j < queryExons.size(); j++)
-            if (!usedQ[j]) pairs.add(new FeaturePair(null, queryExons.get(j)));
+            if (!usedQ[j]) pairs.add(new FeaturePair<>(null, queryExons.get(j)));
 
         return pairs;
     }
@@ -284,8 +284,8 @@ public class ExonMapping {
         return tf.getFeatures().stream().filter(f -> type.equals(GtfConfig.getDefault(f.getBaseData().getType()))).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
     }
 
-    public static List<FeaturePair> mapFeaturesWithinExonPairs(TranscriptFeature t, TranscriptFeature q, List<FeaturePair> exonPairs, String featureType, int padBp) {
-        var res = new ArrayList<FeaturePair>();
+    public static List<FeaturePair<GtfFeature>> mapFeaturesWithinExonPairs(TranscriptFeature t, TranscriptFeature q, List<FeaturePair<GtfFeature>> exonPairs, String featureType, int padBp) {
+        var res = new ArrayList<FeaturePair<GtfFeature>>();
         var usedQ = new HashSet<GtfFeature>();
 
         var tFeat = featuresOfType(t, featureType);
@@ -336,25 +336,25 @@ public class ExonMapping {
                         best = qf;
                     }
                 }
-                res.add(new FeaturePair(tf, best));
+                res.add(new FeaturePair<>(tf, best));
                 if (best != null) usedQ.add(best);
             }
         }
 
         for (var qf : qFeat) {
             if (!usedQ.contains(qf) && res.stream().noneMatch(p -> qf.equals(p.getQuery()))) {
-                res.add(new FeaturePair(null, qf));
+                res.add(new FeaturePair<>(null, qf));
             }
         }
         return res;
     }
 
-    public static List<FeaturePair> mapIntronsByExonPairs(
+    public static List<FeaturePair<GtfFeature>> mapIntronsByExonPairs(
             TranscriptFeature targetTranscript,
             TranscriptFeature queryTranscript,
-            List<FeaturePair> exonPairs
+            List<FeaturePair<GtfFeature>> exonPairs
     ) {
-        var result = new ArrayList<FeaturePair>();
+        var result = new ArrayList<FeaturePair<GtfFeature>>();
         var usedT = new HashSet<GtfFeature>();
         var usedQ = new HashSet<GtfFeature>();
 
@@ -401,17 +401,17 @@ public class ExonMapping {
             var qIntron = findIntronBetween(queryExonLeft, queryExonRight, qIntrons);
 
             if (tIntron != null || qIntron != null) {
-                result.add(new FeaturePair(tIntron, qIntron));
+                result.add(new FeaturePair<>(tIntron, qIntron));
                 if (tIntron != null) usedT.add(tIntron);
                 if (qIntron != null) usedQ.add(qIntron);
             }
         }
 
         for (var ti : tIntrons) {
-            if (!usedT.contains(ti)) result.add(new FeaturePair(ti, null));
+            if (!usedT.contains(ti)) result.add(new FeaturePair<>(ti, null));
         }
         for (var qi : qIntrons) {
-            if (!usedQ.contains(qi)) result.add(new FeaturePair(null, qi));
+            if (!usedQ.contains(qi)) result.add(new FeaturePair<>(null, qi));
         }
 
         return result;

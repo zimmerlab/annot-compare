@@ -244,9 +244,9 @@ public class Minimap2Validator {
             }
         }
 
-        var mappedQueries = result.stream().map(TranscriptPair::getQueryTranscript).collect(Collectors.toSet());
+        var mappedQueries = result.stream().map(TranscriptPair::getQuery).collect(Collectors.toSet());
 
-        var mappedTargets = result.stream().map(TranscriptPair::getTargetTranscript).collect(Collectors.toSet());
+        var mappedTargets = result.stream().map(TranscriptPair::getTarget).collect(Collectors.toSet());
 
         var stillUnmappedQueries = unmappedQueries.stream().filter(q -> !mappedQueries.contains(q)).toList();
 

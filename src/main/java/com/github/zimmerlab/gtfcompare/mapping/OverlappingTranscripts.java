@@ -57,8 +57,8 @@ public class OverlappingTranscripts {
 
             // Collect targets and queries
 
-            Set<TranscriptFeature> targets = locusPairs.stream().map(TranscriptPair::getTargetTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
-            Set<TranscriptFeature> queries = locusPairs.stream().map(TranscriptPair::getQueryTranscript).collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<TranscriptFeature> targets = locusPairs.stream().map(TranscriptPair::getTarget).collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<TranscriptFeature> queries = locusPairs.stream().map(TranscriptPair::getQuery).collect(Collectors.toCollection(LinkedHashSet::new));
             // Build unified clique for vector construction
             List<TranscriptFeature> clique = Stream.concat(targets.stream(), queries.stream()).collect(Collectors.toList());
             var vectors = buildModelVectorsForClique(clique);
@@ -188,11 +188,11 @@ public class OverlappingTranscripts {
 
     private static List<List<TranscriptPair>> clusterOverlappingPairs(List<TranscriptPair> allPairs) {
         var ds = new OverlappingTranscripts.DisjointSet<TranscriptFeature>();
-        allPairs.forEach(p -> ds.union(p.getTargetTranscript(), p.getQueryTranscript()));
+        allPairs.forEach(p -> ds.union(p.getTarget(), p.getQuery()));
 
         var tmp = new HashMap<TranscriptFeature, List<TranscriptPair>>();
         for (TranscriptPair p : allPairs) {
-            var representative = ds.find(p.getTargetTranscript());
+            var representative = ds.find(p.getTarget());
             tmp.computeIfAbsent(representative, k -> new ArrayList<>()).add(p);
         }
         return new ArrayList<>(tmp.values());
