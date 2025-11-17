@@ -34,6 +34,7 @@ public class Application {
         modeDescriptions.put("cliqueAnalysis", "Clique Analysis mode");
         modeDescriptions.put("benchmark", "Benchmark mode");
         modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
+        modeDescriptions.put("newMapping", "New Mapping mode");
 
         return modeDescriptions;
     }
@@ -87,6 +88,10 @@ public class Application {
                 break;
             case "liftedDifferences":
                 builder.profiles("liftedDifferences");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "newMapping":
+                builder.profiles("newMapping");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:
