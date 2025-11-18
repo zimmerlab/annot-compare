@@ -1,9 +1,8 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
 
+import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.zimmerlab.gtfcompare.analysis.clique.CliqueAnalysisGenes;
-import com.github.zimmerlab.gtfcompare.analysis.clique.Reporter;
 import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
@@ -13,14 +12,16 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 @Profile("newMapping")
 @Service
 public class NewMappingRunner implements CommandLineRunner {
     private final static Logger logger = LogManager.getLogger(NewMappingRunner.class);
+
     @Override
     public void run(String... args) throws Exception {
         Options o = new Options();
@@ -28,7 +29,7 @@ public class NewMappingRunner implements CommandLineRunner {
         o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to target gtf file").type(File.class).build());
         o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
         o.addOption(Option.builder().longOpt("output").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
-
+        o.addOption(Option.builder().longOpt("allowed-types").hasArg().desc("Comma-separated list of allowed types").build());
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
 
@@ -55,6 +56,29 @@ public class NewMappingRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        Set<String> allowedTypes = null;
+
+        if (cmd.hasOption("allowed-types")) {
+            var set = new HashSet<String>();
+
+            for (var type : cmd.getOptionValue("allowed-types").split(",")) {
+                var defaultType = GtfConfig.getDefault(type);
+                if(defaultType != null) {
+                    set.add(defaultType);
+                }
+                else {
+                    logger.info("Skipping type {} - no default value found", type);
+                }
+            }
+
+            allowedTypes = set.isEmpty() ? null : set;
+        }
+
+        if(cmd.hasOption("allowed-types") && allowedTypes == null){
+            logger.info("no valid types given - using default values for allowed-types");
+        }
+
+
         var queryPath = cmd.getOptionValue("query-gtf");
         var targetPath = cmd.getOptionValue("target-gtf");
         var outputPath = cmd.getOptionValue("output");
@@ -72,7 +96,7 @@ public class NewMappingRunner implements CommandLineRunner {
                 String q = queryGtf.getParsedContig();
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
 
-                var res = Mapping.map(targetGtf, queryGtf);
+                var res = Mapping.map(targetGtf, queryGtf, allowedTypes);
             }
         } catch (java.text.ParseException e) {
             logger.debug("Program finished: {}", e.getMessage());
@@ -82,3 +106,4 @@ public class NewMappingRunner implements CommandLineRunner {
 
     }
 }
+

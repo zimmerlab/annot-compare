@@ -18,4 +18,9 @@ public class GenePair extends FeaturePair<GeneFeature> {
     public GeneComparisonResult getGeneComparisonResult() {
         return geneComparisonResult;
     }
+
+    @Override
+    public String toString() {
+        return getTarget().getGeneId() + "-" + getQuery().getGeneId();
+    }
 }
