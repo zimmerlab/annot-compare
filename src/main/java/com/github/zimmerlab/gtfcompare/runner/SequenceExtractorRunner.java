@@ -14,6 +14,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
 
 @Profile("seqExtractor")
 @Service
@@ -65,6 +67,13 @@ public class SequenceExtractorRunner implements CommandLineRunner {
                 .type(File.class)
                 .build());
 
+        o.addOption(Option.builder()
+                .longOpt("gene-id")
+                .numberOfArgs(1)
+                .desc("Gene Id")
+                .type(String.class)
+                .build());
+
 
         CommandLineParser parser = new DefaultParser();
 
@@ -96,6 +105,8 @@ public class SequenceExtractorRunner implements CommandLineRunner {
         }
 
 
+
+
         if (!cmd.hasOption("o")) {
             LOG.error("No output path specified");
             System.exit(1);
@@ -112,7 +123,13 @@ public class SequenceExtractorRunner implements CommandLineRunner {
 
         gtfFile.parseAllContigs();
 
-        for(var geneId : gtfFile.getAllGeneFeatureIds()){
+        var genes = gtfFile.getAllGeneFeatureIds();
+
+        if (cmd.hasOption("gene-id")) {
+            genes = Set.of(cmd.getOptionValue("gene-id"));
+        }
+
+        for(var geneId : genes){
             for(var transcript : gtfFile.getGeneFeature(geneId).getTranscripts()){
                 var transcriptSeq = targetSequenceExtractor.getSequence(transcript.getBaseData().getContig(), transcript.getBaseData().getStart(), transcript.getBaseData().getEnd());
                 try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o"), transcript.getTranscriptId() + ".fasta"))) {

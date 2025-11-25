@@ -21,6 +21,6 @@ public class GenePair extends FeaturePair<GeneFeature> {
 
     @Override
     public String toString() {
-        return getTarget().getGeneId() + "-" + getQuery().getGeneId();
+        return getQuery().getGeneId() + "-" + getTarget().getGeneId();
     }
 }

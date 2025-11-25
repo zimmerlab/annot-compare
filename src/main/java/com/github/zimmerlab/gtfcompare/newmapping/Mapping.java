@@ -9,18 +9,20 @@ import com.github.zimmerlab.gtfcompare.utils.Constants;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.github.zimmerlab.gtfcompare.newmapping.Cigar.cigarSimilarity;
+import static com.github.zimmerlab.gtfcompare.newmapping.Cigar.structureCigar;
+import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.SIMILARITY_CUTOFF;
+
+// TODO single exons sequenz homology?
+
 public class Mapping {
-    private record CigarOp(String type, int length) {
-    }
 
     private record LeftoverGeneIds(Set<String> targetOnly, Set<String> queryOnly) {
     }
 
-    private static final double SIMILARITY_CUTOFF = 0.99;
-    private static final int SHORT_EXON_THRESHOLD = 3000;
-    private static final double STRICT_SHORT_MIN_SIM = 1.0;
 
-    public static List<GenePair> map(GtfFile targetGtf, GtfFile queryGtf, Set<String> allowedTypes) {
+
+    public static List<List<GenePair>> map(GtfFile targetGtf, GtfFile queryGtf, Set<String> allowedTypes) {
         var targetGeneIds = new HashSet<>(targetGtf.getAllGeneFeatureIds());
         var queryGeneIds = new HashSet<>(queryGtf.getAllGeneFeatureIds());
 
@@ -54,69 +56,159 @@ public class Mapping {
                 ));
 
         var results = new LinkedList<GenePair>();
-        var allQueryGenes  = new HashSet<>(queryLeftOverCigars.keySet());
-        var allTargetGenes = new HashSet<>(targetLeftOverCigars.keySet());
+        var unmappedQueryGenes = new HashSet<>(queryLeftOverCigars.keySet());
+        var unmappedTargetGenes = new HashSet<>(targetLeftOverCigars.keySet());
 
         var noSameTranscriptsLeftovers = new HashSet<GenePair>();
-        for (var genePair : noSameTranscripts) {
+
+        var targetCigars = new HashMap<String, List<List<CigarOp>>>();
+        var queryCigars = new HashMap<String, List<List<CigarOp>>>();
+        for (var genePair : idMapping) {
             var target = genePair.getTarget();
             var query = genePair.getQuery();
 
+            var targetGeneId = target.getGeneId();
+            var queryGeneId = query.getGeneId();
+
             var bestScore = Double.NEGATIVE_INFINITY;
 
-            for(var targetTranscript : target.getTranscripts()){
+            var firstRun = true;
+            for (var targetTranscript : target.getTranscripts()) {
                 var targetCigar = structureCigar(targetTranscript, allowedTypes);
-
-                for(var queryTranscript : query.getTranscripts()){
+                targetCigars.computeIfAbsent(targetGeneId, geneId -> new LinkedList<>()).add(targetCigar);
+                for (var queryTranscript : query.getTranscripts()) {
                     var queryCigar = structureCigar(queryTranscript, allowedTypes);
-
+                    if(firstRun) {
+                        queryCigars.computeIfAbsent(queryGeneId, geneId -> new LinkedList<>()).add(queryCigar);
+                    }
                     var score = cigarSimilarity(targetCigar, queryCigar);
 
-                    if(score > bestScore){
+                    if (score > bestScore) {
                         bestScore = score;
                     }
                 }
+                firstRun = false;
             }
 
-            if(bestScore > SIMILARITY_CUTOFF){
+            if (bestScore >= SIMILARITY_CUTOFF) {
                 results.add(genePair);
-            } else{
+            } else {
                 noSameTranscriptsLeftovers.add(genePair);
+
+                var queryLeftOver = genePair.getQuery().getTranscripts().stream().map(transcript -> structureCigar(transcript, finalAllowedTypes)).collect(Collectors.toList());
+                var targetLeftOver = genePair.getTarget().getTranscripts().stream().map(transcript -> structureCigar(transcript, finalAllowedTypes)).collect(Collectors.toList());
+
+                queryLeftOverCigars.put(genePair.getQuery().getGeneId(), queryLeftOver);
+                targetLeftOverCigars.put(genePair.getTarget().getGeneId(), targetLeftOver);
+
+                unmappedTargetGenes.add(genePair.getTarget().getGeneId());
+                unmappedQueryGenes.add(genePair.getQuery().getGeneId());
             }
 
         }
 
+        var mappedNoSameIdWithCigar = new LinkedList<GenePair>();
         for (var leftOverQueryCigars : queryLeftOverCigars.entrySet()) {
             var queryGeneId = leftOverQueryCigars.getKey();
-            var queryCigars = leftOverQueryCigars.getValue();
+            var queryTranscriptCigars = leftOverQueryCigars.getValue();
             for (var leftOverTargetCigars : targetLeftOverCigars.entrySet()) {
                 var targetGeneId = leftOverTargetCigars.getKey();
-                var targetCigars = leftOverTargetCigars.getValue();
+                var targetTranscriptCigars = leftOverTargetCigars.getValue();
                 var bestScore = Double.NEGATIVE_INFINITY;
-                if(targetGeneId.equals("ENSG00000274265") && queryGeneId.equals("ENSG00000269501")){
+
+                if(targetGeneId.equals("ENSG00000162825") && queryGeneId.equals("ENSG00000122497")){
                     var a = 2;
                 }
-                for (var targetCigar : targetCigars) {
-                    for (var queryCigar : queryCigars) {
+
+                for (var targetCigar : targetTranscriptCigars) {
+                    for (var queryCigar : queryTranscriptCigars) {
                         var score = cigarSimilarity(targetCigar, queryCigar);
                         bestScore = Math.max(bestScore, score);
+                    }
+                }
+                if (bestScore >= SIMILARITY_CUTOFF) {
+                    mappedNoSameIdWithCigar.add(new GenePair(targetGtf.getGeneFeature(targetGeneId), queryGtf.getGeneFeature(queryGeneId)));
 
-                        if(score > SIMILARITY_CUTOFF){
-                            var a = 2;
+                    targetCigars.put(targetGeneId, targetTranscriptCigars);
+                    queryCigars.put(queryGeneId, queryTranscriptCigars);
+
+                    unmappedQueryGenes.remove(queryGeneId);
+                    unmappedTargetGenes.remove(targetGeneId);
+                }
+
+            }
+        }
+
+
+        var queryPairsFoundComparingAgainstAllTargets = new LinkedList<GenePair>();
+        var unmappedQueryCopy = List.copyOf(unmappedQueryGenes);
+        for (var unmappedQueryGene : unmappedQueryCopy) {
+            var queryGene = queryGtf.getGeneFeature(unmappedQueryGene);
+            var unmappedQueryCigars = queryCigars.get(queryGene.getGeneId());
+
+            if (unmappedQueryCigars == null) {
+                unmappedQueryCigars = queryGene.getTranscripts().stream().map(t -> structureCigar(t, finalAllowedTypes)).toList();
+                queryCigars.put(queryGene.getGeneId(), unmappedQueryCigars);
+            }
+
+            for (var unmappedQueryCigar : unmappedQueryCigars) {
+                for (var targetCigarEntry : targetCigars.entrySet()) {
+                    var targetTranscriptCigars = targetCigarEntry.getValue();
+                    for (var targetCigar : targetTranscriptCigars) {
+
+                        var score = cigarSimilarity(unmappedQueryCigar, targetCigar);
+
+                        if (score >= SIMILARITY_CUTOFF) {
+                            var targetGene = targetGtf.getGeneFeature(targetCigarEntry.getKey());
+                            queryPairsFoundComparingAgainstAllTargets.add(new GenePair(targetGene, queryGene));
+
+                            unmappedQueryGenes.remove(queryGene.getGeneId());
+                            unmappedTargetGenes.remove(targetGene.getGeneId());
+
+                            break;
                         }
                     }
                 }
-                if (bestScore > SIMILARITY_CUTOFF) {
-                    results.add(new GenePair(targetGtf.getGeneFeature(targetGeneId), queryGtf.getGeneFeature(queryGeneId)));
-
-                    allQueryGenes.remove(queryGeneId);
-                    allTargetGenes.remove(targetGeneId);
-                }
-
             }
         }
 
-        return null;
+
+        var targetPairsFoundComparingAgainstAllQueries = new LinkedList<GenePair>();
+        var unmappedTargetsCopy = List.copyOf(unmappedTargetGenes);
+        for (var unmappedTargetGene : unmappedTargetsCopy) {
+            var targetGene = targetGtf.getGeneFeature(unmappedTargetGene);
+            var unmappedTargetCigars = targetCigars.get(targetGene.getGeneId());
+
+            if (unmappedTargetCigars == null) {
+                unmappedTargetCigars = targetGene.getTranscripts().stream().map(t -> structureCigar(t, finalAllowedTypes)).toList();
+                targetCigars.put(targetGene.getGeneId(), unmappedTargetCigars);
+            }
+
+            for (var unmappedTargetCigar : unmappedTargetCigars) {
+                for (var queryCigarEntry : queryCigars.entrySet()) {
+                    var queryTranscriptCigars = queryCigarEntry.getValue();
+                    for (var queryCigar : queryTranscriptCigars) {
+                        if(targetGene.getGeneId().equals("ENSG00000162825") && queryCigarEntry.getKey().equals("ENSG00000122497")){
+                            var a = 2;
+                        }
+                        var score = cigarSimilarity(queryCigar, unmappedTargetCigar);
+
+                        if (score >= SIMILARITY_CUTOFF) {
+                            var queryGene = queryGtf.getGeneFeature(queryCigarEntry.getKey());
+                            targetPairsFoundComparingAgainstAllQueries.add(new GenePair(targetGene, queryGene));
+
+                            unmappedQueryGenes.remove(queryGene.getGeneId());
+                            unmappedTargetGenes.remove(targetGene.getGeneId());
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        var numUnmapped = idMapping.size() - results.size() - mappedNoSameIdWithCigar.size();
+        return List.of(results, mappedNoSameIdWithCigar, targetPairsFoundComparingAgainstAllQueries, queryPairsFoundComparingAgainstAllTargets);
     }
 
     private static List<GenePair> idMapping(GtfFile targetGtf, GtfFile queryGtf, Set<String> targetGeneIds, Set<String> queryGeneIds) {
@@ -166,88 +258,5 @@ public class Mapping {
         return new LeftoverGeneIds(targetOnly, queryOnly);
     }
 
-    private static List<CigarOp> structureCigar(TranscriptFeature feature, Set<String> allowedTypes) {
-        var result = new ArrayList<CigarOp>();
 
-        feature.getFeatures()
-                .stream()
-                .sorted(Comparator.comparingInt(f -> f.getBaseData().getStart()))
-                .forEach(g -> {
-                    var baseData = g.getBaseData();
-                    var type = baseData.getType();
-                    var defaultType = GtfConfig.getDefault(type);
-
-                    if (!allowedTypes.contains(defaultType)) return;
-
-                    var start = baseData.getStart();
-                    var stop = baseData.getEnd();
-
-                    var len = stop - start + 1;
-                    result.add(new CigarOp(type, len));
-                });
-
-        return result;
-    }
-
-    private static double cigarSimilarity(List<CigarOp> a, List<CigarOp> b) {
-        if (a.isEmpty() && b.isEmpty()) return 1.0;
-
-        if (a.isEmpty() || b.isEmpty()) return 0.0;
-
-        if(a.size() == 1 && b.size() == 1){
-            return handleSingleExon(a, b);
-        }
-
-        var minSize = Math.min(a.size(), b.size());
-        var maxSize = Math.max(a.size(), b.size());
-
-        double similarityScore = 0.0;
-
-        for (int i = 0; i < minSize; i++) {
-            var opA = a.get(i);
-            var opB = b.get(i);
-
-            if (!opA.type().equals(opB.type())) continue;
-
-            int lenA = opA.length();
-            int lenB = opB.length();
-
-            int maxLen = Math.max(lenA, lenB);
-
-            if (maxLen == 0) {
-                similarityScore += 1;
-            } else {
-                var relDiff = Math.abs(lenA - lenB) / (double) maxLen;
-                double posSimilarity = 1.0 - relDiff;
-
-                if(maxLen <= SHORT_EXON_THRESHOLD){
-                    posSimilarity = posSimilarity >= STRICT_SHORT_MIN_SIM ? posSimilarity : 0.0;
-                }
-
-                similarityScore += posSimilarity;
-            }
-        }
-
-        return similarityScore / (double) maxSize;
-    }
-
-    private static double handleSingleExon(List<CigarOp> a, List<CigarOp> b) {
-        var opA = a.getFirst();
-        var opB = b.getFirst();
-
-        if(!opA.type().equals(opB.type())) return 0.0;
-
-        var maxLength = Math.max(opA.length(), opB.length());
-
-        if(maxLength == 0) return 0.0;
-
-        var relDiff = Math.abs(opA.length() - opB.length()) / (double) maxLength;
-        var baseSimilarity = 1.0 - relDiff;
-
-        if(maxLength < SHORT_EXON_THRESHOLD){
-            return baseSimilarity > STRICT_SHORT_MIN_SIM ? baseSimilarity : 0.0;
-        }
-
-        return baseSimilarity / (double) maxLength;
-    }
 }
