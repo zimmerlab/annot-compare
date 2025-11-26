@@ -1,262 +1,1 @@
-package com.github.zimmerlab.gtfcompare.newmapping;
-
-import com.github.kleinsamuel.gtfutils.GtfConfig;
-import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
-import com.github.zimmerlab.gtfcompare.model.GenePair;
-import com.github.zimmerlab.gtfcompare.utils.Constants;
-
-import java.util.*;
-import java.util.stream.Collectors;
-
-import static com.github.zimmerlab.gtfcompare.newmapping.Cigar.cigarSimilarity;
-import static com.github.zimmerlab.gtfcompare.newmapping.Cigar.structureCigar;
-import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.SIMILARITY_CUTOFF;
-
-// TODO single exons sequenz homology?
-
-public class Mapping {
-
-    private record LeftoverGeneIds(Set<String> targetOnly, Set<String> queryOnly) {
-    }
-
-
-
-    public static List<List<GenePair>> map(GtfFile targetGtf, GtfFile queryGtf, Set<String> allowedTypes) {
-        var targetGeneIds = new HashSet<>(targetGtf.getAllGeneFeatureIds());
-        var queryGeneIds = new HashSet<>(queryGtf.getAllGeneFeatureIds());
-
-        var idMapping = idMapping(targetGtf, queryGtf, targetGeneIds, queryGeneIds);
-        var noSameTranscripts = getGenesNoSameTranscript(idMapping);
-        var leftOvers = getLeftoverGeneIds(targetGeneIds, queryGeneIds);
-
-        if (allowedTypes == null) allowedTypes = new HashSet<>(Constants.FEATURE_TYPES);
-
-        Set<String> finalAllowedTypes = allowedTypes;
-        var targetLeftOverCigars = leftOvers.targetOnly
-                .stream()
-                .collect(Collectors.toMap(
-                        geneId -> geneId,
-                        geneId -> targetGtf.getGeneFeature(geneId)
-                                .getTranscripts()
-                                .stream()
-                                .map(transcript -> structureCigar(transcript, finalAllowedTypes))
-                                .collect(Collectors.toList())
-                ));
-
-        var queryLeftOverCigars = leftOvers.queryOnly
-                .stream()
-                .collect(Collectors.toMap(
-                        geneId -> geneId,
-                        geneId -> queryGtf.getGeneFeature(geneId)
-                                .getTranscripts()
-                                .stream()
-                                .map(transcript -> structureCigar(transcript, finalAllowedTypes))
-                                .collect(Collectors.toList())
-                ));
-
-        var results = new LinkedList<GenePair>();
-        var unmappedQueryGenes = new HashSet<>(queryLeftOverCigars.keySet());
-        var unmappedTargetGenes = new HashSet<>(targetLeftOverCigars.keySet());
-
-        var noSameTranscriptsLeftovers = new HashSet<GenePair>();
-
-        var targetCigars = new HashMap<String, List<List<CigarOp>>>();
-        var queryCigars = new HashMap<String, List<List<CigarOp>>>();
-        for (var genePair : idMapping) {
-            var target = genePair.getTarget();
-            var query = genePair.getQuery();
-
-            var targetGeneId = target.getGeneId();
-            var queryGeneId = query.getGeneId();
-
-            var bestScore = Double.NEGATIVE_INFINITY;
-
-            var firstRun = true;
-            for (var targetTranscript : target.getTranscripts()) {
-                var targetCigar = structureCigar(targetTranscript, allowedTypes);
-                targetCigars.computeIfAbsent(targetGeneId, geneId -> new LinkedList<>()).add(targetCigar);
-                for (var queryTranscript : query.getTranscripts()) {
-                    var queryCigar = structureCigar(queryTranscript, allowedTypes);
-                    if(firstRun) {
-                        queryCigars.computeIfAbsent(queryGeneId, geneId -> new LinkedList<>()).add(queryCigar);
-                    }
-                    var score = cigarSimilarity(targetCigar, queryCigar);
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                    }
-                }
-                firstRun = false;
-            }
-
-            if (bestScore >= SIMILARITY_CUTOFF) {
-                results.add(genePair);
-            } else {
-                noSameTranscriptsLeftovers.add(genePair);
-
-                var queryLeftOver = genePair.getQuery().getTranscripts().stream().map(transcript -> structureCigar(transcript, finalAllowedTypes)).collect(Collectors.toList());
-                var targetLeftOver = genePair.getTarget().getTranscripts().stream().map(transcript -> structureCigar(transcript, finalAllowedTypes)).collect(Collectors.toList());
-
-                queryLeftOverCigars.put(genePair.getQuery().getGeneId(), queryLeftOver);
-                targetLeftOverCigars.put(genePair.getTarget().getGeneId(), targetLeftOver);
-
-                unmappedTargetGenes.add(genePair.getTarget().getGeneId());
-                unmappedQueryGenes.add(genePair.getQuery().getGeneId());
-            }
-
-        }
-
-        var mappedNoSameIdWithCigar = new LinkedList<GenePair>();
-        for (var leftOverQueryCigars : queryLeftOverCigars.entrySet()) {
-            var queryGeneId = leftOverQueryCigars.getKey();
-            var queryTranscriptCigars = leftOverQueryCigars.getValue();
-            for (var leftOverTargetCigars : targetLeftOverCigars.entrySet()) {
-                var targetGeneId = leftOverTargetCigars.getKey();
-                var targetTranscriptCigars = leftOverTargetCigars.getValue();
-                var bestScore = Double.NEGATIVE_INFINITY;
-
-                if(targetGeneId.equals("ENSG00000162825") && queryGeneId.equals("ENSG00000122497")){
-                    var a = 2;
-                }
-
-                for (var targetCigar : targetTranscriptCigars) {
-                    for (var queryCigar : queryTranscriptCigars) {
-                        var score = cigarSimilarity(targetCigar, queryCigar);
-                        bestScore = Math.max(bestScore, score);
-                    }
-                }
-                if (bestScore >= SIMILARITY_CUTOFF) {
-                    mappedNoSameIdWithCigar.add(new GenePair(targetGtf.getGeneFeature(targetGeneId), queryGtf.getGeneFeature(queryGeneId)));
-
-                    targetCigars.put(targetGeneId, targetTranscriptCigars);
-                    queryCigars.put(queryGeneId, queryTranscriptCigars);
-
-                    unmappedQueryGenes.remove(queryGeneId);
-                    unmappedTargetGenes.remove(targetGeneId);
-                }
-
-            }
-        }
-
-
-        var queryPairsFoundComparingAgainstAllTargets = new LinkedList<GenePair>();
-        var unmappedQueryCopy = List.copyOf(unmappedQueryGenes);
-        for (var unmappedQueryGene : unmappedQueryCopy) {
-            var queryGene = queryGtf.getGeneFeature(unmappedQueryGene);
-            var unmappedQueryCigars = queryCigars.get(queryGene.getGeneId());
-
-            if (unmappedQueryCigars == null) {
-                unmappedQueryCigars = queryGene.getTranscripts().stream().map(t -> structureCigar(t, finalAllowedTypes)).toList();
-                queryCigars.put(queryGene.getGeneId(), unmappedQueryCigars);
-            }
-
-            for (var unmappedQueryCigar : unmappedQueryCigars) {
-                for (var targetCigarEntry : targetCigars.entrySet()) {
-                    var targetTranscriptCigars = targetCigarEntry.getValue();
-                    for (var targetCigar : targetTranscriptCigars) {
-
-                        var score = cigarSimilarity(unmappedQueryCigar, targetCigar);
-
-                        if (score >= SIMILARITY_CUTOFF) {
-                            var targetGene = targetGtf.getGeneFeature(targetCigarEntry.getKey());
-                            queryPairsFoundComparingAgainstAllTargets.add(new GenePair(targetGene, queryGene));
-
-                            unmappedQueryGenes.remove(queryGene.getGeneId());
-                            unmappedTargetGenes.remove(targetGene.getGeneId());
-
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-
-        var targetPairsFoundComparingAgainstAllQueries = new LinkedList<GenePair>();
-        var unmappedTargetsCopy = List.copyOf(unmappedTargetGenes);
-        for (var unmappedTargetGene : unmappedTargetsCopy) {
-            var targetGene = targetGtf.getGeneFeature(unmappedTargetGene);
-            var unmappedTargetCigars = targetCigars.get(targetGene.getGeneId());
-
-            if (unmappedTargetCigars == null) {
-                unmappedTargetCigars = targetGene.getTranscripts().stream().map(t -> structureCigar(t, finalAllowedTypes)).toList();
-                targetCigars.put(targetGene.getGeneId(), unmappedTargetCigars);
-            }
-
-            for (var unmappedTargetCigar : unmappedTargetCigars) {
-                for (var queryCigarEntry : queryCigars.entrySet()) {
-                    var queryTranscriptCigars = queryCigarEntry.getValue();
-                    for (var queryCigar : queryTranscriptCigars) {
-                        if(targetGene.getGeneId().equals("ENSG00000162825") && queryCigarEntry.getKey().equals("ENSG00000122497")){
-                            var a = 2;
-                        }
-                        var score = cigarSimilarity(queryCigar, unmappedTargetCigar);
-
-                        if (score >= SIMILARITY_CUTOFF) {
-                            var queryGene = queryGtf.getGeneFeature(queryCigarEntry.getKey());
-                            targetPairsFoundComparingAgainstAllQueries.add(new GenePair(targetGene, queryGene));
-
-                            unmappedQueryGenes.remove(queryGene.getGeneId());
-                            unmappedTargetGenes.remove(targetGene.getGeneId());
-
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        var numUnmapped = idMapping.size() - results.size() - mappedNoSameIdWithCigar.size();
-        return List.of(results, mappedNoSameIdWithCigar, targetPairsFoundComparingAgainstAllQueries, queryPairsFoundComparingAgainstAllTargets);
-    }
-
-    private static List<GenePair> idMapping(GtfFile targetGtf, GtfFile queryGtf, Set<String> targetGeneIds, Set<String> queryGeneIds) {
-        var commonIds = new HashSet<>(targetGeneIds);
-        commonIds.retainAll(queryGeneIds);
-        var mapping = new ArrayList<GenePair>(commonIds.size());
-
-        for (var geneId : commonIds) {
-            mapping.add(new GenePair(targetGtf.getGeneFeature(geneId), queryGtf.getGeneFeature(geneId)));
-        }
-        return mapping;
-    }
-
-    private static List<GenePair> getGenesNoSameTranscript(List<GenePair> idMapping) {
-        var noSameTranscripts = new ArrayList<GenePair>();
-        for (var genePair : idMapping) {
-            var target = genePair.getTarget();
-            var query = genePair.getQuery();
-            var hasSameTranscript = false;
-
-            outerLoop:
-            for (var targetTranscript : target.getTranscripts()) {
-                var targetTranscriptId = targetTranscript.getTranscriptId();
-                for (var queryTranscript : query.getTranscripts()) {
-                    var queryTranscriptId = queryTranscript.getTranscriptId();
-
-                    if (queryTranscriptId.equals(targetTranscriptId)) {
-                        hasSameTranscript = true;
-                        break outerLoop;
-                    }
-                }
-            }
-
-            if (!hasSameTranscript) noSameTranscripts.add(genePair);
-        }
-        return noSameTranscripts;
-    }
-
-
-    private static LeftoverGeneIds getLeftoverGeneIds(Set<String> targetGeneIds, Set<String> queryGeneIds) {
-        var targetOnly = new HashSet<>(targetGeneIds);
-        targetOnly.removeAll(queryGeneIds);
-
-        var queryOnly = new HashSet<>(queryGeneIds);
-        queryOnly.removeAll(targetGeneIds);
-
-        return new LeftoverGeneIds(targetOnly, queryOnly);
-    }
-
-
-}
+package com.github.zimmerlab.gtfcompare.newmapping;import com.github.kleinsamuel.gtfutils.GtfFile;import com.github.zimmerlab.gtfcompare.model.GenePair;import com.github.zimmerlab.gtfcompare.utils.Constants;import java.util.*;import java.util.stream.Collectors;import java.util.stream.Stream;import static com.github.zimmerlab.gtfcompare.newmapping.Cigar.cigarSimilarity;import static com.github.zimmerlab.gtfcompare.newmapping.Cigar.structureCigar;import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.SIMILARITY_CUTOFF;// TODO single exons sequenz homology?public class Mapping {    private record LeftoverGeneIds(Set<String> targetOnly, Set<String> queryOnly) {    }    public record MappingResult(List<GenePair> results, Set<String> unmappedQueries, Set<String> unmappedTargets) {    }    public static MappingResult map(GtfFile targetGtf, GtfFile queryGtf, Set<String> allowedTypes) {        var targetGeneIds = new HashSet<>(targetGtf.getAllGeneFeatureIds());        var queryGeneIds = new HashSet<>(queryGtf.getAllGeneFeatureIds());        var idMapping = idMapping(targetGtf, queryGtf, targetGeneIds, queryGeneIds);        if (allowedTypes == null) {            allowedTypes = new HashSet<>(Constants.FEATURE_TYPES);        }        Set<String> finalAllowedTypes = allowedTypes;        var leftOvers = getLeftoverGeneIds(targetGeneIds, queryGeneIds);        var targetLeftOverCigars = buildLeftOverCigars(targetGtf, leftOvers.targetOnly, finalAllowedTypes);        var queryLeftOverCigars = buildLeftOverCigars(queryGtf, leftOvers.queryOnly, finalAllowedTypes);        var unmappedQueryGenes = new HashSet<>(queryLeftOverCigars.keySet());        var unmappedTargetGenes = new HashSet<>(targetLeftOverCigars.keySet());        var targetCigars = new HashMap<String, List<List<CigarOp>>>();        var queryCigars = new HashMap<String, List<List<CigarOp>>>();        // 1) Evaluate initial id-based mapping        var results = new LinkedList<>(evaluateIdBasedMappings(idMapping, finalAllowedTypes, targetLeftOverCigars, queryLeftOverCigars, unmappedTargetGenes, unmappedQueryGenes, targetCigars, queryCigars));        // 2) Map remaining genes that have no same ID but similar cigar structure        var mappedNoSameIdWithCigar = mapLeftOverGenesWithCigarSimilarity(targetGtf, queryGtf, targetLeftOverCigars, queryLeftOverCigars, targetCigars, queryCigars, unmappedTargetGenes, unmappedQueryGenes);        // 3) Try to rescue unmapped query genes by comparing them against all target cigars        var queryPairsFoundComparingAgainstAllTargets = mapUnmappedQueriesAgainstAllTargets(queryGtf, targetGtf, unmappedQueryGenes, unmappedTargetGenes, queryCigars, targetCigars, finalAllowedTypes);        // 4) Try to rescue unmapped target genes by comparing them against all query cigars        var targetPairsFoundComparingAgainstAllQueries = mapUnmappedTargetsAgainstAllQueries(targetGtf, queryGtf, unmappedTargetGenes, unmappedQueryGenes, targetCigars, queryCigars, finalAllowedTypes);        var mappings = Stream.of(results, mappedNoSameIdWithCigar, targetPairsFoundComparingAgainstAllQueries, queryPairsFoundComparingAgainstAllTargets).flatMap(Collection::stream).toList();        return new MappingResult(mappings, unmappedQueryGenes, unmappedTargetGenes);    }    private static Map<String, List<List<CigarOp>>> buildLeftOverCigars(GtfFile gtf, Set<String> geneIds, Set<String> allowedTypes) {        return geneIds.stream().collect(Collectors.toMap(geneId -> geneId, geneId -> gtf.getGeneFeature(geneId).getTranscripts().stream().map(transcript -> structureCigar(transcript, allowedTypes)).collect(Collectors.toList())));    }    private static List<GenePair> idMapping(GtfFile targetGtf, GtfFile queryGtf, Set<String> targetGeneIds, Set<String> queryGeneIds) {        var commonIds = new HashSet<>(targetGeneIds);        commonIds.retainAll(queryGeneIds);        var mapping = new ArrayList<GenePair>(commonIds.size());        for (var geneId : commonIds) {            mapping.add(new GenePair(targetGtf.getGeneFeature(geneId), queryGtf.getGeneFeature(geneId)));        }        return mapping;    }    private static LeftoverGeneIds getLeftoverGeneIds(Set<String> targetGeneIds, Set<String> queryGeneIds) {        var targetOnly = new HashSet<>(targetGeneIds);        targetOnly.removeAll(queryGeneIds);        var queryOnly = new HashSet<>(queryGeneIds);        queryOnly.removeAll(targetGeneIds);        return new LeftoverGeneIds(targetOnly, queryOnly);    }    private static List<GenePair> evaluateIdBasedMappings(List<GenePair> idMapping, Set<String> allowedTypes, Map<String, List<List<CigarOp>>> targetLeftOverCigars, Map<String, List<List<CigarOp>>> queryLeftOverCigars, Set<String> unmappedTargetGenes, Set<String> unmappedQueryGenes, Map<String, List<List<CigarOp>>> targetCigars, Map<String, List<List<CigarOp>>> queryCigars) {        var results = new LinkedList<GenePair>();        for (var genePair : idMapping) {            var target = genePair.getTarget();            var query = genePair.getQuery();            var targetGeneId = target.getGeneId();            var queryGeneId = query.getGeneId();            var bestScore = Double.NEGATIVE_INFINITY;            var firstRun = true;            for (var targetTranscript : target.getTranscripts()) {                var targetCigar = structureCigar(targetTranscript, allowedTypes);                targetCigars.computeIfAbsent(targetGeneId, geneId -> new LinkedList<>()).add(targetCigar);                for (var queryTranscript : query.getTranscripts()) {                    var queryCigar = structureCigar(queryTranscript, allowedTypes);                    if (firstRun) {                        queryCigars.computeIfAbsent(queryGeneId, geneId -> new LinkedList<>()).add(queryCigar);                    }                    var score = cigarSimilarity(targetCigar, queryCigar);                    if (score > bestScore) {                        bestScore = score;                    }                }                firstRun = false;            }            if (bestScore >= SIMILARITY_CUTOFF) {                results.add(genePair);            } else {                var queryLeftOver = query.getTranscripts().stream().map(transcript -> structureCigar(transcript, allowedTypes)).collect(Collectors.toList());                var targetLeftOver = target.getTranscripts().stream().map(transcript -> structureCigar(transcript, allowedTypes)).collect(Collectors.toList());                queryLeftOverCigars.put(queryGeneId, queryLeftOver);                targetLeftOverCigars.put(targetGeneId, targetLeftOver);                unmappedTargetGenes.add(targetGeneId);                unmappedQueryGenes.add(queryGeneId);            }        }        return results;    }    private static List<GenePair> mapLeftOverGenesWithCigarSimilarity(GtfFile targetGtf, GtfFile queryGtf, Map<String, List<List<CigarOp>>> targetLeftOverCigars, Map<String, List<List<CigarOp>>> queryLeftOverCigars, Map<String, List<List<CigarOp>>> targetCigars, Map<String, List<List<CigarOp>>> queryCigars, Set<String> unmappedTargetGenes, Set<String> unmappedQueryGenes) {        var mappedNoSameIdWithCigar = new LinkedList<GenePair>();        for (var leftOverQueryEntry : queryLeftOverCigars.entrySet()) {            var queryGeneId = leftOverQueryEntry.getKey();            var queryTranscriptCigars = leftOverQueryEntry.getValue();            for (var leftOverTargetEntry : targetLeftOverCigars.entrySet()) {                var targetGeneId = leftOverTargetEntry.getKey();                var targetTranscriptCigars = leftOverTargetEntry.getValue();                var bestScore = Double.NEGATIVE_INFINITY;                for (var targetCigar : targetTranscriptCigars) {                    for (var queryCigar : queryTranscriptCigars) {                        var score = cigarSimilarity(targetCigar, queryCigar);                        bestScore = Math.max(bestScore, score);                    }                }                if (bestScore >= SIMILARITY_CUTOFF) {                    var targetGene = targetGtf.getGeneFeature(targetGeneId);                    var queryGene = queryGtf.getGeneFeature(queryGeneId);                    mappedNoSameIdWithCigar.add(new GenePair(targetGene, queryGene));                    targetCigars.put(targetGeneId, targetTranscriptCigars);                    queryCigars.put(queryGeneId, queryTranscriptCigars);                    unmappedQueryGenes.remove(queryGeneId);                    unmappedTargetGenes.remove(targetGeneId);                }            }        }        return mappedNoSameIdWithCigar;    }    private static List<GenePair> mapUnmappedQueriesAgainstAllTargets(GtfFile queryGtf, GtfFile targetGtf, Set<String> unmappedQueryGenes, Set<String> unmappedTargetGenes, Map<String, List<List<CigarOp>>> queryCigars, Map<String, List<List<CigarOp>>> targetCigars, Set<String> allowedTypes) {        var sourceIsQuery = true;        return rescueMappings(targetGtf, queryGtf, unmappedQueryGenes, unmappedTargetGenes, queryCigars, targetCigars, allowedTypes, sourceIsQuery);    }    private static List<GenePair> mapUnmappedTargetsAgainstAllQueries(GtfFile targetGtf, GtfFile queryGtf, Set<String> unmappedTargetGenes, Set<String> unmappedQueryGenes, Map<String, List<List<CigarOp>>> targetCigars, Map<String, List<List<CigarOp>>> queryCigars, Set<String> allowedTypes) {        var sourceIsQuery = false;        return rescueMappings(targetGtf, queryGtf, unmappedTargetGenes, unmappedQueryGenes, targetCigars, queryCigars, allowedTypes, sourceIsQuery);    }    private static List<GenePair> rescueMappings(GtfFile targetGtf, GtfFile queryGtf, Set<String> unmappedSourceGenes, Set<String> unmappedTargetGenes, Map<String, List<List<CigarOp>>> sourceCigars, Map<String, List<List<CigarOp>>> targetCigars, Set<String> allowedTypes, boolean sourceIsQuery) {        var pairsFound = new LinkedList<GenePair>();        var unmappedSourceCopy = List.copyOf(unmappedSourceGenes);        var sourceGtf = sourceIsQuery ? queryGtf : targetGtf;        var targetCigarGtf = sourceIsQuery ? targetGtf : queryGtf;        for (var unmappedSourceGeneId : unmappedSourceCopy) {            var sourceGene = sourceGtf.getGeneFeature(unmappedSourceGeneId);            var sourceGeneId = sourceGene.getGeneId();            var sourceTranscriptCigars = sourceCigars.get(sourceGeneId);            if (sourceTranscriptCigars == null) {                sourceTranscriptCigars = sourceGene.getTranscripts().stream().map(t -> structureCigar(t, allowedTypes)).toList();                sourceCigars.put(sourceGeneId, sourceTranscriptCigars);            }            boolean mapped = false;            for (var sourceCigar : sourceTranscriptCigars) {                for (var targetCigarEntry : targetCigars.entrySet()) {                    var targetGeneId = targetCigarEntry.getKey();                    var targetTranscriptCigars = targetCigarEntry.getValue();                    for (var targetCigar : targetTranscriptCigars) {                        var score = cigarSimilarity(sourceCigar, targetCigar);                        if (score >= SIMILARITY_CUTOFF) {                            var targetGene = targetCigarGtf.getGeneFeature(targetGeneId);                            // Decide which gene is target and which is query for GenePair                            var targetGeneFeature = sourceIsQuery ? targetGene : sourceGene;                            var queryGeneFeature = sourceIsQuery ? sourceGene : targetGene;                            pairsFound.add(new GenePair(targetGeneFeature, queryGeneFeature));                            unmappedSourceGenes.remove(sourceGeneId);                            unmappedTargetGenes.remove(targetGene.getGeneId());                            mapped = true;                            break;                        }                    }                    if (mapped) break;                }                if (mapped) break;            }        }        return pairsFound;    }    private static List<GenePair> getGenesNoSameTranscript(List<GenePair> idMapping) {        var noSameTranscripts = new ArrayList<GenePair>();        for (var genePair : idMapping) {            var target = genePair.getTarget();            var query = genePair.getQuery();            var hasSameTranscript = false;            outerLoop:            for (var targetTranscript : target.getTranscripts()) {                var targetTranscriptId = targetTranscript.getTranscriptId();                for (var queryTranscript : query.getTranscripts()) {                    var queryTranscriptId = queryTranscript.getTranscriptId();                    if (queryTranscriptId.equals(targetTranscriptId)) {                        hasSameTranscript = true;                        break outerLoop;                    }                }            }            if (!hasSameTranscript) noSameTranscripts.add(genePair);        }        return noSameTranscripts;    }}
