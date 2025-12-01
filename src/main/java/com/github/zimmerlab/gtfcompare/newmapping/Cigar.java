@@ -3,7 +3,11 @@ package com.github.zimmerlab.gtfcompare.newmapping;
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
+import com.github.zimmerlab.gtfcompare.newmapping.seqhomology.AlignmentUtil;
+import com.github.zimmerlab.gtfcompare.newmapping.seqhomology.SeqHomologyUtil;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -11,22 +15,37 @@ import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.SHORT_
 import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.STRICT_SHORT_MIN_SIM;
 
 public class Cigar {
-    public static List<CigarOp> structureCigar(TranscriptFeature feature, Set<String> allowedTypes) {
+    private static final SeqHomologyUtil seqHomologyUtil = new AlignmentUtil();
+    public static List<CigarOp> structureCigar(TranscriptFeature feature, Set<String> allowedTypes, GenomeSequenceExtractor sequenceExtractor) {
         var result = new ArrayList<CigarOp>();
 
-        feature.getFeatures().stream().sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).forEach(g -> {
+        var features = feature.getFeatures()
+                .stream()
+                .filter(f -> allowedTypes.contains(GtfConfig.getDefault(f.getBaseData().getType())))
+                .sorted(Comparator.comparingInt(f -> f.getBaseData().getStart()))
+                .toList();
+
+        for (var g : features){
             var baseData = g.getBaseData();
             var type = baseData.getType();
-            var defaultType = GtfConfig.getDefault(type);
-
-            if (!allowedTypes.contains(defaultType)) return;
 
             var start = baseData.getStart();
             var stop = baseData.getEnd();
 
             var len = stop - start + 1;
-            result.add(new CigarOp(type, len));
-        });
+            String seq = null;
+
+            /*if(features.size() == 1){
+                try {
+
+                    seq = sequenceExtractor.getSequence(baseData.getContig(), start, stop);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }*/
+
+            result.add(new CigarOp(type, len, seq));
+        }
 
         return result;
     }
@@ -93,7 +112,4 @@ public class Cigar {
         return baseSimilarity;
     }
 
-    public static List<List<CigarOp>> getOrBuildCigars(Map<String, List<List<CigarOp>>> cache, GeneFeature gene, Set<String> allowedTypes) {
-        return cache.computeIfAbsent(gene.getGeneId(), id -> gene.getTranscripts().stream().map(t -> structureCigar(t, allowedTypes)).collect(Collectors.toList()));
-    }
 }

@@ -4,6 +4,8 @@ package com.github.zimmerlab.gtfcompare.runner;
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
+import com.github.zimmerlab.gtfcompare.parser.FidxParser;
+import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,6 +29,10 @@ public class NewMappingRunner implements CommandLineRunner {
         Options o = new Options();
         o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
         o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to target gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("target-fasta").numberOfArgs(1).required().desc("Path to target fasta file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("query-fasta").numberOfArgs(1).required().desc("Path to query fasta file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("query-fai").numberOfArgs(1).required().desc("Path to query fai file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("target-fai").numberOfArgs(1).required().desc("Path to target fai file").type(File.class).build());
         o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
         o.addOption(Option.builder().longOpt("output").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
         o.addOption(Option.builder().longOpt("allowed-types").hasArg().desc("Comma-separated list of allowed types").build());
@@ -81,11 +87,20 @@ public class NewMappingRunner implements CommandLineRunner {
 
         var queryPath = cmd.getOptionValue("query-gtf");
         var targetPath = cmd.getOptionValue("target-gtf");
+        var targetFastaPath = new File(cmd.getOptionValue("target-fasta"));
+        var queryFastaPath = new File(cmd.getOptionValue("query-fasta"));
+        var targetFaiPath = cmd.getOptionValue("target-fai");
+        var queryFaiPath = cmd.getOptionValue("query-fai");
         var outputPath = cmd.getOptionValue("output");
 
         var targetGtf = new GtfFile(new File(targetPath));
         var queryGtf = new GtfFile(new File(queryPath));
 
+        var targetFai = FidxParser.parse(targetFaiPath);
+        var queryFai = FidxParser.parse(queryFaiPath);
+
+        var targetSequenceExtractor = new GenomeSequenceExtractor(targetFastaPath, targetFai);
+        var querySequenceExtractor = new GenomeSequenceExtractor(queryFastaPath, queryFai);
 
         try {
             while (true) {
@@ -96,7 +111,7 @@ public class NewMappingRunner implements CommandLineRunner {
                 String q = queryGtf.getParsedContig();
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
 
-                var res = Mapping.map(targetGtf, queryGtf, allowedTypes);
+                var res = Mapping.map(targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor);
             }
         } catch (java.text.ParseException e) {
             logger.debug("Program finished: {}", e.getMessage());
