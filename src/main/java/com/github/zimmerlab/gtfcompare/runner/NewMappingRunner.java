@@ -4,17 +4,23 @@ package com.github.zimmerlab.gtfcompare.runner;
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
+import com.github.zimmerlab.gtfcompare.newmapping.outpututil.MappingOutputWriter;
+import com.github.zimmerlab.gtfcompare.newmapping.outpututil.UnmappedWriter;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.util.Arrays;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -69,10 +75,9 @@ public class NewMappingRunner implements CommandLineRunner {
 
             for (var type : cmd.getOptionValue("allowed-types").split(",")) {
                 var defaultType = GtfConfig.getDefault(type);
-                if(defaultType != null) {
+                if (defaultType != null) {
                     set.add(defaultType);
-                }
-                else {
+                } else {
                     logger.info("Skipping type {} - no default value found", type);
                 }
             }
@@ -80,7 +85,7 @@ public class NewMappingRunner implements CommandLineRunner {
             allowedTypes = set.isEmpty() ? null : set;
         }
 
-        if(cmd.hasOption("allowed-types") && allowedTypes == null){
+        if (cmd.hasOption("allowed-types") && allowedTypes == null) {
             logger.info("no valid types given - using default values for allowed-types");
         }
 
@@ -102,7 +107,12 @@ public class NewMappingRunner implements CommandLineRunner {
         var targetSequenceExtractor = new GenomeSequenceExtractor(targetFastaPath, targetFai);
         var querySequenceExtractor = new GenomeSequenceExtractor(queryFastaPath, queryFai);
 
-        try {
+
+        try (var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8));
+             var unmappedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + ".unmapped"), StandardCharsets.UTF_8))) {
+
+            writer.write("queryId\ttargetId\torigin\n");
+            unmappedWriter.write("geneId\torigin\n");
             while (true) {
                 targetGtf.parseNextContig();
                 queryGtf.parseNextContig();
@@ -111,7 +121,11 @@ public class NewMappingRunner implements CommandLineRunner {
                 String q = queryGtf.getParsedContig();
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
 
+                logger.info("Current Contig: {}", t);
                 var res = Mapping.map(targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor);
+                MappingOutputWriter.write(res.results(), writer);
+                UnmappedWriter.write(res.unmappedQueries(), q, "QUERY", unmappedWriter);
+                UnmappedWriter.write(res.unmappedTargets(), t, "TARGET", unmappedWriter);
             }
         } catch (java.text.ParseException e) {
             logger.debug("Program finished: {}", e.getMessage());
