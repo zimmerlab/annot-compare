@@ -85,7 +85,7 @@ public class Similarity {
         return similarityScore / (double) maxSize;
     }
 
-    private static double handleSingleExon(List<CigarOp> a, List<CigarOp> b) {
+    private static double handleSingleFeature(List<CigarOp> a, List<CigarOp> b) {
         var opA = a.getFirst();
         var opB = b.getFirst();
 
@@ -99,16 +99,12 @@ public class Similarity {
         var baseSimilarity = 1.0 - relDiff;
 
 
-        if(baseSimilarity >= SIMILARITY_CUTOFF){
-            return seqHomologyUtil.calculate(opA.seq(), opB.seq());
-        }
-
-        return baseSimilarity;
+        return baseSimilarity >= SIMILARITY_CUTOFF ? seqHomologyUtil.calculate(opA.seq(), opB.seq()) : 0;
     }
 
     public static boolean isSimilar(List<CigarOp> a, List<CigarOp> b) {
         if(a.size() == 1 && b.size() == 1) {
-            return handleSingleExon(a, b) >= SEQ_HOMOLOGY_CUTOFF;
+            return handleSingleFeature(a, b) >= SEQ_HOMOLOGY_CUTOFF;
         }
 
         return cigarSimilarity(a, b) >=  SIMILARITY_CUTOFF;
