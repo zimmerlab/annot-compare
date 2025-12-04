@@ -8,10 +8,10 @@ import java.util.List;
 
 public class MappingOutputWriter {
 
-    public static void write(List<ResultWithOrigin> results, Writer writer) throws IOException {
+    public static void write(List<ResultWithOrigin> results, String contig, Writer writer) throws IOException {
         for(var res : results) {
             var genePair = res.genePair();
-            writer.write(String.format("%s\t%s\t%s\n", genePair.getQuery().getGeneId(), genePair.getTarget().getGeneId(), res.origin()));
+            writer.write(String.format("%s\t%s\t%s\t%s\n", contig, genePair.getQuery().getGeneId(), genePair.getTarget().getGeneId(), res.origin()));
         }
     }
 }

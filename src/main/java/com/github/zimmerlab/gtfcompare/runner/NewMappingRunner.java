@@ -123,7 +123,7 @@ public class NewMappingRunner implements CommandLineRunner {
 
                 logger.info("Current Contig: {}", t);
                 var res = Mapping.map(targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor);
-                MappingOutputWriter.write(res.results(), writer);
+                MappingOutputWriter.write(res.results(), t, writer);
                 UnmappedWriter.write(res.unmappedQueries(), q, "QUERY", unmappedWriter);
                 UnmappedWriter.write(res.unmappedTargets(), t, "TARGET", unmappedWriter);
             }
