@@ -1,6 +1,8 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
+import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
+import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -74,6 +77,13 @@ public class SequenceExtractorRunner implements CommandLineRunner {
                 .type(String.class)
                 .build());
 
+        o.addOption(Option.builder()
+                .longOpt("feature")
+                .numberOfArgs(1)
+                .desc("feature")
+                .type(String.class)
+                .build());
+
 
         CommandLineParser parser = new DefaultParser();
 
@@ -112,6 +122,12 @@ public class SequenceExtractorRunner implements CommandLineRunner {
             System.exit(1);
         }
 
+        String feature = null;
+        if (cmd.hasOption("feature")) {
+            feature = cmd.getOptionValue("feature");
+        }
+
+
 
 
 
@@ -131,17 +147,27 @@ public class SequenceExtractorRunner implements CommandLineRunner {
 
         for(var geneId : genes){
             for(var transcript : gtfFile.getGeneFeature(geneId).getTranscripts()){
-                var transcriptSeq = targetSequenceExtractor.getSequence(transcript.getBaseData().getContig(), transcript.getBaseData().getStart(), transcript.getBaseData().getEnd());
+                var seq = feature != null ? getSequenceByType(transcript, feature, targetSequenceExtractor) : targetSequenceExtractor.getSequence(transcript.getBaseData().getContig(), transcript.getBaseData().getStart(), transcript.getBaseData().getEnd());
                 try (BufferedWriter writer = Files.newBufferedWriter(Path.of(cmd.getOptionValue("o"), transcript.getTranscriptId() + ".fasta"))) {
                     writer.write(">" + transcript.getTranscriptId() + "\n");
-                    writer.write(transcriptSeq + "\n");
+                    writer.write(seq + "\n");
 
                 }
             }
         }
+    }
 
+    private static String getSequenceByType(TranscriptFeature transcript, String feature, GenomeSequenceExtractor genomeSequenceExtractor) throws IOException {
+        var filteredTranscriptFeatures = transcript.getFeatures(GtfConfig.getDefault(feature));
+        if(filteredTranscriptFeatures.isEmpty()) return "";
+        var transcriptBaseData = transcript.getBaseData();
+        var seq = new StringBuilder();
+        for(var filteredFeature : filteredTranscriptFeatures){
+            var filteredFeatureBaseData = filteredFeature.getBaseData();
+            seq.append(genomeSequenceExtractor.getSequence(transcriptBaseData.getContig(), filteredFeatureBaseData.getStart(), filteredFeatureBaseData.getEnd()));
+        }
 
-
+        return seq.toString();
     }
 
 }
