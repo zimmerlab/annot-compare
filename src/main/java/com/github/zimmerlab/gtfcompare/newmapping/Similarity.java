@@ -41,7 +41,7 @@ public class Similarity {
                 }
             }
 
-            result.add(new CigarOp(type, len, seq));
+            result.add(new CigarOp(feature.getTranscriptId(), type, len, seq));
         }
 
         return result;
@@ -73,10 +73,6 @@ public class Similarity {
             } else {
                 var relDiff = Math.abs(lenA - lenB) / (double) maxLen;
                 var posSimilarity = 1.0 - relDiff;
-
-                if (maxLen <= SHORT_EXON_THRESHOLD) {
-                    posSimilarity = posSimilarity >= STRICT_SHORT_MIN_SIM ? posSimilarity : 0.0;
-                }
 
                 similarityScore += posSimilarity;
             }

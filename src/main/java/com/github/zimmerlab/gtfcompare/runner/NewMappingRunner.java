@@ -111,8 +111,8 @@ public class NewMappingRunner implements CommandLineRunner {
         try (var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8));
              var unmappedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + ".unmapped"), StandardCharsets.UTF_8))) {
 
-            writer.write("queryId\ttargetId\torigin\n");
-            unmappedWriter.write("geneId\torigin\n");
+            writer.write("contig\tqueryId\ttargetId\tmapping_origins\n");
+            unmappedWriter.write("contig\tgeneId\torigin\tname\n");
             while (true) {
                 targetGtf.parseNextContig();
                 queryGtf.parseNextContig();
