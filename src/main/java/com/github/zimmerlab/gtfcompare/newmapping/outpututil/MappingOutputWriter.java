@@ -12,7 +12,8 @@ public class MappingOutputWriter {
     public static void write(List<ResultWithOrigin> results, String contig, Writer writer) throws IOException {
         for (var res : results) {
             var genePair = res.genePair();
-            writer.write(String.format("%s\t%s\t%s\t%s\n", contig, genePair.getQuery().getGeneId(), genePair.getTarget().getGeneId(), res.origins().stream().map(Enum::name).collect(Collectors.joining(","))));
+            var origins = res.origins().stream().map(Enum::name).collect(Collectors.joining(","));
+            writer.write(String.format("%s\t%s\t%s\t%s\t%s\t%s\n", contig, genePair.getQuery().getGeneId(), genePair.getTarget().getGeneId(), res.queryTranscriptId(), res.targetTranscriptId(), origins));
         }
     }
 }

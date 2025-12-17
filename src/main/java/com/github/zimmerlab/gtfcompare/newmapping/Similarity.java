@@ -41,7 +41,7 @@ public class Similarity {
                 }
             }
 
-            result.add(new CigarOp(feature.getTranscriptId(), type, len, seq));
+            result.add(new CigarOp(type, len, seq));
         }
 
         return result;
