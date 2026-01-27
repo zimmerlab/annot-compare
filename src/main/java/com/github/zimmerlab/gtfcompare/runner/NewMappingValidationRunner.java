@@ -1,11 +1,13 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
-
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
+import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.MappingOutputWriter;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.UnmappedWriter;
+import com.github.zimmerlab.gtfcompare.newmappingval.MappingFileParser;
+import com.github.zimmerlab.gtfcompare.newmappingval.MappingValWriter;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.commons.cli.*;
@@ -20,14 +22,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-@Profile("newMapping")
+@Profile("newMappingVal")
 @Service
-public class NewMappingRunner implements CommandLineRunner {
-    private final static Logger logger = LogManager.getLogger(NewMappingRunner.class);
+public class NewMappingValidationRunner implements CommandLineRunner {
+    private final static Logger logger = LogManager.getLogger(NewMappingValidationRunner.class);
 
     @Override
     public void run(String... args) throws Exception {
@@ -39,6 +42,7 @@ public class NewMappingRunner implements CommandLineRunner {
         o.addOption(Option.builder().longOpt("query-fai").numberOfArgs(1).required().desc("Path to query fai file").type(File.class).build());
         o.addOption(Option.builder().longOpt("target-fai").numberOfArgs(1).required().desc("Path to target fai file").type(File.class).build());
         o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("mapping").numberOfArgs(1).required().desc("Path to mapping file").type(File.class).build());
         o.addOption(Option.builder().longOpt("output").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
         o.addOption(Option.builder().longOpt("allowed-types").hasArg().desc("Comma-separated list of allowed types").build());
         CommandLineParser parser = new DefaultParser();
@@ -95,6 +99,7 @@ public class NewMappingRunner implements CommandLineRunner {
         var queryFastaPath = new File(cmd.getOptionValue("query-fasta"));
         var targetFaiPath = cmd.getOptionValue("target-fai");
         var queryFaiPath = cmd.getOptionValue("query-fai");
+        var mappingPath = cmd.getOptionValue("mapping");
         var outputPath = cmd.getOptionValue("output");
 
         var targetGtf = new GtfFile(new File(targetPath));
@@ -107,11 +112,11 @@ public class NewMappingRunner implements CommandLineRunner {
         var querySequenceExtractor = new GenomeSequenceExtractor(queryFastaPath, queryFai);
 
 
-        try (var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8));
-             var unmappedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + ".unmapped"), StandardCharsets.UTF_8))) {
+        var mappingParser = new MappingFileParser();
+        var seqSame = new ArrayList<TranscriptPair>();
+        var seqDifferent = new ArrayList<TranscriptPair>();
 
-            writer.write("contig\tqueryId\ttargetId\tqueryTranscriptId\ttargetTranscriptId\tmapping_origins\n");
-            unmappedWriter.write("contig\tgeneId\tname\torigin\n");
+        try{
             while (true) {
                 targetGtf.parseNextContig();
                 queryGtf.parseNextContig();
@@ -119,19 +124,38 @@ public class NewMappingRunner implements CommandLineRunner {
                 String t = targetGtf.getParsedContig();
                 String q = queryGtf.getParsedContig();
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
+                var mapping = mappingParser.parse(mappingPath, t, queryGtf, targetGtf);
 
                 logger.info("Current Contig: {}", t);
-                var res = Mapping.map(targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor);
-                MappingOutputWriter.write(res.results(), t, writer);
-                UnmappedWriter.write(res.unmappedQueries(), q, "QUERY", unmappedWriter);
-                UnmappedWriter.write(res.unmappedTargets(), t, "TARGET", unmappedWriter);
+
+                for(var transcripts : mapping){
+                    var targetTranscript = transcripts.getTarget();
+                    var queryTranscript = transcripts.getQuery();
+
+                    var targetTranscriptBaseData = targetTranscript.getBaseData();
+                    var queryTranscriptBaseData = queryTranscript.getBaseData();
+
+                    var targetSeq = targetSequenceExtractor.getSequence(targetTranscriptBaseData.getContig(), targetTranscriptBaseData.getStart(),  targetTranscriptBaseData.getEnd());
+                    var querySeq = querySequenceExtractor.getSequence(queryTranscriptBaseData.getContig(), queryTranscriptBaseData.getStart(), queryTranscriptBaseData.getEnd());
+
+                    if(targetSeq.equals(querySeq)) {
+                        seqSame.add(transcripts);
+                    } else {
+                        seqDifferent.add(transcripts);
+                    }
+                }
             }
-        } catch (java.text.ParseException e) {
-            logger.debug("Program finished: {}", e.getMessage());
-        } catch (Exception e) {
-            logger.error("Program failed", e);
+        }
+        catch(java.text.ParseException pe) {
+            logger.info("Parsing finished.");
+        }
+        catch
+         (Exception e){
+            logger.error(e.getMessage());
         }
 
-    }
-}
+        MappingValWriter.write(outputPath, seqSame, seqDifferent);
 
+    }
+
+}

@@ -35,6 +35,7 @@ public class Application {
         modeDescriptions.put("benchmark", "Benchmark mode");
         modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
         modeDescriptions.put("newMapping", "New Mapping mode");
+        modeDescriptions.put("newMappingVal", "New Mapping Validation mode");
 
         return modeDescriptions;
     }
@@ -92,6 +93,10 @@ public class Application {
                 break;
             case "newMapping":
                 builder.profiles("newMapping");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "newMappingVal":
+                builder.profiles("newMappingVal");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:
