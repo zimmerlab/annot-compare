@@ -5,7 +5,10 @@ import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.newmapping.model.CigarOp;
 import com.github.zimmerlab.gtfcompare.newmapping.seqhomology.AlignmentUtil;
 import com.github.zimmerlab.gtfcompare.newmapping.seqhomology.SeqHomologyUtil;
+import com.github.zimmerlab.gtfcompare.runner.NewMappingRunner;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.*;
@@ -13,6 +16,7 @@ import java.util.*;
 import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.*;
 
 public class Similarity {
+    private final static Logger logger = LogManager.getLogger(Similarity.class);
     private static final SeqHomologyUtil seqHomologyUtil = new AlignmentUtil();
     public static List<CigarOp> structureCigar(TranscriptFeature feature, Set<String> allowedTypes, GenomeSequenceExtractor sequenceExtractor) {
         var result = new ArrayList<CigarOp>();
@@ -104,5 +108,53 @@ public class Similarity {
         }
 
         return cigarSimilarity(a, b) >=  SIMILARITY_CUTOFF;
+    }
+
+    public static boolean isSimilarHomology(TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor) {
+        var targetSeq = new StringBuilder();
+        var querySeq = new StringBuilder();
+
+        var targetCds = targetTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).toList();
+        var queryCds = queryTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).toList();
+
+        for(var cds : targetCds){
+            var baseData = cds.getBaseData();
+
+            var start = baseData.getStart();
+            var stop = baseData.getEnd();
+            var contig = baseData.getContig();
+
+            String cdsSeq = null;
+            try{
+                cdsSeq = targetSequenceExtractor.getSequence(contig, start, stop);
+            } catch (IOException e) {
+                logger.warn(e.getMessage());
+                continue;
+            }
+
+            if(cdsSeq == null) continue;
+            targetSeq.append(cdsSeq);
+        }
+
+        for(var cds : queryCds){
+            var baseData = cds.getBaseData();
+
+            var start = baseData.getStart();
+            var stop = baseData.getEnd();
+            var contig = baseData.getContig();
+
+            String cdsSeq = null;
+            try{
+                cdsSeq = targetSequenceExtractor.getSequence(contig, start, stop);
+            } catch (IOException e) {
+                logger.warn(e.getMessage());
+                continue;
+            }
+
+            if(cdsSeq == null) continue;
+            targetSeq.append(cdsSeq);
+        }
+
+        return targetSeq.toString().contentEquals(querySeq);
     }
 }

@@ -112,7 +112,7 @@ public class NewMappingValidationRunner implements CommandLineRunner {
         var querySequenceExtractor = new GenomeSequenceExtractor(queryFastaPath, queryFai);
 
 
-        var mappingParser = new MappingFileParser();
+
         var seqSame = new ArrayList<TranscriptPair>();
         var seqDifferent = new ArrayList<TranscriptPair>();
 
@@ -124,6 +124,7 @@ public class NewMappingValidationRunner implements CommandLineRunner {
                 String t = targetGtf.getParsedContig();
                 String q = queryGtf.getParsedContig();
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
+                var mappingParser = new MappingFileParser();
                 var mapping = mappingParser.parse(mappingPath, t, queryGtf, targetGtf);
 
                 logger.info("Current Contig: {}", t);
