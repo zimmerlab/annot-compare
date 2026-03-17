@@ -99,6 +99,10 @@ public class Application {
                 builder.profiles("newMappingVal");
                 builder.web(WebApplicationType.NONE);
                 break;
+            case "filterGeneMappings":
+                builder.profiles("filterGeneMappings");
+                builder.web(WebApplicationType.NONE);
+                break;
             default:
                 LOG.error("Unknown mode: {}", mode);
                 printModeUsage(modeDescriptions);

@@ -4,6 +4,7 @@ package com.github.zimmerlab.gtfcompare.runner;
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
+import com.github.zimmerlab.gtfcompare.newmapping.NewMappingConstants;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.MappingOutputWriter;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.UnmappedWriter;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
@@ -31,6 +32,7 @@ public class NewMappingRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        var startTime =  System.currentTimeMillis();
         Options o = new Options();
         o.addOption(Option.builder().option("h").longOpt("help").desc("Print the help message").build());
         o.addOption(Option.builder().longOpt("target-gtf").numberOfArgs(1).required().desc("Path to target gtf file").type(File.class).build());
@@ -110,7 +112,7 @@ public class NewMappingRunner implements CommandLineRunner {
         try (var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8));
              var unmappedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + ".unmapped"), StandardCharsets.UTF_8))) {
 
-            writer.write("contig\tqueryId\ttargetId\tqueryTranscriptId\ttargetTranscriptId\tmapping_origins\n");
+            writer.write(NewMappingConstants.OUTPUT_HEADER);
             unmappedWriter.write("contig\tgeneId\tname\torigin\n");
             while (true) {
                 targetGtf.parseNextContig();
@@ -132,6 +134,13 @@ public class NewMappingRunner implements CommandLineRunner {
             logger.error("Program failed", e);
         }
 
+        var overallTime =  System.currentTimeMillis() - startTime;
+
+        try(var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + ".overall_time"), StandardCharsets.UTF_8))){
+            writer.write(overallTime + "\n");
+        } catch (Exception e){
+            logger.error("Could not write time", e);
+        }
     }
 }
 

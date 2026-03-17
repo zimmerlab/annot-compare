@@ -114,6 +114,8 @@ public class Similarity {
         var targetSeq = new StringBuilder();
         var querySeq = new StringBuilder();
 
+
+        // TODO STRAND
         var targetCds = targetTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).toList();
         var queryCds = queryTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).toList();
 

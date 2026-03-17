@@ -13,7 +13,10 @@ public class MappingOutputWriter {
         for (var res : results) {
             var genePair = res.genePair();
             var origins = res.origins().stream().map(Enum::name).collect(Collectors.joining(","));
-            writer.write(String.format("%s\t%s\t%s\t%s\t%s\t%s\n", contig, genePair.getQuery().getGeneId(), genePair.getTarget().getGeneId(), res.queryTranscriptId(), res.targetTranscriptId(), origins));
+            var distance = res.geneDistance();
+
+
+            writer.write(String.format("%s\t%s\t%s\t%s\t%s\t%s,DISTANCE:%s\n", contig, genePair.getQuery().getGeneId(), genePair.getTarget().getGeneId(), res.queryTranscriptId(), res.targetTranscriptId(), origins, distance));
         }
     }
 }
