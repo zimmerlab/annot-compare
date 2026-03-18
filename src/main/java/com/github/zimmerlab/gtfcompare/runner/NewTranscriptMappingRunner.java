@@ -1,10 +1,11 @@
 package com.github.zimmerlab.gtfcompare.runner;
 
-
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
+import com.github.zimmerlab.gtfcompare.newmapping.MappingParser;
 import com.github.zimmerlab.gtfcompare.newmapping.MappingFileConstants;
+import com.github.zimmerlab.gtfcompare.newmapping.TranscriptMapping;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.MappingOutputWriter;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.UnmappedWriter;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
@@ -25,10 +26,10 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-@Profile("newMapping")
+@Profile("newTranscriptMapping")
 @Service
-public class NewMappingRunner implements CommandLineRunner {
-    private final static Logger logger = LogManager.getLogger(NewMappingRunner.class);
+public class NewTranscriptMappingRunner implements CommandLineRunner {
+    private final static Logger logger = LogManager.getLogger(NewTranscriptMappingRunner.class);
 
     @Override
     public void run(String... args) throws Exception {
@@ -42,6 +43,7 @@ public class NewMappingRunner implements CommandLineRunner {
         o.addOption(Option.builder().longOpt("target-fai").numberOfArgs(1).required().desc("Path to target fai file").type(File.class).build());
         o.addOption(Option.builder().longOpt("query-gtf").numberOfArgs(1).required().desc("Path to query gtf file").type(File.class).build());
         o.addOption(Option.builder().longOpt("output").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
+        o.addOption(Option.builder().longOpt("gene-mapping").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
         o.addOption(Option.builder().longOpt("allowed-types").hasArg().desc("Comma-separated list of allowed types").build());
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
@@ -50,7 +52,7 @@ public class NewMappingRunner implements CommandLineRunner {
             cmd = parser.parse(o, args);
         } catch (ParseException e) {
             HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("newMapping", o, true);
+            formatter.printHelp("newTranscriptMapping", o, true);
             System.exit(1);
         }
 
@@ -61,6 +63,11 @@ public class NewMappingRunner implements CommandLineRunner {
 
         if (!cmd.hasOption("query-gtf")) {
             logger.error("No query gtf specified");
+            System.exit(1);
+        }
+
+        if (!cmd.hasOption("gene-mapping")) {
+            logger.error("No gene-mapping specified");
             System.exit(1);
         }
 
@@ -97,6 +104,7 @@ public class NewMappingRunner implements CommandLineRunner {
         var queryFastaPath = new File(cmd.getOptionValue("query-fasta"));
         var targetFaiPath = cmd.getOptionValue("target-fai");
         var queryFaiPath = cmd.getOptionValue("query-fai");
+        var geneMappingPath =  cmd.getOptionValue("gene-mapping");
         var outputPath = cmd.getOptionValue("output");
 
         var targetGtf = new GtfFile(new File(targetPath));
@@ -108,6 +116,7 @@ public class NewMappingRunner implements CommandLineRunner {
         var targetSequenceExtractor = new GenomeSequenceExtractor(targetFastaPath, targetFai);
         var querySequenceExtractor = new GenomeSequenceExtractor(queryFastaPath, queryFai);
 
+        var mappingsPerContig = MappingParser.readMappingFile(geneMappingPath);
 
         try (var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8));
              var unmappedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + ".unmapped"), StandardCharsets.UTF_8))) {
@@ -123,8 +132,8 @@ public class NewMappingRunner implements CommandLineRunner {
                 if (!Objects.equals(t, q)) throw new Exception("Contigs do not match");
 
                 logger.info("Current Contig: {}", t);
-                var res = Mapping.map(targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor);
-                MappingOutputWriter.write(res.results(), t, writer);
+                var mappings = MappingParser.parseMappingFile(mappingsPerContig.get(t), targetGtf, queryGtf);
+                var res = TranscriptMapping.map(mappings, targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor, r -> MappingOutputWriter.write(r, t, writer));
                 UnmappedWriter.write(res.unmappedQueries(), q, "QUERY", unmappedWriter);
                 UnmappedWriter.write(res.unmappedTargets(), t, "TARGET", unmappedWriter);
             }
@@ -143,4 +152,3 @@ public class NewMappingRunner implements CommandLineRunner {
         }
     }
 }
-

@@ -13,13 +13,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static com.github.zimmerlab.gtfcompare.newmapping.NewMappingConstants.MAPPING_ORIGINS_COL;
+import static com.github.zimmerlab.gtfcompare.newmapping.MappingFileConstants.ORIGINS_IDX;
 
 
 public class FilterMappings {
     private final static Logger logger = LogManager.getLogger(FilterMappings.class);
 
-    public static List<String> parseMappingFile(String mappingFile, Set<MappingOrigin> allowedMappings, boolean requireAll) {
+    public static List<String> parseAndFilterMappingFile(String mappingFile, Set<MappingOrigin> allowedMappings, boolean requireAll) {
         var mapping = new LinkedList<String>();
 
         try (var reader = Files.newBufferedReader(Path.of(mappingFile))) {
@@ -36,7 +36,7 @@ public class FilterMappings {
         var foundOrigins = EnumSet.noneOf(MappingOrigin.class);
 
         var splitLine = line.split("\t");
-        var mappingOrigins = splitLine[MAPPING_ORIGINS_COL].split(",");
+        var mappingOrigins = splitLine[ORIGINS_IDX].split(",");
 
         for (var mappingOrigin : mappingOrigins) {
             var normalized = mappingOrigin.trim();
@@ -74,7 +74,7 @@ public class FilterMappings {
 
     public static void writeMappingFile(List<String> filteredMappings, String outputPath) {
         try (var writer = Files.newBufferedWriter(Path.of(outputPath), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)) {
-            writer.write(NewMappingConstants.OUTPUT_HEADER);
+            writer.write(MappingFileConstants.OUTPUT_HEADER);
             for (String filteredMapping : filteredMappings) {
                 writer.write(filteredMapping);
                 writer.newLine();

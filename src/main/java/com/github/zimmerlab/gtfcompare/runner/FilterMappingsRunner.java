@@ -10,9 +10,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedList;
 
 @Profile("filterGeneMappings")
 @Service
@@ -81,7 +79,7 @@ public class FilterMappingsRunner implements CommandLineRunner {
         }
 
 
-        var mappings = FilterMappings.parseMappingFile(mappingFile, allowedMappings, requireAll);
+        var mappings = FilterMappings.parseAndFilterMappingFile(mappingFile, allowedMappings, requireAll);
         FilterMappings.writeMappingFile(mappings, cmd.getOptionValue("output-file"));
     }
 }

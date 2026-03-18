@@ -18,16 +18,14 @@ import static com.github.zimmerlab.gtfcompare.newmapping.MappingConstants.*;
 public class Similarity {
     private final static Logger logger = LogManager.getLogger(Similarity.class);
     private static final SeqHomologyUtil seqHomologyUtil = new AlignmentUtil();
+
     public static List<CigarOp> structureCigar(TranscriptFeature feature, Set<String> allowedTypes, GenomeSequenceExtractor sequenceExtractor) {
         var result = new ArrayList<CigarOp>();
 
-        var features = feature.getFeatures()
-                .stream()
-                .filter(f -> allowedTypes.contains(GtfConfig.getDefault(f.getBaseData().getType())))
-                .sorted(Comparator.comparingInt(f -> f.getBaseData().getStart()))
-                .toList();
+        // TODO Strand
+        var features = feature.getFeatures().stream().filter(f -> allowedTypes.contains(GtfConfig.getDefault(f.getBaseData().getType()))).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
 
-        for (var g : features){
+        for (var g : features) {
             var baseData = g.getBaseData();
             var type = baseData.getType();
 
@@ -37,7 +35,7 @@ public class Similarity {
             var len = stop - start + 1;
             String seq = null;
 
-            if(features.size() == 1){
+            if (features.size() == 1) {
                 try {
                     seq = sequenceExtractor.getSequence(baseData.getContig(), start, stop);
                 } catch (IOException e) {
@@ -103,11 +101,11 @@ public class Similarity {
     }
 
     public static boolean isSimilar(List<CigarOp> a, List<CigarOp> b) {
-        if(a.size() == 1 && b.size() == 1) {
+        if (a.size() == 1 && b.size() == 1) {
             return handleSingleFeature(a, b) >= SEQ_HOMOLOGY_CUTOFF;
         }
 
-        return cigarSimilarity(a, b) >=  SIMILARITY_CUTOFF;
+        return cigarSimilarity(a, b) >= SIMILARITY_CUTOFF;
     }
 
     public static boolean isSimilarHomology(TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor) {
@@ -115,11 +113,13 @@ public class Similarity {
         var querySeq = new StringBuilder();
 
 
-        // TODO STRAND
-        var targetCds = targetTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).toList();
-        var queryCds = queryTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).toList();
+        var targetCds = targetTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
+        var queryCds = queryTranscript.getFeatures().stream().filter(f -> GtfConfig.TYPE_CDS_SYNONYMS.contains(f.getBaseData().getType())).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
 
-        for(var cds : targetCds){
+        boolean targetForward = targetCds.isEmpty() || targetCds.getFirst().getBaseData().isForwardStrand();
+        boolean queryForward = queryCds.isEmpty() || queryCds.getFirst().getBaseData().isForwardStrand();
+
+        for (var cds : targetCds) {
             var baseData = cds.getBaseData();
 
             var start = baseData.getStart();
@@ -127,18 +127,19 @@ public class Similarity {
             var contig = baseData.getContig();
 
             String cdsSeq = null;
-            try{
+            try {
                 cdsSeq = targetSequenceExtractor.getSequence(contig, start, stop);
+
             } catch (IOException e) {
                 logger.warn(e.getMessage());
                 continue;
             }
 
-            if(cdsSeq == null) continue;
+            if (cdsSeq == null) continue;
             targetSeq.append(cdsSeq);
         }
 
-        for(var cds : queryCds){
+        for (var cds : queryCds) {
             var baseData = cds.getBaseData();
 
             var start = baseData.getStart();
@@ -146,17 +147,57 @@ public class Similarity {
             var contig = baseData.getContig();
 
             String cdsSeq = null;
-            try{
-                cdsSeq = targetSequenceExtractor.getSequence(contig, start, stop);
+            try {
+                cdsSeq = querySequenceExtractor.getSequence(contig, start, stop);
             } catch (IOException e) {
                 logger.warn(e.getMessage());
                 continue;
             }
 
-            if(cdsSeq == null) continue;
-            targetSeq.append(cdsSeq);
+            if (cdsSeq == null) continue;
+            querySeq.append(cdsSeq);
         }
 
-        return targetSeq.toString().contentEquals(querySeq);
+        var targetSeqString = targetForward ? targetSeq.toString() : reverseComplement(targetSeq.toString());
+        var querySeqString = queryForward ? querySeq.toString() : reverseComplement(querySeq.toString());
+        return targetSeqString.equals(querySeqString);
+    }
+
+    private static String reverseComplement(String seq) {
+        StringBuilder revComp = new StringBuilder(seq.length());
+
+        for (int i = seq.length() - 1; i >= 0; i--) {
+            char base = seq.charAt(i);
+            switch (base) {
+                case 'A':
+                    revComp.append('T');
+                    break;
+                case 'T':
+                    revComp.append('A');
+                    break;
+                case 'C':
+                    revComp.append('G');
+                    break;
+                case 'G':
+                    revComp.append('C');
+                    break;
+                case 'a':
+                    revComp.append('t');
+                    break;
+                case 't':
+                    revComp.append('a');
+                    break;
+                case 'c':
+                    revComp.append('g');
+                    break;
+                case 'g':
+                    revComp.append('c');
+                    break;
+                default:
+                    revComp.append('N');
+            }
+        }
+
+        return revComp.toString();
     }
 }

@@ -95,6 +95,10 @@ public class Application {
                 builder.profiles("newMapping");
                 builder.web(WebApplicationType.NONE);
                 break;
+            case "newTranscriptMapping":
+                builder.profiles("newTranscriptMapping");
+                builder.web(WebApplicationType.NONE);
+                break;
             case "newMappingVal":
                 builder.profiles("newMappingVal");
                 builder.web(WebApplicationType.NONE);
