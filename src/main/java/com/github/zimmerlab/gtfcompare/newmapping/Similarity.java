@@ -1,11 +1,11 @@
 package com.github.zimmerlab.gtfcompare.newmapping;
 
 import com.github.kleinsamuel.gtfutils.GtfConfig;
+import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.newmapping.model.CigarOp;
 import com.github.zimmerlab.gtfcompare.newmapping.seqhomology.AlignmentUtil;
 import com.github.zimmerlab.gtfcompare.newmapping.seqhomology.SeqHomologyUtil;
-import com.github.zimmerlab.gtfcompare.runner.NewMappingRunner;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,13 +21,22 @@ public class Similarity {
 
     public static List<CigarOp> structureCigar(TranscriptFeature feature, Set<String> allowedTypes, GenomeSequenceExtractor sequenceExtractor) {
         var result = new ArrayList<CigarOp>();
+        var forwardStrand = feature.getBaseData().isForwardStrand();
 
-        // TODO Strand
-        var features = feature.getFeatures().stream().filter(f -> allowedTypes.contains(GtfConfig.getDefault(f.getBaseData().getType()))).sorted(Comparator.comparingInt(f -> f.getBaseData().getStart())).toList();
+        var comparator = Comparator.comparingInt((GtfFeature f) -> f.getBaseData().getStart());
 
+        if (!forwardStrand) {
+            comparator = comparator.reversed();
+        }
+
+        var features = feature.getFeatures().stream()
+                .filter(f -> allowedTypes.contains(GtfConfig.getDefault(f.getBaseData().getType())))
+                .sorted(comparator)
+                .toList();
+        
         for (var g : features) {
             var baseData = g.getBaseData();
-            var type = baseData.getType();
+            var type = GtfConfig.getDefault(baseData.getType());
 
             var start = baseData.getStart();
             var stop = baseData.getEnd();
@@ -38,6 +47,7 @@ public class Similarity {
             if (features.size() == 1) {
                 try {
                     seq = sequenceExtractor.getSequence(baseData.getContig(), start, stop);
+                    if(!forwardStrand) seq = reverseComplement(seq);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
