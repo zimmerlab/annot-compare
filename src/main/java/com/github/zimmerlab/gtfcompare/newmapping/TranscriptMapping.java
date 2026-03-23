@@ -13,31 +13,33 @@ import java.util.stream.Collectors;
 public class TranscriptMapping {
 
 
-    public static UnmappedResult map(List<ResultWithOrigin> mappings, GtfFile targetGtf, GtfFile queryGtf, Set<String> allowedTypes, GenomeSequenceExtractor targetExtractor, GenomeSequenceExtractor queryExtractor, Consumer<ResultWithOrigin> resultConsumer) {
-        var unmappedQueriesWithTranscriptNames = new HashMap<String, String>();
-        var unmappedTargetsWithTranscriptNames = new HashMap<String, String>();
-        for (var mapping : mappings) {
+    public static UnmappedResult map(List<ResultWithOrigin> mappings, Set<String> allowedTypes, GenomeSequenceExtractor targetExtractor, GenomeSequenceExtractor queryExtractor, Consumer<ResultWithOrigin> resultConsumer) {
+        var mappedQueryTranscriptIds = new HashSet<String>();
+        var mappedTargetTranscriptIds = new HashSet<String>();
 
+        var seenQueryTranscripts = new HashMap<String, String>();
+        var seenTargetTranscripts = new HashMap<String, String>();
+
+        for (var mapping : mappings) {
             var genePair = mapping.genePair();
 
             var targetGene = genePair.getTarget();
             var queryGene = genePair.getQuery();
 
+            seenQueryTranscripts.putAll(Utils.addTranscriptNames(queryGene, queryGene.getTranscripts().stream().map(TranscriptFeature::getTranscriptId).collect(Collectors.toSet())));
+            seenTargetTranscripts.putAll(Utils.addTranscriptNames(targetGene, targetGene.getTranscripts().stream().map(TranscriptFeature::getTranscriptId).collect(Collectors.toSet())));
+
             var transcriptMappings = mapTranscripts(targetGene.getTranscripts(), queryGene.getTranscripts(), allowedTypes, targetExtractor, queryExtractor);
 
-
-
-            var currentUnmappedQueriesWithTranscriptNames = Utils.addTranscriptNames(queryGene, transcriptMappings.unmappedQueries());
-            var currentUnmappedTargetsWithTranscriptNames = Utils.addTranscriptNames(targetGene, transcriptMappings.unmappedTargets());
-
-            unmappedQueriesWithTranscriptNames.putAll(currentUnmappedQueriesWithTranscriptNames);
-            unmappedTargetsWithTranscriptNames.putAll(currentUnmappedTargetsWithTranscriptNames);
-
-            for (var transcriptMapping : transcriptMappings.matches()) {
+            for (var transcriptMapping : transcriptMappings) {
                 var targetTranscriptId = transcriptMapping.target();
                 var queryTranscriptId = transcriptMapping.query();
+
+                mappedTargetTranscriptIds.add(targetTranscriptId);
+                mappedQueryTranscriptIds.add(queryTranscriptId);
+
                 var currentOrigins = new ArrayList<>(mapping.origins());
-                if(targetTranscriptId.equals(queryTranscriptId)) {
+                if (targetTranscriptId.equals(queryTranscriptId)) {
                     currentOrigins.add(MappingOrigin.TRANSCRIPT_ID_MAPPING);
                 }
 
@@ -46,18 +48,26 @@ public class TranscriptMapping {
             }
         }
 
+        var unmappedQueriesWithTranscriptNames = new HashMap<String, String>();
+        for (var entry : seenQueryTranscripts.entrySet()) {
+            if (!mappedQueryTranscriptIds.contains(entry.getKey())) {
+                unmappedQueriesWithTranscriptNames.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        var unmappedTargetsWithTranscriptNames = new HashMap<String, String>();
+        for (var entry : seenTargetTranscripts.entrySet()) {
+            if (!mappedTargetTranscriptIds.contains(entry.getKey())) {
+                unmappedTargetsWithTranscriptNames.put(entry.getKey(), entry.getValue());
+            }
+        }
+
         return new UnmappedResult(unmappedQueriesWithTranscriptNames, unmappedTargetsWithTranscriptNames);
     }
 
-    private static TranscriptMappingResult mapTranscripts(List<TranscriptFeature> targetTranscripts, List<TranscriptFeature> queryTranscripts, Set<String> allowedTypes, GenomeSequenceExtractor targetExtractor, GenomeSequenceExtractor queryExtractor) {
+    private static List<TranscriptIdPair> mapTranscripts(List<TranscriptFeature> targetTranscripts, List<TranscriptFeature> queryTranscripts, Set<String> allowedTypes, GenomeSequenceExtractor targetExtractor, GenomeSequenceExtractor queryExtractor) {
         var matches = new ArrayList<TranscriptIdPair>();
         var queryTranscriptCache = new HashMap<String, List<CigarOp>>();
-
-        var matchedTargetIds = new HashSet<String>();
-        var matchedQueryIds = new HashSet<String>();
-
-        var allTargetIds = targetTranscripts.stream().map(TranscriptFeature::getTranscriptId).collect(Collectors.toSet());
-        var allQueryIds = queryTranscripts.stream().map(TranscriptFeature::getTranscriptId).collect(Collectors.toSet());
 
         for (var targetTranscript : targetTranscripts) {
             var targetCigar = Similarity.structureCigar(targetTranscript, allowedTypes, targetExtractor);
@@ -71,16 +81,9 @@ public class TranscriptMapping {
                 if (!Similarity.isSimilar(targetCigar, queryCigar)) continue;
 
                 matches.add(new TranscriptIdPair(targetTranscriptId, queryTranscriptId));
-
-                matchedTargetIds.add(targetTranscriptId);
-                matchedQueryIds.add(queryTranscriptId);
             }
         }
 
-        var unmappedTargets = allTargetIds.stream().filter(id -> !matchedTargetIds.contains(id)).toList();
-
-        var unmappedQueries = allQueryIds.stream().filter(id -> !matchedQueryIds.contains(id)).toList();
-
-        return new TranscriptMappingResult(matches, unmappedTargets, unmappedQueries);
+        return matches;
     }
 }

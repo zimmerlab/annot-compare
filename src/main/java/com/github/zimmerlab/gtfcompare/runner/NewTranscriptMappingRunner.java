@@ -6,6 +6,7 @@ import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
 import com.github.zimmerlab.gtfcompare.newmapping.MappingParser;
 import com.github.zimmerlab.gtfcompare.newmapping.MappingFileConstants;
 import com.github.zimmerlab.gtfcompare.newmapping.TranscriptMapping;
+import com.github.zimmerlab.gtfcompare.newmapping.model.ResultWithOrigin;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.MappingOutputWriter;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.UnmappedWriter;
 import com.github.zimmerlab.gtfcompare.parser.FidxParser;
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 @Profile("newTranscriptMapping")
 @Service
@@ -133,7 +135,8 @@ public class NewTranscriptMappingRunner implements CommandLineRunner {
 
                 logger.info("Current Contig: {}", t);
                 var mappings = MappingParser.parseMappingFile(mappingsPerContig.get(t), targetGtf, queryGtf);
-                var res = TranscriptMapping.map(mappings, targetGtf, queryGtf, allowedTypes, targetSequenceExtractor, querySequenceExtractor, r -> MappingOutputWriter.write(r, t, writer));
+                Consumer<ResultWithOrigin> resultConsumer = r -> MappingOutputWriter.write(r, t, writer);
+                var res = TranscriptMapping.map(mappings, allowedTypes, targetSequenceExtractor, querySequenceExtractor, resultConsumer);
                 UnmappedWriter.write(res.unmappedQueries(), q, "QUERY", unmappedWriter);
                 UnmappedWriter.write(res.unmappedTargets(), t, "TARGET", unmappedWriter);
             }
