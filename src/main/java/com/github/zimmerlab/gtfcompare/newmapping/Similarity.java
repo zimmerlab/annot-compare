@@ -110,8 +110,9 @@ public class Similarity {
         return baseSimilarity >= SIMILARITY_CUTOFF ? seqHomologyUtil.calculate(opA.seq(), opB.seq()) : 0;
     }
 
+    public static boolean useSeqHomology = true;
     public static boolean isSimilar(List<CigarOp> a, List<CigarOp> b) {
-        if (a.size() == 1 && b.size() == 1) {
+        if (useSeqHomology && a.size() == 1 && b.size() == 1) {
             return handleSingleFeature(a, b) >= SEQ_HOMOLOGY_CUTOFF;
         }
 

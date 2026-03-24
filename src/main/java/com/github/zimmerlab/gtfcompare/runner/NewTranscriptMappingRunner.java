@@ -2,10 +2,7 @@ package com.github.zimmerlab.gtfcompare.runner;
 
 import com.github.kleinsamuel.gtfutils.GtfConfig;
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.zimmerlab.gtfcompare.newmapping.Mapping;
-import com.github.zimmerlab.gtfcompare.newmapping.MappingParser;
-import com.github.zimmerlab.gtfcompare.newmapping.MappingFileConstants;
-import com.github.zimmerlab.gtfcompare.newmapping.TranscriptMapping;
+import com.github.zimmerlab.gtfcompare.newmapping.*;
 import com.github.zimmerlab.gtfcompare.newmapping.model.ResultWithOrigin;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.MappingOutputWriter;
 import com.github.zimmerlab.gtfcompare.newmapping.outpututil.UnmappedWriter;
@@ -47,6 +44,7 @@ public class NewTranscriptMappingRunner implements CommandLineRunner {
         o.addOption(Option.builder().longOpt("output").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
         o.addOption(Option.builder().longOpt("gene-mapping").numberOfArgs(1).required().desc("Path to output file").type(File.class).build());
         o.addOption(Option.builder().longOpt("allowed-types").hasArg().desc("Comma-separated list of allowed types").build());
+        o.addOption(Option.builder().longOpt("useHomology").numberOfArgs(1).desc("Should Use Seq Homology").type(Boolean.class).build());
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
 
@@ -99,6 +97,13 @@ public class NewTranscriptMappingRunner implements CommandLineRunner {
             logger.info("no valid types given - using default values for allowed-types");
         }
 
+        boolean useSeqHomology = true;
+
+        if(cmd.hasOption("useHomology")){
+            useSeqHomology = Boolean.parseBoolean(cmd.getOptionValue("useHomology"));
+        }
+
+        Similarity.useSeqHomology = useSeqHomology;
 
         var queryPath = cmd.getOptionValue("query-gtf");
         var targetPath = cmd.getOptionValue("target-gtf");
