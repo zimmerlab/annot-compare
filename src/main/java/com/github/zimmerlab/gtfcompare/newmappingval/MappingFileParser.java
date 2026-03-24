@@ -3,6 +3,7 @@ package com.github.zimmerlab.gtfcompare.newmappingval;
 import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.zimmerlab.gtfcompare.model.GenePair;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
+import com.github.zimmerlab.gtfcompare.newmapping.MappingFileConstants;
 import com.github.zimmerlab.gtfcompare.runner.NewMappingValidationRunner;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,12 +34,12 @@ public class MappingFileParser {
 
     private void parseLine(String line, String contig, GtfFile queryGtfFile, GtfFile targetGtfFile) {
         var parts = line.split("\t");
-        var currentContig = parts[0];
+        var currentContig = parts[MappingFileConstants.CONTIG_IDX];
         if(!currentContig.equals(contig)) return;
-        var queryGeneId = parts[1];
-        var targetGeneId = parts[2];
-        var queryTranscriptId = parts[3];
-        var targetTranscriptId = parts[4];
+        var queryGeneId = parts[MappingFileConstants.QUERY_GENE_IDX];
+        var targetGeneId = parts[MappingFileConstants.TARGET_GENE_IDX];
+        var queryTranscriptId = parts[MappingFileConstants.QUERY_TRANSCRIPT_IDX];
+        var targetTranscriptId = parts[MappingFileConstants.TARGET_TRANSCRIPT_IDX];
 
         var queryGene = queryGtfFile.getGeneFeature(queryGeneId);
         if (queryGene == null) {
