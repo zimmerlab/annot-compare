@@ -59,7 +59,7 @@ public class FilterMappingsRunner implements CommandLineRunner {
         var allowedMappingsString = cmd.getOptionValue("allowed-mappings").split(",");
         var allowedMappings = new HashSet<MappingOrigin>();
         for(var allowedMapping : allowedMappingsString){
-            switch (allowedMapping.toLowerCase()){
+            switch (allowedMapping.trim().toLowerCase()){
                 case "gene-id":
                     allowedMappings.add(MappingOrigin.GENE_ID_MAPPING);
                     break;

@@ -1,8 +1,6 @@
 package com.github.zimmerlab.gtfcompare.newmapping;
 
-import com.github.kleinsamuel.gtfutils.GtfFile;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
-import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.newmapping.model.*;
 import com.github.zimmerlab.gtfcompare.utils.GenomeSequenceExtractor;
 

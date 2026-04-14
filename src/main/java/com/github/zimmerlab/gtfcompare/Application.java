@@ -36,6 +36,8 @@ public class Application {
         modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
         modeDescriptions.put("newMapping", "New Mapping mode");
         modeDescriptions.put("newMappingVal", "New Mapping Validation mode");
+        modeDescriptions.put("newTranscriptMapping", "New Transcript Mapping mode");
+        modeDescriptions.put("filterGeneMappings", "Filter gene mappings mode");
 
         return modeDescriptions;
     }
