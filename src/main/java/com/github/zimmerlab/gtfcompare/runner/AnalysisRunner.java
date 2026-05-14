@@ -52,6 +52,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
         o.addOption(Option.builder().longOpt("config").numberOfArgs(1).required().desc("Path to config file").type(File.class).build());
         o.addOption(Option.builder().longOpt("map-with-strand").numberOfArgs(1).desc("Determines whether the mapping takes the strand into account").type(Boolean.class).build());
+        o.addOption(Option.builder().longOpt("mapping-only-cds").numberOfArgs(1).desc("Determines whether the sequence based mapping takes the exons or the cds into account").type(Boolean.class).build());
 
         /*o.addOption(Option.builder()
                 .longOpt("gene-mapping")
@@ -119,6 +120,20 @@ public class AnalysisRunner implements CommandLineRunner {
 
         }
 
+        boolean useCDSforMapping = false;
+
+        if(cmd.hasOption("mapping-only-cds")){
+            var optionValue = cmd.getOptionValue("mapping-only-cds");
+
+            if(optionValue != null && (optionValue.equals("true") || optionValue.equals("false"))){
+                useStrandForMapping =  Boolean.parseBoolean(cmd.getOptionValue("mapping-only-cds"));
+            } else{
+                logger.error("map with cds param not valid");
+                System.exit(1);
+            }
+
+        }
+
         var fidxEntries = FidxParser.parse(cmd.getOptionValue("fidx"));
 
         GtfFile gtfFile = new GtfFile(new File(cmd.getOptionValue("target-gtf")));
@@ -149,7 +164,7 @@ public class AnalysisRunner implements CommandLineRunner {
                 if (!gtfFile.getParsedContig().equals(gtfFile2.getParsedContig())) {
                     throw new Exception("Contigs do not match");
                 }
-                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath, useLiftOff, liftoffGtf, useStrandForMapping);
+                runProgrammePerContig(gtfFile, gtfFile2, targetSequenceExtractor, targetSequenceExtractor, cmd, targetUnmappedFilePath, queryUnmappedFilePath, useLiftOff, liftoffGtf, useStrandForMapping, useCDSforMapping);
             }
         } catch (java.text.ParseException e) {
             System.out.printf(e.getMessage());
@@ -160,7 +175,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
     }
 
-    private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath, boolean useLiftOff, GtfFile liftoffGtf, boolean mapWithStrand) throws IOException, InterruptedException {
+    private static void runProgrammePerContig(GtfFile gtfFile, GtfFile gtfFile2, GenomeSequenceExtractor targetSequenceExtractor, GenomeSequenceExtractor querySequenceExtractor, CommandLine cmd, Path targetUnmappedPath, Path queryUnmappedPath, boolean useLiftOff, GtfFile liftoffGtf, boolean mapWithStrand, boolean useCDSMapping) throws IOException, InterruptedException {
         var currentContig = gtfFile.getParsedContig();
         logger.info("Current contig: " + currentContig);
         var loci = OverlappingTranscripts.map(gtfFile, gtfFile2, mapWithStrand);
@@ -172,7 +187,7 @@ public class AnalysisRunner implements CommandLineRunner {
 
         var minimapPath = Minimap2Bundler.extractMinimap2();
         logger.debug("Starting Minimap");
-        var minimap2Result = Minimap2Validator.validateWithMinimap2(loci.getUnmappedQueries(), loci.getUnmappedTargets(), targetSequenceExtractor, querySequenceExtractor, workDir, minimapPath, 8);
+        var minimap2Result = Minimap2Validator.validateWithMinimap2(loci.getUnmappedQueries(), loci.getUnmappedTargets(), targetSequenceExtractor, querySequenceExtractor, workDir, minimapPath, 8, useCDSMapping);
         try (BufferedWriter writer = Files.newBufferedWriter(queryUnmappedPath, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
             for (TranscriptFeature tf : minimap2Result.getUnmappedQueries()) {
                 writer.write(tf.getBaseData().getContig() + "\t" + tf.getTranscriptId());

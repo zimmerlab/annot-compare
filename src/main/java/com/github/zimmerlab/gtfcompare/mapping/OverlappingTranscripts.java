@@ -200,7 +200,7 @@ public class OverlappingTranscripts {
     }
 
     private static List<Integer> getExonLengthChain(TranscriptFeature tf) {
-        var exons = tf.getFeatures().stream().filter(seg -> "exon".equals(seg.getBaseData().getType())).sorted(Comparator.comparingInt(s -> s.getBaseData().getStart())).toList();
+        var exons = tf.getFeatures().stream().filter(seg -> Constants.EXON.equals(seg.getBaseData().getType())).sorted(Comparator.comparingInt(s -> s.getBaseData().getStart())).toList();
 
         var lengths = new ArrayList<Integer>(exons.size());
         for (GtfFeature exon : exons) {
@@ -214,8 +214,8 @@ public class OverlappingTranscripts {
     private static int editDistance(List<Integer> a, List<Integer> b) {
         int n = a.size(), m = b.size();
         int[][] dp = new int[n + 1][m + 1];
-        for (int i = 0; i <= n; i++) dp[i][0] = i;
-        for (int j = 0; j <= m; j++) dp[0][j] = j;
+        for (int i = 0; i <= n; i++) dp[i][0] = 2 * i;
+        for (int j = 0; j <= m; j++) dp[0][j] = 2 * j;
 
         for (int i = 1; i <= n; i++) {
             for (int j = 1; j <= m; j++) {
