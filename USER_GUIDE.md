@@ -276,6 +276,98 @@ The configuration in `example/config.json` can be customized before running.
 
 ---
 
+## Other Modes
+
+The tool includes several additional modes beyond `analysis`. Each is invoked by passing the mode name as the first argument.
+
+---
+
+### `cliqueAnalysis`
+
+Analyzes the cluster structure of genes across the two annotations before running a full comparison. It identifies groups of overlapping genes (cliques) and reports how they partition: how many gene pairs are 1:1 matches, how many are 1:many or many:many, and so on. This is useful for understanding the overall correspondence landscape between two annotations.
+
+```bash
+java -jar annot-compare.jar cliqueAnalysis \
+    --target-gtf <path-to-target-gtf> \
+    --query-gtf <path-to-query-gtf> \
+    --output <path-to-output-file>
+```
+
+| Flag | Required | Description |
+|---|---|---|
+| `--target-gtf` | Yes | Path to the target GTF file |
+| `--query-gtf` | Yes | Path to the query GTF file |
+| `--output` | Yes | Path for the output TSV file |
+
+Output is a TSV with columns `contig`, `source`, `type`, and `id`, one row per gene entry. A summary table is also written to `clique_report.csv` in the working directory.
+
+---
+
+### `liftedDifferences`
+
+For comparing annotations across different genome assemblies. Takes a query annotation that has been lifted to the target assembly (for example using liftoff) alongside the native query annotation, and compares using separate FASTA files for each assembly. This separates differences caused by annotation changes from those caused by assembly differences.
+
+```bash
+java -jar annot-compare.jar liftedDifferences \
+    --target-gtf <path-to-target-gtf> \
+    --query-gtf <path-to-query-gtf> \
+    --lifted-query-gtf <path-to-lifted-gtf> \
+    --target-fasta <path> --target-fidx <path> \
+    --query-fasta <path> --query-fidx <path> \
+    --output <path-to-output-file>
+```
+
+| Flag | Required | Description |
+|---|---|---|
+| `--target-gtf` | Yes | Path to the target GTF file |
+| `--query-gtf` | Yes | Path to the native query GTF file |
+| `--lifted-query-gtf` | Yes | Path to the query GTF lifted to the target assembly |
+| `--target-fasta` | Yes | Path to the target genome FASTA |
+| `--target-fidx` | Yes | Path to the target FASTA index |
+| `--query-fasta` | Yes | Path to the query genome FASTA |
+| `--query-fidx` | Yes | Path to the query FASTA index |
+| `--output` | Yes | Path for the output file |
+
+---
+
+### `gtfStats`
+
+Computes descriptive statistics for one or more GTF files in a directory. For each file it produces a set of TSVs covering gene and transcript counts, biotype distributions, and length distributions for genes, transcripts, exons, introns, CDS regions, and UTRs. Useful as a sanity check before running a comparison, or for characterizing an annotation independently.
+
+```bash
+java -jar annot-compare.jar gtfStats \
+    --inDir <directory-with-gtf-files> \
+    --outDir <output-directory> \
+    [--recursive]
+```
+
+| Flag | Required | Description |
+|---|---|---|
+| `--inDir` | Yes | Directory containing GTF files |
+| `--outDir` | Yes | Directory to write output files to |
+| `--recursive` | No | Scan subdirectories recursively |
+
+Output files are organized into subdirectories by metric type (e.g., `gene_biotypes/`, `exon_lengths/`, `global_counts/`), with one file per input GTF named after the input file prefix.
+
+---
+
+### `addMetaFeatures`
+
+Preprocesses a GTF by normalizing transcript entries that are missing explicit coordinate fields, deriving start and stop from the child features. Some GTF sources omit the transcript-level record or leave its coordinates blank. Running this mode before `analysis` ensures the file is in a consistent format the tool can parse correctly.
+
+```bash
+java -jar annot-compare.jar addMetaFeatures \
+    --gtf <path-to-input-gtf> \
+    --o <path-to-output-gtf>
+```
+
+| Flag | Required | Description |
+|---|---|---|
+| `--gtf` | Yes | Path to the input GTF file |
+| `--o` | Yes | Path for the corrected output GTF file |
+
+---
+
 ## Troubleshooting
 
 **The program exits with a contig mismatch error.**
