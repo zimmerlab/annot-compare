@@ -1,10 +1,8 @@
 package com.github.zimmerlab.gtfcompare.analysis.clique;
 
 import com.github.kleinsamuel.gtfutils.GtfFile;
-import com.github.kleinsamuel.gtfutils.feature.GeneFeature;
 import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.model.DisjointSet;
-import com.github.zimmerlab.gtfcompare.model.GenePair;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import htsjdk.samtools.util.Interval;
 import htsjdk.samtools.util.IntervalTreeMap;
@@ -62,8 +60,8 @@ public class CliqueAnalysisTranscripts {
         overallClusters = geneClusters.size();
 
         for (var cluster : geneClusters) {
-            var targetIds = cluster.stream().map(p -> p.getTargetTranscript().getTranscriptId()).collect(Collectors.toCollection(LinkedHashSet::new));
-            var queryIds = cluster.stream().map(p -> p.getQueryTranscript().getTranscriptId()).collect(Collectors.toCollection(LinkedHashSet::new));
+            var targetIds = cluster.stream().map(p -> p.getTarget().getTranscriptId()).collect(Collectors.toCollection(LinkedHashSet::new));
+            var queryIds = cluster.stream().map(p -> p.getQuery().getTranscriptId()).collect(Collectors.toCollection(LinkedHashSet::new));
 
             transcriptsSeenInClustersTarget.addAll(targetIds);
             transcriptsSeenInClustersQuery.addAll(queryIds);
@@ -172,11 +170,11 @@ public class CliqueAnalysisTranscripts {
 
     private static List<List<TranscriptPair>> clusterOverlappingPairs(List<TranscriptPair> allPairs) {
         var ds = new DisjointSet<TranscriptFeature>();
-        allPairs.forEach(p -> ds.union(p.getTargetTranscript(), p.getQueryTranscript()));
+        allPairs.forEach(p -> ds.union(p.getTarget(), p.getQuery()));
 
         var tmp = new HashMap<TranscriptFeature, List<TranscriptPair>>();
         for (var p : allPairs) {
-            var representative = ds.find(p.getTargetTranscript());
+            var representative = ds.find(p.getTarget());
             tmp.computeIfAbsent(representative, k -> new ArrayList<>()).add(p);
         }
         return new ArrayList<>(tmp.values());

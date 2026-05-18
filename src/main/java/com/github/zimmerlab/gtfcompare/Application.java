@@ -34,6 +34,10 @@ public class Application {
         modeDescriptions.put("cliqueAnalysis", "Clique Analysis mode");
         modeDescriptions.put("benchmark", "Benchmark mode");
         modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
+        modeDescriptions.put("newMapping", "New Mapping mode");
+        modeDescriptions.put("newMappingVal", "New Mapping Validation mode");
+        modeDescriptions.put("newTranscriptMapping", "New Transcript Mapping mode");
+        modeDescriptions.put("filterGeneMappings", "Filter gene mappings mode");
 
         return modeDescriptions;
     }
@@ -87,6 +91,22 @@ public class Application {
                 break;
             case "liftedDifferences":
                 builder.profiles("liftedDifferences");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "newMapping":
+                builder.profiles("newMapping");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "newTranscriptMapping":
+                builder.profiles("newTranscriptMapping");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "newMappingVal":
+                builder.profiles("newMappingVal");
+                builder.web(WebApplicationType.NONE);
+                break;
+            case "filterGeneMappings":
+                builder.profiles("filterGeneMappings");
                 builder.web(WebApplicationType.NONE);
                 break;
             default:

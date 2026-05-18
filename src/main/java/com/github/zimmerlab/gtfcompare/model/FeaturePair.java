@@ -2,15 +2,20 @@ package com.github.zimmerlab.gtfcompare.model;
 
 import com.github.kleinsamuel.gtfutils.feature.GtfFeature;
 
-public class FeaturePair {
-    private final GtfFeature target;
-    private final GtfFeature query;
+public class FeaturePair<FeatureType extends GtfFeature> {
+    private final FeatureType target;
+    private final FeatureType query;
 
-    public FeaturePair(GtfFeature target, GtfFeature query) {
+    public FeaturePair(FeatureType target, FeatureType query) {
         this.target = target;
-        this.query  = query;
+        this.query = query;
     }
 
-    public GtfFeature getTarget() { return target; }
-    public GtfFeature getQuery()  { return query;    }
+    public FeatureType getTarget() {
+        return target;
+    }
+
+    public FeatureType getQuery() {
+        return query;
+    }
 }

@@ -60,8 +60,8 @@ public class CliqueAnalysisGenes {
         overallClusters = geneClusters.size();
 
         for (var cluster : geneClusters) {
-            var targetIds = cluster.stream().map(p -> p.getTargetGene().getGeneId()).collect(Collectors.toCollection(LinkedHashSet::new));
-            var queryIds = cluster.stream().map(p -> p.getQueryGene().getGeneId()).collect(Collectors.toCollection(LinkedHashSet::new));
+            var targetIds = cluster.stream().map(p -> p.getTarget().getGeneId()).collect(Collectors.toCollection(LinkedHashSet::new));
+            var queryIds = cluster.stream().map(p -> p.getQuery().getGeneId()).collect(Collectors.toCollection(LinkedHashSet::new));
 
             genesSeenInClustersTarget.addAll(targetIds);
             genesSeenInClustersQuery.addAll(queryIds);
@@ -169,11 +169,11 @@ public class CliqueAnalysisGenes {
 
     private static List<List<GenePair>> clusterOverlappingPairs(List<GenePair> allPairs) {
         var ds = new DisjointSet<GeneFeature>();
-        allPairs.forEach(p -> ds.union(p.getTargetGene(), p.getQueryGene()));
+        allPairs.forEach(p -> ds.union(p.getTarget(), p.getQuery()));
 
         var tmp = new HashMap<GeneFeature, List<GenePair>>();
         for (var p : allPairs) {
-            var representative = ds.find(p.getTargetGene());
+            var representative = ds.find(p.getTarget());
             tmp.computeIfAbsent(representative, k -> new ArrayList<>()).add(p);
         }
         return new ArrayList<>(tmp.values());

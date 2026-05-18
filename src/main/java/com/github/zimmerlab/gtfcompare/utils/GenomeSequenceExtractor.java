@@ -42,8 +42,7 @@ public class GenomeSequenceExtractor {
 
         int position = 0;
         for (byte b : buf) {
-            int v = b & 0xFF;
-            if (v < 32 || v == 127) break; // newline o.ä.
+            if (b == '\n' || b == '\r') break;
             position++;
         }
         if (position > 0) {
@@ -54,8 +53,7 @@ public class GenomeSequenceExtractor {
         int bytesToRead = totalLen - position; // FIX 2
 
         if (bytesToRead > 0) {
-            int skipped = raf.skipBytes(newLineLength);
-            if (skipped != newLineLength) throw new EOFException("Unexpected EOF while skipping newline");
+            raf.seek(raf.getFilePointer() + newLineLength);
         }
 
         int bytesRead = 0;
@@ -68,8 +66,7 @@ public class GenomeSequenceExtractor {
             bytesRead += currentBytesToRead;
 
             if (bytesRead < bytesToRead) {
-                int skipped = raf.skipBytes(newLineLength);
-                if (skipped != newLineLength) throw new EOFException("Unexpected EOF while skipping newline");
+                raf.seek(raf.getFilePointer() + newLineLength);
             }
         }
 

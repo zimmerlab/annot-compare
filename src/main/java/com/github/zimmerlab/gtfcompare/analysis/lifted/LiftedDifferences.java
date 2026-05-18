@@ -111,9 +111,9 @@ public class LiftedDifferences {
 
     private static void writeGenePairs(BufferedWriter fw, List<GenePair> genePairs) throws IOException {
         for (var genePair : genePairs) {
-            var targetGeneId = genePair.getTargetGene().getGeneId();
-            var queryGeneId = genePair.getQueryGene().getGeneId();
-            var contig = genePair.getTargetGene().getBaseData().getContig();
+            var targetGeneId = genePair.getTarget().getGeneId();
+            var queryGeneId = genePair.getQuery().getGeneId();
+            var contig = genePair.getTarget().getBaseData().getContig();
 
             fw.write(contig + "\t" + queryGeneId + "\t" + targetGeneId + "\n");
         }
@@ -141,8 +141,8 @@ public class LiftedDifferences {
     private static List<GenePair> findDifferentPairsByPosition(List<GenePair> mapping) {
         var differentPairs = new ArrayList<GenePair>();
         for (var genePair : mapping) {
-            var targetGeneBaseData = genePair.getTargetGene().getBaseData();
-            var queryGeneBaseData = genePair.getQueryGene().getBaseData();
+            var targetGeneBaseData = genePair.getTarget().getBaseData();
+            var queryGeneBaseData = genePair.getQuery().getBaseData();
 
             if (targetGeneBaseData.getStart() != queryGeneBaseData.getStart()) {
                 differentPairs.add(genePair);
@@ -160,8 +160,8 @@ public class LiftedDifferences {
     private static List<GenePair> findDifferentPairsBySequence(List<GenePair> mapping, GtfFile queryGtf, GenomeSequenceExtractor queryGSE, GenomeSequenceExtractor targetGSE, Stats s) {
         var differentPairs = new ArrayList<GenePair>();
         for (var genePair : mapping) {
-            var targetGeneBaseData = genePair.getTargetGene().getBaseData();
-            var queryGeneBaseData = genePair.getQueryGene().getBaseData();
+            var targetGeneBaseData = genePair.getTarget().getBaseData();
+            var queryGeneBaseData = genePair.getQuery().getBaseData();
 
             if (targetGeneBaseData.getStart() != queryGeneBaseData.getStart()) {
                 continue;
@@ -171,7 +171,7 @@ public class LiftedDifferences {
                 continue;
             }
 
-            var queryGtfGeneId = genePair.getQueryGene().getGeneId();
+            var queryGtfGeneId = genePair.getQuery().getGeneId();
             var queryGtfGene = queryGtf.getGeneFeature(queryGtfGeneId);
             if (queryGtfGene == null) {
                 logger.debug("{} not found", queryGtfGeneId);

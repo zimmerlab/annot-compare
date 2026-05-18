@@ -206,8 +206,8 @@ public class GTFCompare {
         var transcriptPairs = getTranscriptPairs(g1, g2, comparisonResult);
 
         for (var transcripts : transcriptPairs) {
-            TranscriptFeature t1 = transcripts.getTargetTranscript();
-            TranscriptFeature t2 = transcripts.getQueryTranscript();
+            TranscriptFeature t1 = transcripts.getTarget();
+            TranscriptFeature t2 = transcripts.getQuery();
             var transcriptComparisonResult = transcripts.getTranscriptComparisonResult();
 
             try {

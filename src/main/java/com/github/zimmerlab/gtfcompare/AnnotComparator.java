@@ -9,7 +9,6 @@ import com.github.kleinsamuel.gtfutils.feature.TranscriptFeature;
 import com.github.zimmerlab.gtfcompare.compare.*;
 import com.github.zimmerlab.gtfcompare.mapping.ExonMapping;
 import com.github.zimmerlab.gtfcompare.model.FeaturePair;
-import com.github.zimmerlab.gtfcompare.model.GenePair;
 import com.github.zimmerlab.gtfcompare.model.TranscriptPair;
 import com.github.zimmerlab.gtfcompare.model.comparison.*;
 import com.github.zimmerlab.gtfcompare.model.config.ComparisonConfig;
@@ -60,7 +59,7 @@ public class AnnotComparator {
         var everyBiotypeAllowed = config.getAllowedGeneBiotypes().isEmpty();
         for (var pair : transcriptPairs) {
 
-            if(pair.getTargetTranscript().getTranscriptId().equals("ENST00000000412") || pair.getQueryTranscript().getTranscriptId().equals("ENST00000000412")){
+            if(pair.getTarget().getTranscriptId().equals("ENST00000000412") || pair.getQuery().getTranscriptId().equals("ENST00000000412")){
                 var a = 2;
             }
             var isTranscriptBiotypeAllowed = isBiotypeAllowed(pair);
@@ -75,8 +74,8 @@ public class AnnotComparator {
             transcriptComparisonResult.setQueryBiotype(isTranscriptBiotypeAllowed.queryBiotype);
             transcriptComparisonResult.setTargetBiotype(isTranscriptBiotypeAllowed.targetBiotype);
             result.addTranscriptComparison(transcriptComparisonResult);
-            var queryGeneId = pair.getQueryTranscript().getBaseData().getAttributes("gene_id");
-            var targetGeneId = pair.getTargetTranscript().getBaseData().getAttributes("gene_id");
+            var queryGeneId = pair.getQuery().getBaseData().getAttributes("gene_id");
+            var targetGeneId = pair.getTarget().getBaseData().getAttributes("gene_id");
             result.setQueryGeneId(queryGeneId != null ? queryGeneId.getFirst() : "");
             result.setTargetGeneId(targetGeneId != null ? targetGeneId.getFirst() : "");
             compareTranscript(pair, result);
@@ -96,8 +95,8 @@ public class AnnotComparator {
 
     private BiotypeAllowedResponse isBiotypeAllowed(TranscriptPair pair) {
         var allowedBiotypes = config.getAllowedGeneBiotypes();
-        var targetBaseData = pair.getTargetTranscript().getBaseData();
-        var queryBaseData = pair.getQueryTranscript().getBaseData();
+        var targetBaseData = pair.getTarget().getBaseData();
+        var queryBaseData = pair.getQuery().getBaseData();
 
         var hasTargetBiotypeAttribute = targetBaseData.getAttributes("transcript_biotype") != null;
         var hasQueryBiotypeAttribute = queryBaseData.getAttributes("transcript_biotype") != null;
@@ -112,8 +111,8 @@ public class AnnotComparator {
     }
 
     private GetGeneBiotypeResponse getGeneBiotype(TranscriptPair pair) {
-        var targetBaseData = pair.getTargetTranscript().getBaseData();
-        var queryBaseData = pair.getQueryTranscript().getBaseData();
+        var targetBaseData = pair.getTarget().getBaseData();
+        var queryBaseData = pair.getQuery().getBaseData();
 
         var hasTargetBiotypeAttribute = targetBaseData.getAttributes("gene_biotype") != null;
         var hasQueryBiotypeAttribute = queryBaseData.getAttributes("gene_biotype") != null;
@@ -184,8 +183,8 @@ public class AnnotComparator {
     private void compareTranscript(TranscriptPair tp, ComparisonResult geneResult) {
 
         var transcriptComparisonResult = tp.getTranscriptComparisonResult();
-        var targetTranscript = tp.getTargetTranscript();
-        var queryTranscript = tp.getQueryTranscript();
+        var targetTranscript = tp.getTarget();
+        var queryTranscript = tp.getQuery();
 
         if (targetTranscript == null || queryTranscript == null) {
             handleMissingTranscript(targetTranscript, queryTranscript, transcriptComparisonResult, geneResult);
@@ -255,7 +254,7 @@ public class AnnotComparator {
         return map;
     }
 
-    public void compareMappedFeaturePairs(String featureType, List<FeaturePair> pairs, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneRes) {
+    public void compareMappedFeaturePairs(String featureType, List<FeaturePair<GtfFeature>> pairs, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneRes) {
         var featureComparisonResult = new FeatureComparisonResult();
         featureComparisonResult.setFeatureType(featureType);
         transcriptComparisonResult.addFeatureComparison(featureComparisonResult);
@@ -273,7 +272,7 @@ public class AnnotComparator {
         }
     }
 
-    private void compareFeatures(List<FeaturePair> exonPairs, TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult, int padBp) {
+    private void compareFeatures(List<FeaturePair<GtfFeature>> exonPairs, TranscriptFeature targetTranscript, TranscriptFeature queryTranscript, TranscriptComparisonResult transcriptComparisonResult, ComparisonResult geneResult, int padBp) {
 
         if(config.isEnabled(Constants.EXON))
             compareMappedFeaturePairs(Constants.EXON, exonPairs, transcriptComparisonResult, geneResult);

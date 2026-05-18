@@ -21,7 +21,7 @@ public class OverlappingGenes {
             Map<GeneFeature, GeneFeature> exact = findExactMatches(locus);
             finalMapping.putAll(exact);
 
-            var unresolved = locus.stream().filter(p -> !exact.containsKey(p.getTargetGene())).toList();
+            var unresolved = locus.stream().filter(p -> !exact.containsKey(p.getTarget())).toList();
             unresolvedPairs.addAll(unresolved);
         }
 
@@ -90,14 +90,14 @@ public class OverlappingGenes {
     public static List<List<GenePair>> findLoci(List<GenePair> pairs) {
         var ds = new DisjointSet<GeneFeature>();
         for (var p : pairs) {
-            var t = p.getTargetGene();
-            var q = p.getQueryGene();
+            var t = p.getTarget();
+            var q = p.getQuery();
             ds.union(t, q);
         }
 
         var rootToPairs = new HashMap<GeneFeature, List<GenePair>>();
         for (var p : pairs) {
-            GeneFeature root = ds.find(p.getTargetGene());
+            GeneFeature root = ds.find(p.getTarget());
             rootToPairs.computeIfAbsent(root, k -> new ArrayList<>()).add(p);
         }
 
@@ -107,10 +107,10 @@ public class OverlappingGenes {
     private static Map<GeneFeature, GeneFeature> findExactMatches(List<GenePair> locus) {
         var exact = new HashMap<GeneFeature, GeneFeature>();
         for (var p : locus) {
-            var t = p.getTargetGene().getBaseData();
-            var q = p.getQueryGene().getBaseData();
+            var t = p.getTarget().getBaseData();
+            var q = p.getQuery().getBaseData();
             if (t.getStart() == q.getStart() && t.getEnd() == q.getEnd()) {
-                exact.put(p.getTargetGene(), p.getQueryGene());
+                exact.put(p.getTarget(), p.getQuery());
             }
         }
         return exact;
