@@ -45,6 +45,66 @@ cd example && make
 
 ---
 
+## Run Modes
+
+Modes are selected by passing the mode name as the first argument to the JAR. Spring Boot activates the corresponding `@Profile` and the matching `CommandLineRunner` handles the rest. All modes remain runnable regardless of which ones are shown in the help output.
+
+### User-facing modes
+
+**`newMapping`**
+Maps genes and transcripts between two annotations using structure-based similarity (transcript feature cigars), with optional sequence homology. Produces a mapping TSV and an unmapped gene list.
+Flags: `--target-gtf`, `--target-fasta`, `--target-fai`, `--query-gtf`, `--query-fasta`, `--query-fai`, `--output`, `--allowed-types` (optional), `--useHomology` (optional, default `true`).
+
+**`newTranscriptMapping`**
+Maps transcripts within gene pairs defined by an existing gene mapping file. Same inputs as `newMapping` plus `--gene-mapping`.
+
+**`newMappingVal`**
+Validates a mapping file by comparing the genomic sequences of each transcript pair. Reports which pairs are sequence-identical and which are not.
+Flags: same as `newMapping` plus `--mapping` (the file to validate).
+
+**`filterGeneMappings`**
+Filters a mapping file to rows whose `mapping_origins` column contains the specified origin types.
+Flags: `--mapping-file`, `--output-file`, `--allowed-mappings` (comma-separated: `gene-id`, `gene-name`, `transcript-id`, `overlapping`, `distance`), `--require-all` (default `true`).
+
+### Research and utility modes
+
+**`analysis`**
+The original annotation comparison pipeline. Maps transcripts by coordinate overlap and bipartite matching, with a minimap2 sequence-alignment fallback, then runs all configured comparators on matched pairs. Produces a hierarchical TSV of differences tagged by impact level.
+Flags: `--target-gtf`, `--query-gtf`, `--fasta`, `--fidx`, `--config`, `--o`, `--map-with-strand` (optional), `--mapping-only-cds` (optional).
+
+**`cliqueAnalysis`**
+Analyzes the overlap cluster structure of genes across the two annotations without running a full comparison. Reports how many gene pairs are 1:1, 1:many, or many:many matches. Writes a per-entry TSV and a summary `clique_report.csv`.
+Flags: `--target-gtf`, `--query-gtf`, `--output`.
+
+**`liftedDifferences`**
+Compares a query annotation against a target using a lifted version of the query (e.g. produced by liftoff). Accepts separate FASTAs for each assembly. Isolates annotation-driven differences from assembly-driven differences.
+Flags: `--target-gtf`, `--query-gtf`, `--lifted-query-gtf`, `--target-fasta`, `--target-fidx`, `--query-fasta`, `--query-fidx`, `--output`.
+
+**`gtfStats`**
+Computes descriptive statistics (gene/transcript/feature counts, biotype distributions, length distributions) for one or more GTF files in a directory. Writes one set of TSVs per input file.
+Flags: `--inDir`, `--outDir`, `--recursive` (optional).
+
+**`addMetaFeatures`**
+Rewrites a GTF, deriving missing transcript-level start/stop coordinates from child feature records. Use this to normalize GTF files where the transcript row is absent or has empty coordinate fields.
+Flags: `--gtf`, `--o`.
+
+**`benchmark`**
+Aggregates Java Flight Recorder (JFR) profiling files from performance benchmark runs into summary TSVs.
+Flags: `--dir` (directory of subdirectories each containing one `.jfr` file), `--o`, `--pre` (optional filename prefix).
+
+### Internal / development modes
+
+**`firstAnalysis`**
+Predecessor to `analysis`. Loads entire GTF files into memory and matches genes only by shared identifier. Output format differs from `analysis`. Superseded and not maintained.
+
+**`seqExtractor`**
+Extracts sequences for two hardcoded gene IDs from two GTFs and writes them as a FASTA. A one-off development artifact.
+
+**`test`**
+Development scratch runner. Hardcoded to chromosome 3, no meaningful output. Not for general use.
+
+---
+
 ## Package Map
 
 ```

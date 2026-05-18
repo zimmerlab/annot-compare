@@ -25,19 +25,20 @@ public class Application {
     private static TreeMap<String, String> getModeDescriptions() {
         TreeMap<String, String> modeDescriptions = new TreeMap<>();
 
-        modeDescriptions.put("test", "Test mode");
-        modeDescriptions.put("analysis", "Analysis mode");
-        modeDescriptions.put("firstAnalysis", "First Analysis mode");
-        modeDescriptions.put("seqExtractor", "Sequence extractor mode");
-        modeDescriptions.put("addMetaFeatures", "Add Meta Features mode");
-        modeDescriptions.put("gtfStats", "Get Gtf Stats mode");
-        modeDescriptions.put("cliqueAnalysis", "Clique Analysis mode");
-        modeDescriptions.put("benchmark", "Benchmark mode");
-        modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
-        modeDescriptions.put("newMapping", "New Mapping mode");
-        modeDescriptions.put("newMappingVal", "New Mapping Validation mode");
-        modeDescriptions.put("newTranscriptMapping", "New Transcript Mapping mode");
-        modeDescriptions.put("filterGeneMappings", "Filter gene mappings mode");
+        modeDescriptions.put("newMapping", "Map genes and transcripts between two annotations");
+        modeDescriptions.put("newTranscriptMapping", "Map transcripts using an existing gene-level mapping file");
+        modeDescriptions.put("newMappingVal", "Validate a mapping file by checking transcript sequence identity");
+        modeDescriptions.put("filterGeneMappings", "Filter a mapping file by mapping origin type");
+
+        // modeDescriptions.put("test", "Test mode");
+        // modeDescriptions.put("analysis", "Analysis mode");
+        // modeDescriptions.put("firstAnalysis", "First Analysis mode");
+        // modeDescriptions.put("seqExtractor", "Sequence extractor mode");
+        // modeDescriptions.put("addMetaFeatures", "Add Meta Features mode");
+        // modeDescriptions.put("gtfStats", "Get Gtf Stats mode");
+        // modeDescriptions.put("cliqueAnalysis", "Clique Analysis mode");
+        // modeDescriptions.put("benchmark", "Benchmark mode");
+        // modeDescriptions.put("liftedDifferences", "Lifted Differences mode");
 
         return modeDescriptions;
     }

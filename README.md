@@ -18,26 +18,26 @@ Annot-Compare makes that risk visible. Given two GTF annotation files, two Ensem
 
 - Java 21 or later
 - Two GTF files to compare
-- A genome FASTA file indexed with `samtools faidx`
+- A genome FASTA file for each annotation, indexed with `samtools faidx`
 
 ---
 
 ## Quick Start
 
 ```bash
-java -jar annot-compare.jar analysis \
+java -jar annot-compare.jar newMapping \
     --target-gtf <path-to-target-gtf> \
+    --target-fasta <path-to-target-fasta> \
+    --target-fai <path-to-target-fai> \
     --query-gtf <path-to-query-gtf> \
-    --fasta <path-to-fasta> \
-    --faidx <path-to-fai> \
-    --config <path-to-config> \
-    --o <path-to-output-file> \
-    [--map-with-strand <boolean>]
+    --query-fasta <path-to-query-fasta> \
+    --query-fai <path-to-query-fai> \
+    --output <path-to-output-file>
 ```
 
 The **target** is the reference annotation (e.g., the version currently in use). The **query** is the annotation being compared against it (e.g., a new release).
 
-For full documentation of inputs, configuration, and output format, see the [User Guide](USER_GUIDE.md).
+For full documentation of inputs and output format, see the [User Guide](USER_GUIDE.md).
 
 ---
 
