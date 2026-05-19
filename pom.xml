@@ -60,7 +60,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.kleinsamuel</groupId>
+            <groupId>com.github.zimmerlab</groupId>
             <artifactId>gtf-utils</artifactId>
             <version>0.7</version>
         </dependency>
