@@ -11,7 +11,7 @@ When two studies use different annotation versions, it is not clear whether thei
 - Is a study performed under annotation version A still valid under version B?
 - If a pipeline is rerun with a new annotation, which results actually need to be recomputed and which are unchanged?
 - Have genes or transcripts of interest been modified in a way that invalidates a published finding?
-- Over many releases, how stable is the annotation of a given gene — is its structure settled or still frequently revised?
+- Over many releases, how stable is the annotation of a given gene - is its structure settled or still frequently revised?
 
 Existing tools either compare annotations at a coarse statistical level or rely on stable IDs across versions, an assumption that cannot be made across sources or even across consecutive Ensembl releases.
 
@@ -19,13 +19,51 @@ Existing tools either compare annotations at a coarse statistical level or rely 
 
 Annot-Compare approaches the problem from first principles: to compare annotations you must first determine which gene in one annotation corresponds to which gene in the other. This correspondence cannot be assumed from identifiers alone.
 
-**Gene identity by function.** A gene is ultimately defined by what it encodes. If two genes across annotations represent the same biological entity, they should produce at least one similar transcript — and for coding genes, a similar protein. The primary matching criterion is therefore CDS structure similarity: two genes are candidates for comparison if they share at least one transcript with a similar coding sequence.
+**Gene identity by function.** A gene is ultimately defined by what it encodes. If two genes across annotations represent the same biological entity, they should produce at least one similar transcript, and for coding genes, a similar protein. The primary matching criterion is therefore CDS structure similarity: two genes are candidates for comparison if they share at least one transcript with a similar coding sequence.
 
 **Coordinate overlap as a practical filter.** Genomic position is a strong additional signal: the same gene in two annotation versions will almost always occupy the same chromosomal region. Coordinate overlap (via interval trees and bipartite matching) efficiently generates and ranks candidate transcript pairs without exhaustive pairwise comparison. For very short transcripts where overlap alone is less discriminative, this filter prevents a combinatorial explosion in candidates.
 
-**Sequence alignment as a fallback.** A minority of transcripts will not overlap by coordinate — for example, when a gene is relocated in a new assembly or annotation boundaries shift dramatically. For these, minimap2 sequence alignment is used as a fallback to find matches on the basis of sequence similarity alone.
+**Sequence alignment as a fallback.** A minority of transcripts will not overlap by coordinate, for example, when a gene is relocated in a new assembly or annotation boundaries shift dramatically. For these, minimap2 sequence alignment is used as a fallback to find matches on the basis of sequence similarity alone.
 
-**Hierarchical comparison.** The ultimate goal is transcript-level and feature-level differences: what changed in the exon structure, the CDS, the UTRs. But transcript comparison requires first knowing which transcripts to pair, and that in turn requires knowing which genes correspond to each other. The comparison is therefore structured hierarchically — gene matching → transcript pairing → feature-level diffing — and results are produced at every level so they can be consumed at whichever resolution the research question demands.
+**Hierarchical comparison.** The ultimate goal is transcript-level and feature-level differences: what changed in the exon structure, the CDS, the UTRs. But transcript comparison requires first knowing which transcripts to pair, and that in turn requires knowing which genes correspond to each other. The comparison is therefore structured hierarchically — gene matching → transcript pairing → feature-level diffing, and results are produced at every level so they can be consumed at whichever resolution the research question demands.
+
+---
+
+## Processing pipeline ideas
+
+- different levels of comparison depth are possible like gene / transcript or missing / changed / what changed exactly
+- change can be defined differently for various use cases -> no single definition of "change" useful
+- genes are defined as an entity that has a protein / transcript as product (NOT by name, id, etc. as those are set by various sources and subject to arbitrary change)
+- annotations are always compared pairwise (source -> target)
+- every gene (can be filtered, i.e. protein_coding) from source is mapped to the "same" gene entity in target
+- this mapping is performed by comparing the transcripts from gene A from source to gene B from target
+- if any transcript is considered to be equal, the gene A is mapped to gene B
+- transcript equality is defined by a custom feature vector
+- the feature vector is a string built by using the feature length in bases and the feature type as char (where the feature to be used is configurable) such as 15C200C12C (15 bases CDS, intron, 200 bases CDS, intron 12 bases CDS)
+- for short transcripts (with one feature) this can be ambigous and therefore the actual sequence can also be used for equality (or similarity)
+- the outcome of the gene mapping can be: not mapped (in source or target), mapped one2one, mapped one2many, mapped many2one
+- one2many or many2one can be if genes are split or merged (which rarely happens but it does)
+- these gene mappings are only the first step as such mappings can be wrong
+- then for every mapped gene, additional features can be compared such as gene id, gene name, etc
+- for annotations with the same underlying genome assembly, the position can also be used
+- when the underlying genome assembly changes, the feature vectors should not change but if they do, sequence similarity can be used with minimap2 for this mapping
+- after genes are mapped, a similar mapping step is performed for the transcripts of each gene mapping pair to find out which transcripts are missing/added/changed/unchanged
+
+---
+
+## Data on LFE File System
+
+### Ensembl data
+Data was downloaded from the public Ensembl FTP server:
+
+- `/mnt/raidbio2/extdata/projekte/annot-compare/ensembl_fastas/`: contains the fasta files (and indices) for the human reference genomes used by Ensembl
+- `/mnt/raidbio2/extdata/projekte/annot-compare/ensembl_sorted_gtfs`: contains the human Ensembl genome annotations
+
+(Fabian): some gtf files required manual intervention because of missing data like missing gene entries or inconsistent chr annotations -> not easily downloadable from ensembl ftp (should be kept)
+
+### Project data
+
+`/mnt/raidbio2/extproj/projekte/annotation/annot-compare/`: contains scripts and results from previous work (BA, hiwi, etc.) which is not required in the current project state
 
 ---
 
