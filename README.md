@@ -1,5 +1,12 @@
 # Annot-Compare
 
+![Logo](assets/logo.png)
+
+![GitHub release](https://img.shields.io/github/v/release/zimmerlab/annot-compare)
+[![Release](https://github.com/zimmerlab/annot-compare/actions/workflows/release.yml/badge.svg)](https://github.com/zimmerlab/annot-compare/actions/workflows/release.yml)
+![Java](https://img.shields.io/badge/Java-21-blue)
+![License](https://img.shields.io/github/license/zimmerlab/annot-compare)
+
 Genome annotation changes between releases and across sources, those changes carry real consequences for downstream analyses. When a lab reruns an RNA-seq or variant analysis under a new Ensembl release, read counts shift because exon boundaries moved, variant consequences change because CDS boundaries shifted, and transcripts disappear or are reassigned. Most of the time, this goes undetected: there is no systematic way to know which results were affected, or how badly.
 
 Annot-Compare makes that risk visible. Given two GTF annotation files, two Ensembl releases, or two sources such as Ensembl and GENCODE: it determines which genes and transcripts correspond to each other across the two annotations and reports every difference at the gene, transcript, and feature level (exons, CDS, UTRs, introns, start/stop codons). Each difference is tagged with an impact level so results can be filtered to what actually matters for a given analysis.
