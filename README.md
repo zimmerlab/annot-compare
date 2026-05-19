@@ -1,6 +1,6 @@
 # Annot-Compare
 
-![Logo](assets/logo.png)
+![Logo](assets/annot-compare-logo.gemini.png)
 
 ![GitHub release](https://img.shields.io/github/v/release/zimmerlab/annot-compare)
 [![Release](https://github.com/zimmerlab/annot-compare/actions/workflows/release.yml/badge.svg)](https://github.com/zimmerlab/annot-compare/actions/workflows/release.yml)
