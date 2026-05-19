@@ -44,7 +44,7 @@ java -jar annot-compare.jar newMapping \
 
 The **target** is the reference annotation (e.g., the version currently in use). The **query** is the annotation being compared against it (e.g., a new release).
 
-For full documentation of inputs and output format, see the [User Guide](USER_GUIDE.md).
+For full documentation of inputs and output format, see the [User Guide](USER.md).
 
 ---
 

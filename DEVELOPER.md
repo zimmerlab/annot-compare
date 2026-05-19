@@ -65,6 +65,14 @@ Data was downloaded from the public Ensembl FTP server:
 
 `/mnt/raidbio2/extproj/projekte/annotation/annot-compare/`: contains scripts and results from previous work (BA, hiwi, etc.) which is not required in the current project state
 
+### Results for Ensembl comparison
+
+Ensembl annotations are compared consecutively from 46 up to 115
+
+`/mnt/raidbio2/extproj/projekte/annotation/annot-compare/BA_mathis/new_mapping/output/`: the results folder
+
+These comparisons are done on gene and transcript level as well as with sequence similarity (falsely called homology _hom currently) using minimap2
+
 ---
 
 ## Building
