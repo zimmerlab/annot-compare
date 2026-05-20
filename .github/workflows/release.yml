@@ -25,7 +25,7 @@ jobs:
           <settings>
             <servers>
               <server>
-                <id>github</id>
+                <id>github-zimmerlab</id>
                 <username>${{ github.actor }}</username>
                 <password>${{ secrets.GITHUB_TOKEN }}</password>
               </server>
