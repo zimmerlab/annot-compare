@@ -79,24 +79,26 @@ These comparisons are done on gene and transcript level as well as with sequence
 
 ### Internal dependency on zimmerlab/gtf-utils
 
-Private repo requires authentication
+Since the `gtf-utils` package is hosted in a private repository, you must authenticate with GitHub Packages to download it.
 
-#### aquire github personal access token (PAT)
+#### 1. Acquire a GitHub Personal Access Token (PAT)
 
-`https://github.com/settings/tokens/` with `read:packages` access
+Go to [GitHub Developer Settings](https://github.com/settings/tokens/) and generate a personal access token (classic or fine-grained) with **`read:packages`** access.
 
-#### set PAT in maven config
+#### 2. Configure Maven Authentication
 
-`settings.servers.server.id` in `settings.xml` must match `repositories.repository.id` in `pom.xml`
+Add the server credentials to your `~/.m2/settings.xml`. The `<id>` in your server configuration must match the `<id>` declared in the project's `pom.xml` (`github-zimmerlab`).
+
+If you already have a `settings.xml` file, merge this `<server>` block into your existing `<servers>` element:
 
 ```xml
-# ~/.m2/settings.xml
+<!-- ~/.m2/settings.xml -->
 <settings>
 	<servers>
 		<server>
 			<id>github-zimmerlab</id>
-			<username>USERNAME</username>
-			<password>PAT</password>
+			<username>YOUR_GITHUB_USERNAME</username>
+			<password>YOUR_PERSONAL_ACCESS_TOKEN</password>
 		</server>
 	</servers>
 </settings>
