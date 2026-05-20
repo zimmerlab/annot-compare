@@ -19,7 +19,7 @@
 
     <repositories>
         <repository>
-            <id>github</id>
+            <id>github-zimmerlab</id>
             <url>https://maven.pkg.github.com/zimmerlab/gtf-utils</url>
         </repository>
     </repositories>

@@ -77,6 +77,31 @@ These comparisons are done on gene and transcript level as well as with sequence
 
 ## Building
 
+### Internal dependency on zimmerlab/gtf-utils
+
+Private repo requires authentication
+
+#### aquire github personal access token (PAT)
+
+`https://github.com/settings/tokens/` with `read:packages` access
+
+#### set PAT in maven config
+
+`settings.servers.server.id` in `settings.xml` must match `repositories.repository.id` in `pom.xml`
+
+```xml
+# ~/.m2/settings.xml
+<settings>
+	<servers>
+		<server>
+			<id>github-zimmerlab</id>
+			<username>USERNAME</username>
+			<password>PAT</password>
+		</server>
+	</servers>
+</settings>
+```
+
 ```bash
 mvn package -DskipTests
 ```
