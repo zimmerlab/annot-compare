@@ -25,7 +25,8 @@ Annot-Compare makes that risk visible. Given two GTF annotation files, two Ensem
 
 - Java 21 or later
 - Two GTF files to compare
-- A genome FASTA file for each annotation, indexed with `samtools faidx`
+- A genome FASTA file for each annotation (uncompressed or BGZF-compressed/bgzipped)
+- A genome FASTA index (`.fai`) for each FASTA file, generated with `samtools faidx`
 
 ---
 
@@ -35,14 +36,12 @@ Annot-Compare makes that risk visible. Given two GTF annotation files, two Ensem
 java -jar annot-compare.jar newMapping \
     --target-gtf <path-to-target-gtf> \
     --target-fasta <path-to-target-fasta> \
-    --target-fai <path-to-target-fai> \
     --query-gtf <path-to-query-gtf> \
     --query-fasta <path-to-query-fasta> \
-    --query-fai <path-to-query-fai> \
     --output <path-to-output-file>
 ```
 
-The **target** is the reference annotation (e.g., the version currently in use). The **query** is the annotation being compared against it (e.g., a new release).
+The **target** is the reference annotation (e.g., the version currently in use). The **query** is the annotation being compared against it (e.g., a new release). The `.fai` index files are inferred automatically if they are located alongside the FASTA files.
 
 For full documentation of inputs and output format, see the [User Guide](USER.md).
 

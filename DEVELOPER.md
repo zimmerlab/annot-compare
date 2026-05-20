@@ -194,34 +194,38 @@ com.github.zimmerlab.gtfcompare
 │       ├── transcript/               — Feature-level: start, stop, length, sequence
 │       └── gene/                     — Gene-level: start, stop, length, strand, contig
 │
-├── mapping/                          — Transcript and exon matching
+├── mapping/                          — Transcript and exon matching (for analysis mode)
 │   ├── OverlappingTranscripts        — Interval tree overlap + bipartite matching for transcript pairing
 │   ├── ExonMapping                   — Needleman-Wunsch gap alignment for exon pairing within a transcript pair
 │   ├── Minimap2Bundler               — Extracts the bundled minimap2 binary to a temp directory at runtime
 │   └── Minimap2Validator             — Runs minimap2 on unmapped transcripts; returns additional transcript pairs
 │
-├── model/                            — Data models
+├── newmapping/                       — Structure-based gene and transcript mapping
+│   ├── Mapping                       — Main mapping entry point
+│   ├── Similarity                    — Structure similarity and sequence homology logic
+│   ├── model/                        — Data models for mapping results and origins
+│   └── outpututil/                   — Writers for mapping and unmapped output
+│
+├── newmappingval/                    — Mapping validation logic
+│
+├── model/                            — Data models (primarily for analysis mode)
 │   ├── TranscriptPair                — A matched target/query transcript pair
 │   ├── FeaturePair                   — A matched target/query feature instance (exon, CDS, …)
 │   ├── GenePair                      — A matched target/query gene
 │   ├── Impact                        — Enum: HIGH, MODERATE, LOW, NONE
 │   ├── config/                       — Configuration model (ComparisonConfig, ConfigJSON, FeatureConfig)
 │   └── comparison/                   — Result types at each hierarchy level
-│       ├── ComparisonResult          — Gene-level result; contains transcript results
-│       ├── TranscriptComparisonResult — Transcript-level result; contains feature results
-│       ├── FeatureComparisonResult   — Per feature-type result; contains region results
-│       └── RegionComparisonResult    — Result for a single paired feature instance
 │
 ├── parser/
-│   └── FidxParser                    — Parses a FASTA index (.fai) for random-access sequence extraction
+│   ├── FidxParser                    — Parses a FASTA index (.fai) for random-access sequence extraction
+│   └── EnsemblMappingParser          — Parses legacy Ensembl mapping files
 │
 ├── runner/                           — CLI entry points, one per mode (Spring @Profile)
-│   ├── AnalysisRunner                — Main analysis mode
-│   ├── FirstAnalysisRunner           — First-pass analysis variant
-│   ├── SequenceExtractorRunner       — Extracts sequences from a FASTA
-│   ├── AddMetaFeaturesToGTFRunner    — Adds derived features to a GTF
-│   ├── GtfStatsRunner                — Reports GTF statistics
-│   └── BenchmarkRunner              — Performance benchmarking
+│   ├── NewMappingRunner              — Entry point for newMapping mode
+│   ├── AnalysisRunner                — Entry point for detailed analysis mode
+│   ├── NewMappingValidationRunner    — Entry point for mapping validation
+│   ├── FilterMappingsRunner          — Entry point for filtering mapping files
+│   └── ...                           — Other utility and research runners
 │
 └── utils/
     ├── GenomeSequenceExtractor       — Random-access FASTA sequence extraction via the .fai index
@@ -251,9 +255,21 @@ The main analysis mode (`AnalysisRunner`) processes the two GTF files **one cont
 
 5. **Minimap2 comparison** — The same `AnnotComparator` runs a second time on the minimap2 pairs, writing to a separate `.minimap2` output file.
 
-6. **Output** — `ResultWriter.writeComparisonResult()` flattens the result hierarchy into `OutputLine` rows, sorts them by type and content, and appends them to the output TSV.
+6. Output — `ResultWriter.writeComparisonResult()` flattens the result hierarchy into `OutputLine` rows, sorts them by type and content, and appends them to the output TSV.
 
 Transcripts still unmatched after both passes are written to the `.unmapped_queries` and `.unmapped_targets` files.
+
+---
+
+## New Mapping Pipeline
+
+The `newMapping` mode implements a structure-based mapping approach that is assembly-independent.
+
+1. **Transcript Cigars** — For each transcript, a "cigar" string is generated based on the sequence of its features (e.g., `100E200I100E` for 100bp exon, 200bp intron, 100bp exon).
+2. **Initial Matching** — Genes are matched if they share at least one transcript with an identical cigar string (structure-based).
+3. **Identifier Fallback** — Shared gene IDs, transcript IDs, and gene names are also used to establish correspondences.
+4. **Sequence Homology** — If enabled, transcripts that don't match by structure or ID are compared using BioJava's Smith-Waterman alignment to find high-similarity matches.
+5. **Output** — Results are written to a mapping TSV where each row represents a transcript pair, tagged with the origins of the match.
 
 ---
 
@@ -329,6 +345,7 @@ ComparisonResult                     (one per gene pair)
 | `gtf-utils` | 0.7 | GTF file parsing and data model (`GtfFile`, `TranscriptFeature`, etc.) |
 | `htsjdk` | 4.3.0 | Interval tree implementation used for transcript overlap detection |
 | `jgrapht` | 1.5.1 | Bipartite matching within transcript loci |
+| `biojava-structure` | 7.2.3 | Sequence alignment and similarity calculation |
 | `jackson` | 2.15.4 | JSON config file parsing |
 | `commons-cli` | 1.9.0 | CLI argument parsing in runners |
 | `log4j2` | 2.20.0 | Logging |

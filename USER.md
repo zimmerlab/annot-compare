@@ -12,7 +12,8 @@ The tool provides four modes. `newMapping` and `newTranscriptMapping` produce a 
 
 - Java 21 or later
 - Two GTF files to compare
-- A genome FASTA file for each annotation, each indexed with `samtools faidx`
+- A genome FASTA file for each annotation (uncompressed or BGZF-compressed/bgzipped)
+- A genome FASTA index (`.fai`) for each FASTA file, generated with `samtools faidx`
 
 ---
 
@@ -38,11 +39,11 @@ Produces a gene and transcript mapping between two annotations. For each contig,
 java -jar annot-compare.jar newMapping \
     --target-gtf <path> \
     --target-fasta <path> \
-    --target-fai <path> \
     --query-gtf <path> \
     --query-fasta <path> \
-    --query-fai <path> \
     --output <path> \
+    [--target-fai <path>] \
+    [--query-fai <path>] \
     [--allowed-types <comma-separated-feature-types>] \
     [--useHomology <true|false>]
 ```
@@ -50,14 +51,17 @@ java -jar annot-compare.jar newMapping \
 | Flag | Required | Description |
 |---|---|---|
 | `--target-gtf` | Yes | Path to the target GTF file |
-| `--target-fasta` | Yes | Path to the target genome FASTA |
-| `--target-fai` | Yes | Path to the target FASTA index (`.fai`) |
+| `--target-fasta` | Yes | Path to the target genome FASTA (can be `.fa` or `.fa.gz` if bgzipped) |
+| `--target-fai` | No | Path to the target FASTA index (defaults to `<target-fasta>.fai`) |
 | `--query-gtf` | Yes | Path to the query GTF file |
-| `--query-fasta` | Yes | Path to the query genome FASTA |
-| `--query-fai` | Yes | Path to the query FASTA index (`.fai`) |
+| `--query-fasta` | Yes | Path to the query genome FASTA (can be `.fa` or `.fa.gz` if bgzipped) |
+| `--query-fai` | No | Path to the query FASTA index (defaults to `<query-fasta>.fai`) |
 | `--output` | Yes | Path for the output mapping file |
 | `--allowed-types` | No | Comma-separated list of feature types to use for structure-based matching (e.g. `exon,CDS`). Defaults to all types. |
 | `--useHomology` | No | Whether to use sequence homology in addition to structure for matching (`true`/`false`, default: `true`) |
+
+**Note on FASTA and FAI:**
+The program supports both plain-text FASTAs and BGZF-compressed FASTAs (typically produced by `bgzip`). In both cases, a `.fai` index is required. If the `--target-fai` or `--query-fai` flags are omitted, the program will look for a file with the `.fai` extension appended to the FASTA path (e.g., `genome.fa` -> `genome.fa.fai` or `genome.fa.gz` -> `genome.fa.gz.fai`).
 
 Two output files are written:
 
@@ -88,10 +92,10 @@ java -jar annot-compare.jar newTranscriptMapping \
 |---|---|---|
 | `--target-gtf` | Yes | Path to the target GTF file |
 | `--target-fasta` | Yes | Path to the target genome FASTA |
-| `--target-fai` | Yes | Path to the target FASTA index |
+| `--target-fai` | No | Path to the target FASTA index (defaults to `<target-fasta>.fai`) |
 | `--query-gtf` | Yes | Path to the query GTF file |
 | `--query-fasta` | Yes | Path to the query genome FASTA |
-| `--query-fai` | Yes | Path to the query FASTA index |
+| `--query-fai` | No | Path to the query FASTA index (defaults to `<query-fasta>.fai`) |
 | `--gene-mapping` | Yes | Path to an existing gene-level mapping file (output of `newMapping`) |
 | `--output` | Yes | Path for the output mapping file |
 | `--allowed-types` | No | Feature types to use for structure matching (default: all) |
@@ -122,10 +126,10 @@ java -jar annot-compare.jar newMappingVal \
 |---|---|---|
 | `--target-gtf` | Yes | Path to the target GTF file |
 | `--target-fasta` | Yes | Path to the target genome FASTA |
-| `--target-fai` | Yes | Path to the target FASTA index |
+| `--target-fai` | No | Path to the target FASTA index (defaults to `<target-fasta>.fai`) |
 | `--query-gtf` | Yes | Path to the query GTF file |
 | `--query-fasta` | Yes | Path to the query genome FASTA |
-| `--query-fai` | Yes | Path to the query FASTA index |
+| `--query-fai` | No | Path to the query FASTA index (defaults to `<query-fasta>.fai`) |
 | `--mapping` | Yes | Path to the mapping file to validate |
 | `--output` | Yes | Path for the output validation file |
 | `--allowed-types` | No | Feature types to include (default: all) |
@@ -167,7 +171,11 @@ Allowed origin values for `--allowed-mappings`:
 
 ## Output Format
 
-The mapping file produced by `newMapping` and `newTranscriptMapping` is a tab-separated file with a header row.
+The mapping modes (`newMapping` and `newTranscriptMapping`) produce three output files:
+
+### 1. Main Mapping File (`<output>`)
+
+A tab-separated file recording every transcript pair that supported a gene-level match.
 
 | Column | Description |
 |---|---|
@@ -176,9 +184,32 @@ The mapping file produced by `newMapping` and `newTranscriptMapping` is a tab-se
 | `targetId` | Gene ID in the target annotation |
 | `queryTranscriptId` | Transcript ID in the query that supported the match |
 | `targetTranscriptId` | Transcript ID in the target that supported the match |
-| `mapping_origins` | Comma-separated list of origins that support this match, followed by `DISTANCE:<bp>` recording the genomic distance between the two genes |
+| `mapping_origins` | Comma-separated list of origins (see below) followed by `,DISTANCE:<bp>` |
 
-The `mapping_origins` column can contain any combination of: `GENE_ID_MAPPING`, `TRANSCRIPT_ID_MAPPING`, `NAME_MAPPING`, `STRUCTURE_BASED_MAPPING`. All entries also include a `DISTANCE:<value>` suffix where the value is 0 for overlapping genes and positive for non-overlapping genes.
+**Mapping Origins:**
+- `GENE_ID_MAPPING`: Genes share the same identifier.
+- `TRANSCRIPT_ID_MAPPING`: At least one transcript pair shares the same transcript identifier.
+- `NAME_MAPPING`: Genes share the same `gene_name`.
+- `STRUCTURE_BASED_MAPPING`: At least one transcript pair with identical structure cigars (based on feature types and lengths).
+- `OVERLAPPING`: Genes overlap on the same contig (distance = 0).
+- `DISTANCE`: Genes were matched by proximity (distance > 0).
+
+The `DISTANCE:<bp>` suffix at the end of the `mapping_origins` column indicates the genomic distance between the two genes in base pairs.
+
+### 2. Unmapped Genes File (`<output>.unmapped`)
+
+Records genes that could not be matched to any gene in the other annotation.
+
+| Column | Description |
+|---|---|
+| `contig` | Chromosome or contig name |
+| `geneId` | Identifier of the unmapped gene |
+| `name` | Name of the unmapped gene (if available) |
+| `origin` | Either `QUERY` (gene exists only in query) or `TARGET` (gene exists only in target) |
+
+### 3. Execution Time (`<output>.overall_time`)
+
+A single-line file containing the total execution time of the mapping process in milliseconds.
 
 ---
 
